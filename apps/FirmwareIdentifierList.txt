@@ -1,0 +1,4 @@
+# The Firmware Identifier is a 2 byte identifier used by applications to identify to user level applications
+# This is the master list of current firmware identifiers:
+BtStream          1      # General purpose streaming application
+SdLog             2      # General purpose logging application
