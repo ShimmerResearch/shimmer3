@@ -1,7 +1,7 @@
 This is a general purpose configurable application to be used with shimmer3 and any add-on daughter-cards supplied by Shimmer.
 
 
-By default this application samples the 3-axis analog accelerometer, MPU9150 gyroscope, LSM303DLHC magnetometer and battery voltage at 50Hz and sends the data over the Bluetooth radio at 51.2Hz, using a data buffer size of 1 (the buffer size is not currently configurable).
+By default this application samples the 3-axis analog accelerometer, MPU9150 gyroscope, LSM303DLHC magnetometer and battery voltage and sends the data over the Bluetooth radio at 51.2Hz, using a data buffer size of 1 (the buffer size is not currently configurable).
 
 Data Packet Format:
           Packet Type | TimeStamp | chan1 | chan2 | ... | chanX
