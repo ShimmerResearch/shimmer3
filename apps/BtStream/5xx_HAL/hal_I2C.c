@@ -49,7 +49,7 @@ uint8_t tx_packet_length;
 uint8_t *tx_packet_data;      
 
 // @brief rx_packet_length is how many bytes of data will be read
-uint8_t rx_packet_length;     
+uint16_t rx_packet_length;
 // @brief *rx_packet_data will point to the data to be read
 uint8_t *rx_packet_data;      
 
@@ -59,7 +59,7 @@ uint8_t receive_flag;
 uint8_t transmit_flag;    
 
 // @brief Used to keep track how many bytes have been received
-uint8_t rx_byte_ctr;      
+uint16_t rx_byte_ctr;
 // @brief Used to keep track how many bytes have been transmitted
 uint8_t tx_byte_ctr;      
 
@@ -336,7 +336,7 @@ void I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
 * @return Return Values: None                 
 **/ 
 void I2C_Read_Packet_From_Sensor(uint8_t *readData,
-      uint8_t dataLength) {
+      uint16_t dataLength) {
    // Assign values to local variables
    rx_packet_length = dataLength;
    rx_packet_data = readData;

@@ -1,7 +1,7 @@
 This is a general purpose configurable application to be used with shimmer3 and any add-on daughter-cards supplied by Shimmer.
 
 
-By default this application samples the 3-axis analog accelerometer, MPU9150 gyroscope, LSM303DLHC magnetometer and battery voltage and sends the data over the Bluetooth radio at 51.2Hz, using a data buffer size of 1 (the buffer size is not currently configurable).
+By default this application samples the 3-axis analog accelerometer, MPU9150 gyroscope, LSM303DLHC magnetometer and battery voltage at 50Hz and sends the data over the Bluetooth radio at 51.2Hz, using a data buffer size of 1 (the buffer size is not currently configurable).
 
 Data Packet Format:
           Packet Type | TimeStamp | chan1 | chan2 | ... | chanX
@@ -13,7 +13,6 @@ When the application receives an Inquiry command it responds with the following 
 Inquiry Response Packet Format:
           Packet Type | ADC Sampling rate | Config Bytes | Num Chans | Buf size | Chan1 | Chan2 | ... | ChanX
    Byte:       0      |        1-2        |      3-6     |     7     |     8    |   9   |   10  | ... |   x
-
 
 
 Currently the following parameters can be configured. This configuration is stored in the Infomem so survives a reset/power off:
@@ -39,6 +38,7 @@ Currently the following parameters can be configured. This configuration is stor
          - GSRx4
             - not currently used
    - Internal expansion board power enable
+   - Register settings for both ADS1292R chips on ExG daughter card
    - calibration values for analog accel, MPU9150 gyro, LSM303DLHC mag, LSM303DLHC accel
 
 
@@ -96,6 +96,12 @@ The following commands are available:
    - GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND
    - SET_INTERNAL_EXP_POWER_ENABLE_COMMAND
    - GET_INTERNAL_EXP_POWER_ENABLE_COMMAND
+   - SET_EXG_REGS_COMMAND
+   - GET_EXG_REGS_COMMAND
+   - GET_DAUGHTER_CARD_ID_COMMAND
+   - SET_DAUGHTER_CARD_MEM_COMMAND
+   - GET_DAUGHTER_CARD_MEM_COMMAND
+
 
 
 The format of the configuration bytes (as returned by the inquiry command):
@@ -123,8 +129,8 @@ The assignment of the selected sensors field is a follows:
          Bit 7: Analog Accel
          Bit 6: MPU9150 Gyro
          Bit 5: LSM303DLHC Magnetometer
-         Bit 4: Not yet assigned 
-         Bit 3: Not yet assigned
+         Bit 4: ExG ADS1292R chip 1 24-bit data 
+         Bit 3: ExG ADS1292R chip 2 24-bit data 
          Bit 2: GSR
          Bit 1: External ADC Channel 7
          Bit 0: External ADC Channel 6
@@ -141,9 +147,9 @@ The assignment of the selected sensors field is a follows:
          Bit 7: Internal ADC Channel 14
          Bit 6: MPU9150 Accel
          Bit 5: MPU9150 Mag
-         Bit 4: BMP180 Pressure
-         Bit 3: Not yet assigned
-         Bit 2: Not yet assigned
+         Bit 4: ExG ADS1292R chip 1 16-bit data 
+         Bit 3: ExG ADS1292R chip 2 16-bit data 
+         Bit 2: BMP180 Pressure
          Bit 1: Not yet assigned
          Bit 0: Not yet assigned
 
@@ -193,6 +199,10 @@ When the Shimmer is docked (in the programming dock or multi-gang charger) the l
 
 
 Changelog:
+V0.3 (13 March 2014)
+   - Support for ExG daughter card
+   - Support for accessing EEPROM on daughter cards
+   - fixed bug that could cause app to hang if Bluetooth disconneted while actively streaming
 V0.2 (27 November 2013)
    - Support for SR31 Rev. 4 boards
       - added support for SW_I2C

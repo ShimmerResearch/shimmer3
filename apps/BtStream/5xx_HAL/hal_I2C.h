@@ -83,6 +83,6 @@ extern void I2C_Write_Packet_To_Sensor(uint8_t *writeData,
                uint8_t dataLength);
 
 extern void I2C_Read_Packet_From_Sensor(uint8_t *readData,
-               uint8_t dataLength);
+               uint16_t dataLength);
 
 #endif /*HAL_I2C_H*/

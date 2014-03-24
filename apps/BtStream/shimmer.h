@@ -48,7 +48,7 @@
 #define DEVICE_VER      3     //Represents shimmer3
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
-#define FW_VER_MINOR    2     //Minor version number: 0-255
+#define FW_VER_MINOR    3     //Minor version number: 0-255
 #define FW_VER_REL      0     //Release candidate version number: 0-255
 
 
@@ -137,6 +137,14 @@
 #define SET_INTERNAL_EXP_POWER_ENABLE_COMMAND         0x5E
 #define INTERNAL_EXP_POWER_ENABLE_RESPONSE            0x5F
 #define GET_INTERNAL_EXP_POWER_ENABLE_COMMAND         0x60
+#define SET_EXG_REGS_COMMAND                          0x61
+#define EXG_REGS_RESPONSE                             0x62
+#define GET_EXG_REGS_COMMAND                          0x63
+#define DAUGHTER_CARD_ID_RESPONSE                     0x65
+#define GET_DAUGHTER_CARD_ID_COMMAND                  0x66
+#define SET_DAUGHTER_CARD_MEM_COMMAND                 0x67
+#define DAUGHTER_CARD_MEM_RESPONSE                    0x68
+#define GET_DAUGHTER_CARD_MEM_COMMAND                 0x69
 #define ACK_COMMAND_PROCESSED                         0xFF
 
 
@@ -144,6 +152,8 @@
 #define SENSOR_A_ACCEL           0x80
 #define SENSOR_MPU9150_GYRO      0x40
 #define SENSOR_LSM303DLHC_MAG    0x20
+#define SENSOR_EXG1_24BIT        0x10
+#define SENSOR_EXG2_24BIT        0x08
 #define SENSOR_GSR               0x04
 #define SENSOR_EXT_A7            0x02
 #define SENSOR_EXT_A6            0x01
@@ -158,19 +168,22 @@
 #define SENSOR_INT_A14           0x80
 #define SENSOR_MPU9150_ACCEL     0x40
 #define SENSOR_MPU9150_MAG       0x20
+#define SENSOR_EXG1_16BIT        0x10
+#define SENSOR_EXG2_16BIT        0x08
 #define SENSOR_BMP180_PRESSURE   0x04
 
 
-#define MAX_COMMAND_ARG_SIZE     21    //maximum number of arguments for any command sent
-                                       //to Shimmer3 (calibration data)
-#define RESPONSE_PACKET_SIZE     85    //biggest possibly required (4 x kinematic 
-                                       //calibration responses)
+#define MAX_COMMAND_ARG_SIZE     131   //maximum number of arguments for any command sent
+                                       //(daughter card mem write)
+#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
 #define MAX_NUM_CHANNELS         28    //3xanalogAccel + 3xdigiGyro + 3xdigiMag + 
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +
                                        //BMP180TEMP + BMP180PRESS + batteryVoltage + 
                                        //3xexternalADC + 4xinternalADC
-#define DATA_PACKET_SIZE         60    //3 + (MAX_NUM_CHANNELS * 2) + 1 (+1 as BMP180
-                                       //pressure requires 3 bytes
+#define DATA_PACKET_SIZE         66    //3 + (MAX_NUM_CHANNELS * 2) + 1 + 6 (+1 as BMP180 
+                                       //pressure requires 3 bytes, +6 for 4 (3 byte) ExG 
+                                       //channels plus 2 status bytes instead of 
+                                       //4xinternalADC)
 
 
 // Channel contents
@@ -203,11 +216,21 @@
 #define BMP180_TEMP                       0x1A
 #define BMP180_PRESSURE                   0x1B
 #define GSR_RAW                           0x1C
+#define EXG_ADS1292R_1_STATUS             0x1D
+#define EXG_ADS1292R_1_CH1_24BIT          0x1E
+#define EXG_ADS1292R_1_CH2_24BIT          0x1F
+#define EXG_ADS1292R_2_STATUS             0x20
+#define EXG_ADS1292R_2_CH1_24BIT          0x21
+#define EXG_ADS1292R_2_CH2_24BIT          0x22
+#define EXG_ADS1292R_1_CH1_16BIT          0x23
+#define EXG_ADS1292R_1_CH2_16BIT          0x24
+#define EXG_ADS1292R_2_CH1_16BIT          0x25
+#define EXG_ADS1292R_2_CH2_16BIT          0x26
 
 // Infomem contents
-#define NV_NUM_SETTINGS_BYTES             10
+#define NV_NUM_SETTINGS_BYTES             30
 #define NV_NUM_CALIBRATION_BYTES          84
-#define NV_TOTAL_NUM_CONFIG_BYTES         94
+#define NV_TOTAL_NUM_CONFIG_BYTES         114
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
@@ -218,10 +241,30 @@
 #define NV_CONFIG_SETUP_BYTE1             7
 #define NV_CONFIG_SETUP_BYTE2             8
 #define NV_CONFIG_SETUP_BYTE3             9
-#define NV_A_ACCEL_CALIBRATION            10
-#define NV_MPU9150_GYRO_CALIBRATION       31
-#define NV_LSM303DLHC_MAG_CALIBRATION     52
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   73
+#define NV_EXG_ADS1292R_1_CONFIG1         10
+#define NV_EXG_ADS1292R_1_CONFIG2         11
+#define NV_EXG_ADS1292R_1_LOFF            12
+#define NV_EXG_ADS1292R_1_CH1SET          13
+#define NV_EXG_ADS1292R_1_CH2SET          14
+#define NV_EXG_ADS1292R_1_RLD_SENS        15
+#define NV_EXG_ADS1292R_1_LOFF_SENS       16
+#define NV_EXG_ADS1292R_1_LOFF_STAT       17
+#define NV_EXG_ADS1292R_1_RESP1           18
+#define NV_EXG_ADS1292R_1_RESP2           19
+#define NV_EXG_ADS1292R_2_CONFIG1         20
+#define NV_EXG_ADS1292R_2_CONFIG2         21
+#define NV_EXG_ADS1292R_2_LOFF            22
+#define NV_EXG_ADS1292R_2_CH1SET          23
+#define NV_EXG_ADS1292R_2_CH2SET          24
+#define NV_EXG_ADS1292R_2_RLD_SENS        25
+#define NV_EXG_ADS1292R_2_LOFF_SENS       26
+#define NV_EXG_ADS1292R_2_LOFF_STAT       27
+#define NV_EXG_ADS1292R_2_RESP1           28
+#define NV_EXG_ADS1292R_2_RESP2           29
+#define NV_A_ACCEL_CALIBRATION            30
+#define NV_MPU9150_GYRO_CALIBRATION       51
+#define NV_LSM303DLHC_MAG_CALIBRATION     72
+#define NV_LSM303DLHC_ACCEL_CALIBRATION   93
 
 
 //Config byte masks
