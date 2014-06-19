@@ -19,5 +19,8 @@ A (very) brief description of the contents follows:
 * apps/BtStream  
    All purpose configurable Bluetooth sensing and streaming application
 
+* apps/SDLog 
+   All purpose configurable sensing application that saves data to microSD card
+
 * apps/FirmwareIdentifireList.txt  
    List of identifiers used by applications to identify themselves
