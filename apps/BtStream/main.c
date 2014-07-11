@@ -137,6 +137,7 @@ inline void MonitorChargeStatus(void);
 inline void MonitorChargeStatusStop(void);
 inline void SetChargeStatusLeds(void);
 inline void GsrRange(void);
+void SetBtBaudRate(uint8_t rate);
 
 //data segment initialisation is disabled in system_pre_init.c
 uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateResponse, startSensing, stopSensing,
@@ -148,7 +149,7 @@ uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateRes
       mpu9150GyroRangeResponse, mpu9150SamplingRateResponse, mpu9150AccelRangeResponse, sampleMpu9150Mag,
       mpu9150MagSensAdjValsResponse, sampleBmp180Press, bmp180CalibrationCoefficientsResponse,
       bmp180OversamplingRatioResponse, blinkLedResponse, gsrRangeResponse, internalExpPowerEnableResponse,
-      exgRegsResponse, dcIdResponse, dcMemResponse;
+      exgRegsResponse, dcIdResponse, dcMemResponse, btCommsBaudRateResponse;
 uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE], waitingForArgs, argsSize;
 uint8_t resPacket[RESPONSE_PACKET_SIZE];
@@ -169,6 +170,8 @@ uint8_t exgLength, exgChip, exgStartAddr;
 //Daughter card EEPROM
 uint8_t dcMemLength;
 uint16_t dcMemOffset;
+//BT baud rate
+uint8_t changeBtBaudRate;
 
 char *dierecord;
 
@@ -184,6 +187,11 @@ void main(void) {
       //if config was never written to Infomem, write default
       //assuming some other app didn't make use of InfoMem, or else InfoMem was erased
       SetDefaultConfiguration();
+   }
+
+   if(storedConfig[NV_BT_COMMS_BAUD_RATE]) {
+
+      SetBtBaudRate(storedConfig[NV_BT_COMMS_BAUD_RATE]);
    }
 
    ConfigureChannels();
@@ -211,6 +219,13 @@ void main(void) {
 
    while(1) {
       __bis_SR_register(LPM3_bits + GIE); //ACLK remains active
+      if(!btIsConnected && (changeBtBaudRate!=0xFF)) {
+         storedConfig[NV_BT_COMMS_BAUD_RATE] = changeBtBaudRate;
+         InfoMem_write((void*)NV_BT_COMMS_BAUD_RATE, &storedConfig[NV_BT_COMMS_BAUD_RATE], 1);
+         SetBtBaudRate(storedConfig[NV_BT_COMMS_BAUD_RATE]);
+         changeBtBaudRate = 0xFF;
+      }
+
       //order of these if statements is important
       //as ProcessCommand() relies on this ordering
       if(processCommand) {
@@ -496,6 +511,8 @@ void Init(void) {
    blinkLedResponse = 0;
    gsrRangeResponse = 0;
    last_GSR_val = 0;
+   btCommsBaudRateResponse = 0;
+   changeBtBaudRate = 0xFF;   //indicates doesn't need changing
 
    //Globally enable interrupts
    _enable_interrupts();
@@ -555,6 +572,9 @@ inline void StartStreaming(void) {
 
       if(storedConfig[NV_CONFIG_SETUP_BYTE3]&0x01) //EXT_RESET_N
          P3OUT |= BIT3;                            //set high
+
+      if(storedConfig[NV_SENSORS1] & SENSOR_BRIDGE_AMP)
+         P2OUT |= BIT0;                            //GPIO_INTERNAL1 set high
 
       if((storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_ACCEL)
@@ -744,6 +764,8 @@ inline void StopStreaming(void) {
 
       P3OUT &= ~BIT3;         //set EXP_RESET_N low
 
+      P2OUT &= ~BIT0;         //set GPIO_INTERNAL1 low
+
       if((storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO) || (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_ACCEL)) {
          MPU9150_wake(0);
       }
@@ -794,6 +816,13 @@ void ConfigureChannels(void) {
       mask += MASK_VBATT;
       nbrAdcChans++;
    }
+   //Bridge amplifier
+   if(storedConfig[NV_SENSORS1] & SENSOR_BRIDGE_AMP) {
+      *channel_contents_ptr++ = BRIDGE_AMP_HIGH;
+      *channel_contents_ptr++ = BRIDGE_AMP_LOW;
+      mask += MASK_BRIDGE_AMP;
+      nbrAdcChans += 2;
+   }
    //External ADC channel A7
    if(storedConfig[NV_SENSORS0] & SENSOR_EXT_A7) {
       *channel_contents_ptr++ = EXTERNAL_ADC_7;
@@ -819,13 +848,13 @@ void ConfigureChannels(void) {
       nbrAdcChans++;
    }
    //Internal ADC channel A13
-   if(storedConfig[NV_SENSORS1] & SENSOR_INT_A13) {
+   if((storedConfig[NV_SENSORS1] & SENSOR_INT_A13) && !(storedConfig[NV_SENSORS1] & SENSOR_BRIDGE_AMP)) {
       *channel_contents_ptr++ = INTERNAL_ADC_13;
       mask += MASK_INT_A13;
       nbrAdcChans++;
    }
    //Internal ADC channel A14
-   if(storedConfig[NV_SENSORS2] & SENSOR_INT_A14) {
+   if((storedConfig[NV_SENSORS2] & SENSOR_INT_A14) && !(storedConfig[NV_SENSORS1] & SENSOR_BRIDGE_AMP)) {
       *channel_contents_ptr++ = INTERNAL_ADC_14;
       mask += MASK_INT_A14;
       nbrAdcChans++;
@@ -881,27 +910,31 @@ void ConfigureChannels(void) {
       *channel_contents_ptr++ = BMP180_PRESSURE;
       nbrDigiChans += 2;
    }
-   if(storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT) {
-      *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
-      *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_24BIT;
-      *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_24BIT;
-      nbrDigiChans += 3;
-   } else if(storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT) {
-      *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
-      *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_16BIT;
-      *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_16BIT;
-      nbrDigiChans += 3;
-   }
-   if(storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT) {
-      *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
-      *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_24BIT;
-      *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_24BIT;
-      nbrDigiChans += 3;
-   } else if(storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT) {
-      *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
-      *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_16BIT;
-      *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_16BIT;
-      nbrDigiChans += 3;
+   if(!(storedConfig[NV_SENSORS1] & SENSOR_INT_A1) &&
+		   !(storedConfig[NV_SENSORS2] & SENSOR_INT_A14) &&
+		   !(storedConfig[NV_SENSORS1] & SENSOR_BRIDGE_AMP)) {
+	   if(storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT) {
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_24BIT;
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_24BIT;
+		  nbrDigiChans += 3;
+	   } else if(storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT) {
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_16BIT;
+		  *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_16BIT;
+		  nbrDigiChans += 3;
+	   }
+	   if(storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT) {
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_24BIT;
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_24BIT;
+		  nbrDigiChans += 3;
+	   } else if(storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT) {
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_16BIT;
+		  *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_16BIT;
+		  nbrDigiChans += 3;
+	   }
    }
 
    if(mask) {
@@ -963,6 +996,7 @@ uint8_t BtDataAvailable(uint8_t data) {
       case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
       case RESET_CALIBRATION_VALUE_COMMAND:
       case GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND:
+      case GET_BT_COMMS_BAUD_RATE:
          gAction = data;
          processCommand = 1;
          return 1;
@@ -979,6 +1013,7 @@ uint8_t BtDataAvailable(uint8_t data) {
       case SET_BMP180_PRES_OVERSAMPLING_RATIO_COMMAND:
       case SET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
       case SET_GSR_RANGE_COMMAND:
+      case SET_BT_COMMS_BAUD_RATE:
          waitingForArgs = 1;
          gAction = data;
          return 0;
@@ -1346,6 +1381,18 @@ void ProcessCommand(void) {
          CAT24C16_powerOff();
       }
       break;
+   case GET_BT_COMMS_BAUD_RATE:
+      btCommsBaudRateResponse = 1;
+      break;
+   case SET_BT_COMMS_BAUD_RATE:
+      if(args[0] != storedConfig[NV_BT_COMMS_BAUD_RATE]) {
+         if(args[0]>0 && args[0]<11) {
+            changeBtBaudRate = args[0];
+         } else {
+            changeBtBaudRate = 0;
+         }
+      }
+      break;
    default:;
    }
    sendAck = 1;
@@ -1524,6 +1571,10 @@ void SendResponse(void) {
          CAT24C16_powerOff();
          packet_length += dcMemLength;
          dcMemResponse = 0;
+      } else if (btCommsBaudRateResponse) {
+         *(resPacket + packet_length++) = BT_COMMS_BAUD_RATE_RESPONSE;
+         *(resPacket + packet_length++) = storedConfig[NV_BT_COMMS_BAUD_RATE];
+         btCommsBaudRateResponse = 0;
       }
    }
 
@@ -1568,6 +1619,9 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_EXG_ADS1292R_2_RESP1] = 0x00;
    storedConfig[NV_EXG_ADS1292R_2_RESP2] = 0x02;
 
+   //set BT baud rate to 115200
+   storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;                                                  // 115200 baud
+
    InfoMem_write((void*)0, storedConfig, NV_NUM_SETTINGS_BYTES);
 }
 
@@ -1602,6 +1656,9 @@ __interrupt void Port1_ISR(void)
          }
          Board_ledOff(LED_BLUE);
          BlinkTimerStart();
+         if(changeBtBaudRate != 0xFF) {
+            __bic_SR_register_on_exit(LPM3_bits);
+         }
       }
       break;
 
@@ -2025,6 +2082,50 @@ void GsrRange() {
    }
 
    last_GSR_val = ADC_val;
+}
+
+
+/**
+*** Set the baud rate of the serial bus between the Bluetooth module and the MSP430
+*** 11 allowable options: 0=115.2K(default), 1=1200, 2=2400, 3=4800, 4=9600, 5=19.2K,
+*** 6=38.4K, 7=57.6K, 8=230.4K, 9=460.8K, 10=921.6K, else revert to default
+**/
+void SetBtBaudRate(uint8_t rate) {
+   switch(rate) {
+   case 1:
+      BT_setTempBaudRate("1200");
+      break;
+   case 2:
+      BT_setTempBaudRate("2400");
+      break;
+   case 3:
+      BT_setTempBaudRate("4800");
+      break;
+   case 4:
+      BT_setTempBaudRate("9600");
+      break;
+   case 5:
+      BT_setTempBaudRate("19.2");
+      break;
+   case 6:
+      BT_setTempBaudRate("38.4");
+      break;
+   case 7:
+      BT_setTempBaudRate("57.6");
+      break;
+   case 8:
+      BT_setTempBaudRate("230K");
+      break;
+   case 9:
+      BT_setTempBaudRate("460K");
+      break;
+   case 10:
+      BT_setTempBaudRate("921K");
+      break;
+   default:
+      BT_setTempBaudRate("115K");
+      break;
+   }
 }
 
 

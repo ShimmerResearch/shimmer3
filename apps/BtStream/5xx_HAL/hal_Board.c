@@ -179,7 +179,9 @@ void Board_init(void) {
    P3DIR |= BIT0;             //set as output
 
    //GPIO_INTERNAL1
-   P2DIR &= ~BIT0;
+   P2OUT &= ~BIT0;            //set low
+   P2DIR |= BIT0;             //set as output
+
    //GPIO_INTERNAL
    P1DIR &= ~BIT4;
    //GPIO_INTERNAL2

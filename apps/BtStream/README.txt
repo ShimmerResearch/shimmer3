@@ -40,6 +40,7 @@ Currently the following parameters can be configured. This configuration is stor
    - Internal expansion board power enable
    - Register settings for both ADS1292R chips on ExG daughter card
    - calibration values for analog accel, MPU9150 gyro, LSM303DLHC mag, LSM303DLHC accel
+   - Baud rate of UART communication between MSP430 and RN42 Bluetooth module
 
 
 The following commands are available:
@@ -101,6 +102,8 @@ The following commands are available:
    - GET_DAUGHTER_CARD_ID_COMMAND
    - SET_DAUGHTER_CARD_MEM_COMMAND
    - GET_DAUGHTER_CARD_MEM_COMMAND
+   - SET_BT_COMMS_BAUD_RATE
+   - GET_BT_COMMS_BAUD_RATE
 
 
 
@@ -135,7 +138,7 @@ The assignment of the selected sensors field is a follows:
          Bit 1: External ADC Channel 7
          Bit 0: External ADC Channel 6
       Byte1
-         Bit 7: Not yet assigned
+         Bit 7: Bridge Amplifier
          Bit 6: Not yet assigned
          Bit 5: Battery voltage
          Bit 4: LSM303DLHC Accel
@@ -199,6 +202,10 @@ When the Shimmer is docked (in the programming dock or multi-gang charger) the l
 
 
 Changelog:
+V0.4 (2 July 2014)
+   - add support for bridge amplifier
+   - add commands to change baud rate of comms with Bluetooth module
+   - fix bug with ADC1 and ADC14 channels if ExG had been configured since reset
 V0.3 (13 March 2014)
    - Support for ExG daughter card
    - Support for accessing EEPROM on daughter cards

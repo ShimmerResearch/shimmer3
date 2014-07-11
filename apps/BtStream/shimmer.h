@@ -48,7 +48,7 @@
 #define DEVICE_VER      3     //Represents shimmer3
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
-#define FW_VER_MINOR    3     //Minor version number: 0-255
+#define FW_VER_MINOR    4     //Minor version number: 0-255
 #define FW_VER_REL      0     //Release candidate version number: 0-255
 
 
@@ -145,6 +145,12 @@
 #define SET_DAUGHTER_CARD_MEM_COMMAND                 0x67
 #define DAUGHTER_CARD_MEM_RESPONSE                    0x68
 #define GET_DAUGHTER_CARD_MEM_COMMAND                 0x69
+#define SET_BT_COMMS_BAUD_RATE                        0x6A     //11 allowable options: 0=115.2K(default), 1=1200, 2=2400, 3=4800,
+                                                               //4=9600, 5=19.2K, 6=38.4K, 7=57.6K, 8=230.4K, 9=460.8K, 10=921.6K
+                                                               //Need to disconnect BT connection before change is active
+#define BT_COMMS_BAUD_RATE_RESPONSE                   0x6B
+#define GET_BT_COMMS_BAUD_RATE                        0x6C
+//0x70 to 0x87 and 0xE0 reserved for Log+Stream
 #define ACK_COMMAND_PROCESSED                         0xFF
 
 
@@ -158,6 +164,7 @@
 #define SENSOR_EXT_A7            0x02
 #define SENSOR_EXT_A6            0x01
 //SENSORS1
+#define SENSOR_BRIDGE_AMP        0x80     //higher priority than SENSOR_INT_A13 and SENSOR_INT_A14
 #define SENSOR_VBATT             0x20
 #define SENSOR_LSM303DLHC_ACCEL  0x10
 #define SENSOR_EXT_A15           0x08
@@ -226,11 +233,14 @@
 #define EXG_ADS1292R_1_CH2_16BIT          0x24
 #define EXG_ADS1292R_2_CH1_16BIT          0x25
 #define EXG_ADS1292R_2_CH2_16BIT          0x26
+#define BRIDGE_AMP_HIGH                   0x27
+#define BRIDGE_AMP_LOW                    0x28
+
 
 // Infomem contents
-#define NV_NUM_SETTINGS_BYTES             30
+#define NV_NUM_SETTINGS_BYTES             31
 #define NV_NUM_CALIBRATION_BYTES          84
-#define NV_TOTAL_NUM_CONFIG_BYTES         114
+#define NV_TOTAL_NUM_CONFIG_BYTES         115
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
@@ -261,10 +271,11 @@
 #define NV_EXG_ADS1292R_2_LOFF_STAT       27
 #define NV_EXG_ADS1292R_2_RESP1           28
 #define NV_EXG_ADS1292R_2_RESP2           29
-#define NV_A_ACCEL_CALIBRATION            30
-#define NV_MPU9150_GYRO_CALIBRATION       51
-#define NV_LSM303DLHC_MAG_CALIBRATION     72
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   93
+#define NV_BT_COMMS_BAUD_RATE             30
+#define NV_A_ACCEL_CALIBRATION            31
+#define NV_MPU9150_GYRO_CALIBRATION       52
+#define NV_LSM303DLHC_MAG_CALIBRATION     73
+#define NV_LSM303DLHC_ACCEL_CALIBRATION   94
 
 
 //Config byte masks
@@ -287,16 +298,17 @@
 
 
 //ADC initialisation mask
-#define MASK_A_ACCEL 0x0001
-#define MASK_VBATT   0x0002
-#define MASK_EXT_A7  0x0004
-#define MASK_EXT_A6  0x0008
-#define MASK_EXT_A15 0x0010
-#define MASK_INT_A1  0x0020
-#define MASK_INT_A12 0x0040
-#define MASK_INT_A13 0x0080
-#define MASK_INT_A14 0x0100
-#define MASK_GSR     0x0020   //uses ADC1
+#define MASK_A_ACCEL 	0x0001
+#define MASK_VBATT   	0x0002
+#define MASK_EXT_A7  	0x0004
+#define MASK_EXT_A6  	0x0008
+#define MASK_EXT_A15 	0x0010
+#define MASK_INT_A1  	0x0020
+#define MASK_INT_A12 	0x0040
+#define MASK_INT_A13 	0x0080
+#define MASK_INT_A14 	0x0100
+#define MASK_GSR     	0x0020   //uses ADC1
+#define MASK_BRIDGE_AMP	0x0180   //uses ADC13 and ADC14
 
 
 //LSM303DLHC Accel Range

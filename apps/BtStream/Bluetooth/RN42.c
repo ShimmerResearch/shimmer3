@@ -68,6 +68,10 @@ char targetBt[16];
 
 uint8_t (*dataAvailableFuncPtr)(uint8_t data) = 0;
 
+uint8_t txIe;
+
+uint8_t slowRate;
+
 void initRN() {
    // powerup state is reset == low (true); mike conrad of roving networks sez:
    // wait about 1s to 2s after reset toggle
@@ -90,12 +94,71 @@ void initRN() {
 }
 
 
-void setupUART() {
+void setupUART(char * baudRate) {
    UCA1CTL1 |= UCSWRST;                   //**Put state machine in reset**
    UCA1CTL1 |= UCSSEL_2;                  //SMCLK
-   UCA1BR0 = 13;                          //24MHz 115200
-   UCA1BR1 = 0;                           //24MHz 115200
-   UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+
+   if((strlen(baudRate)==4) && (strncmp(baudRate, "115K", 4))) {
+      if(!strncmp(baudRate, "1200", 4)) {
+         //1200
+         UCA1BR0 = 226;                         //24MHz 38400
+         UCA1BR1 = 4;                           //24MHz 38400
+         UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+      } else if (!strncmp(baudRate, "2400", 4)) {
+         //2400
+         UCA1BR0 = 113;                         //24MHz 2400
+         UCA1BR1 = 2;                           //24MHz 2400
+         UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+      } else if (!strncmp(baudRate, "4800", 4)) {
+         //4800
+         UCA1BR0 = 56;                          //24MHz 4800
+         UCA1BR1 = 1;                           //24MHz 4800
+         UCA1MCTL = UCBRS_0 + UCBRF_8 + UCOS16; //Modln UCBRSx=0, UCBRFx=8, over sampling
+      } else if (!strncmp(baudRate, "9600", 4)) {
+         //9600
+         UCA1BR0 = 156;                         //24MHz 9600
+         UCA1BR1 = 0;                           //24MHz 9600
+         UCA1MCTL = UCBRS_0 + UCBRF_4 + UCOS16; //Modln UCBRSx=0, UCBRFx=4, over sampling
+      } else if (!strncmp(baudRate, "19.2", 4)) {
+         //19200
+         UCA1BR0 = 78;                          //24MHz 19200
+         UCA1BR1 = 0;                           //24MHz 19200
+         UCA1MCTL = UCBRS_0 + UCBRF_2 + UCOS16; //Modln UCBRSx=0, UCBRFx=2, over sampling
+      } else if (!strncmp(baudRate, "38.4", 4)) {
+         //38400
+         UCA1BR0 = 39;                          //24MHz 38400
+         UCA1BR1 = 0;                           //24MHz 38400
+         UCA1MCTL = UCBRS_0 + UCBRF_1 + UCOS16; //Modln UCBRSx=0, UCBRFx=1, over sampling
+      } else if (!strncmp(baudRate, "57.6", 4)) {
+         //57600
+         UCA1BR0 = 26;                          //24MHz 57600
+         UCA1BR1 = 0;                           //24MHz 57600
+         UCA1MCTL = UCBRS_0 + UCBRF_1 + UCOS16; //Modln UCBRSx=0, UCBRFx=1, over sampling
+      } else if (!strncmp(baudRate, "230K", 4)) {
+         //230400
+         UCA1BR0 = 6;                           //24MHz 230400
+         UCA1BR1 = 0;                           //24MHz 230400
+         UCA1MCTL = UCBRS_0 + UCBRF_8 + UCOS16; //Modln UCBRSx=0, UCBRFx=8, over sampling
+      } else if (!strncmp(baudRate, "460K", 4)) {
+         //460800
+         UCA1BR0 = 3;                           //24MHz 460800
+         UCA1BR1 = 0;                           //24MHz 460800
+         UCA1MCTL = UCBRS_0 + UCBRF_4 + UCOS16; //Modln UCBRSx=0, UCBRFx=4, over sampling
+      } else if (!strncmp(baudRate, "921K", 4)) {
+         //921600
+         UCA1BR0 = 26;                          //24MHz 921600
+         UCA1BR1 = 0;                           //24MHz 921600
+         UCA1MCTL = UCBRS_0 + UCBRF_0;          //Modln UCBRSx=0, UCBRFx=0, no over sampling
+                                                //(cannot use over sampling as max error would be > 50%)
+      }
+   } else {
+      //115200
+      //default
+      UCA1BR0 = 13;                          //24MHz 115200
+      UCA1BR1 = 0;                           //24MHz 115200
+      UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+   }
+
    UCA1CTL1 &= ~UCSWRST;                  //**Initialize USCI state machine**
    UCA1IFG = 0;                           // reset interrupts
    UCA1IE |= UCTXIE + UCRXIE;             // Enable USCI_A1 TX and RX interrupt
@@ -149,23 +212,33 @@ uint8_t writeCommandNoRsp(char * cmd) {
 //   once the response is received. But results in overly long ISR, from sending
 //   the next command from within the ISR and then "hoping" that the ISR exits
 //   before the response comes back (not a problem, but bad design)
-//   (see TestProject5 for this approach)
 // - block on a variable between each step and reset variable in ISR
 //   poor design, but this function will only need to be run rarely
-//   (see TestProject6 for this approach)
 // - put MSP430 in low power mode while waiting for response from RN42
 //   best option powerwise, but need to ensure no other interrupt will start
 //   processor executing while waiting for response. Also need to take out of low
 //   power mode to send commands and return to LPM afterwards
-void runSetCommands() {
+uint8_t interrupts0, interrupts1, interrupts2, interrupts4,
+      interrupts5, interrupts6, interrupts7, interrupts8;
+uint16_t interrupts3w;
+
+void saveInterruptSettings() {
+   interrupts0 = 0;
+   interrupts1 = 0;
+   interrupts2 = 0;
+   interrupts4 = 0;
+   interrupts5 = 0;
+   interrupts6 = 0;
+   interrupts7 = 0;
+   interrupts8 = 0;
+   interrupts3w = 0;
+
    //==================================================================================================================================
    //Need to check all interrupt sources here (including global IE)
    //save status and disable
    //to ensure only receiving response from RN42 will cause execution to continue
    //==================================================================================================================================
-   uint8_t interrupts0=0, interrupts1=0, interrupts2=0, interrupts4=0,
-         interrupts5=0, interrupts6=0, interrupts7=0, interrupts8=0;
-   uint16_t interrupts3w=0;
+
    if(__get_SR_register()&0x0008) interrupts0 |= BIT0; //global interrupts
    //TB0
    if(TB0CTL&TBIE) { //Timer_B interrupt enable
@@ -371,8 +444,77 @@ void runSetCommands() {
       interrupts5 |= BIT0;
       RTCPS1CTL &= ~RT1PSIE;
    }
+}
+
+void restoreInterruptSettings() {
    //==================================================================================================================================
+   //restore interrupt settings
    //==================================================================================================================================
+   if(!(interrupts0 & BIT0)) _disable_interrupts(); //global interrupts
+   //TB0
+   if(interrupts0&BIT3) TB0CTL |= TBIE;      //Timer_B interrupt enable
+   if(interrupts0&BIT4) TB0CCTL0 |= CCIE;    //TB0 Capture/Compare 0 interrupt enable
+   if(interrupts0&BIT5) TB0CCTL1 |= CCIE;    //TB0 Capture/Compare 1 interrupt enable
+   if(interrupts0&BIT6) TB0CCTL2 |= CCIE;    //TB0 Capture/Compare 2 interrupt enable
+   if(interrupts0&BIT7) TB0CCTL3 |= CCIE;    //TB0 Capture/Compare 3 interrupt enable
+   if(interrupts1&BIT0) TB0CCTL4 |= CCIE;    //TB0 Capture/Compare 4 interrupt enable
+   if(interrupts1&BIT1) TB0CCTL5 |= CCIE;    //TB0 Capture/Compare 5 interrupt enable
+   if(interrupts1&BIT2) TB0CCTL6 |= CCIE;    //TB0 Capture/Compare 6 interrupt enable
+   //Watchdog Timer_A interval Timer mode
+   if(interrupts1&BIT3) WDTCTL = (WDTCTL & 0x007F) + WDTPW; //Restart Watchdog (no need to clear counter as is in interval timer mode)
+   //USCI_A0
+   if(interrupts1&BIT4) UCA0CTL1 |= UCRXEIE; //USCI_A0 Receive erroneous-character interrupt enable
+   if(interrupts1&BIT5) UCA0CTL1 |= UCBRKIE; //USCI_A0 Receive break character interrupt enable
+   if(interrupts1&BIT6) UCA0IE |= UCTXIE;    //USCI_A0 Transmit interrupt enable
+   if(interrupts1&BIT7) UCA0IE |= UCRXIE;    //USCI_A0 Receive interrupt enable
+   //USCI_B0
+   if(interrupts2&BIT0) UCB0IE |= UCNACKIE;  //USCI_B0 Not-acknowledge interrupt enable
+   if(interrupts2&BIT1) UCB0IE |= UCALIE;    //USCI_B0 Arbitration lost interrupt enable
+   if(interrupts2&BIT2) UCB0IE |= UCSTPIE;   //USCI_B0 STOP condition interrupt enable
+   if(interrupts2&BIT3) UCB0IE |= UCSTTIE;   //USCI_B0 START condition interrupt enable
+   if(interrupts2&BIT4) UCB0IE |= UCTXIE;    //USCI_B0 Transmit interrupt enable
+   if(interrupts2&BIT5) UCB0IE |= UCRXIE;    //USCI_B0 Receive interrupt enable
+   //ADC12_A
+   if(interrupts2&BIT6) ADC12CTL0 |= ADC12OVIE;    //ADC12MEMx overflow-interrupt enable
+   if(interrupts2&BIT7) ADC12CTL0 |= ADC12TOVIE;   //ADC12_A conversion-time-overflow interrupt enable
+   if(interrupts3w) ADC12IE = interrupts3w;        //ADC12_A interrupt enable register
+   //TA0
+   if(interrupts4&BIT0) TA0CTL   |= TAIE;    //Timer_A interrupt enable
+   if(interrupts4&BIT1) TA0CCTL0 |= CCIE;    //TA0 Capture/Compare 0 interrupt enable
+   if(interrupts4&BIT2) TA0CCTL1 |= CCIE;    //TA0 Capture/Compare 1 interrupt enable
+   if(interrupts4&BIT3) TA0CCTL2 |= CCIE;    //TA0 Capture/Compare 2 interrupt enable
+   if(interrupts4&BIT4) TA0CCTL3 |= CCIE;    //TA0 Capture/Compare 3 interrupt enable
+   if(interrupts4&BIT5) TA0CCTL4 |= CCIE;    //TA0 Capture/Compare 4 interrupt enable
+   //DMA
+   if(interrupts5&BIT2) DMA0CTL |= DMAIE;    //DMA 0 interrupt enable
+   if(interrupts5&BIT3) DMA1CTL |= DMAIE;    //DMA 0 interrupt enable
+   if(interrupts5&BIT4) DMA2CTL |= DMAIE;    //DMA 0 interrupt enable
+   //TA1
+   if(interrupts5&BIT5) TA1CTL   |= TAIE;    //Timer_A1 interrupt enable
+   if(interrupts5&BIT6) TA1CCTL0 |= CCIE;    //TA1 Capture/Compare 0 interrupt enable
+   if(interrupts5&BIT7) TA1CCTL1 |= CCIE;    //TA1 Capture/Compare 1 interrupt enable
+   if(interrupts6&BIT0) TA1CCTL2 |= CCIE;    //TA1 Capture/Compare 2 interrupt enable
+   //I/O Port P1
+   if(interrupts7&0xF9) P1IE = interrupts7;  //Port 1 interrupt enable
+   //USCI_B1
+   if(interrupts6&BIT1) UCB1IE |= UCNACKIE;  //USCI_B1 Not-acknowledge interrupt enable
+   if(interrupts6&BIT2) UCB1IE |= UCALIE;    //USCI_B1 Arbitration lost interrupt enable
+   if(interrupts6&BIT3) UCB1IE |= UCSTPIE;   //USCI_B1 STOP condition interrupt enable
+   if(interrupts6&BIT4) UCB1IE |= UCSTTIE;   //USCI_B1 START condition interrupt enable
+   if(interrupts6&BIT5) UCB1IE |= UCTXIE;    //USCI_B1 Transmit interrupt enable
+   if(interrupts6&BIT6) UCB1IE |= UCRXIE;    //USCI_B1 Receive interrupt enable
+   //I/O Port P2
+   if(interrupts8) P2IE = interrupts8;       //Port 2 interrupt enable
+   //RTC_A
+   if(interrupts0&BIT1) RTCCTL0   |= RTCTEVIE;  //RTC time event interrupt enable
+   if(interrupts0&BIT2) RTCCTL0   |= RTCAIE;    //RTC alarm interrupt enable
+   if(interrupts4&BIT6) RTCCTL0   |= RTCRDYIE;  //RTC read ready interrupt enable
+   if(interrupts4&BIT7) RTCPS0CTL |= RT0PSIE;   //RTC prescale timer 0 interrupt enable
+   if(interrupts5&BIT0) RTCPS1CTL |= RT1PSIE;   //RTC prescale timer 1 interrupt enable
+}
+
+void runSetCommands() {
+   saveInterruptSettings();
 
    writeCommand("$$$", "CMD\r\n");
    __bis_SR_register(LPM3_bits + GIE);    //wait until response is received
@@ -495,70 +637,7 @@ void runSetCommands() {
    writeCommand("---\r", "END\r\n");
    __bis_SR_register(LPM3_bits + GIE);    //wait until response is received
 
-   //==================================================================================================================================
-   //restore interrupt settings
-   //==================================================================================================================================
-   if(!(interrupts0 & BIT0)) _disable_interrupts(); //global interrupts
-   //TB0
-   if(interrupts0&BIT3) TB0CTL |= TBIE;      //Timer_B interrupt enable
-   if(interrupts0&BIT4) TB0CCTL0 |= CCIE;    //TB0 Capture/Compare 0 interrupt enable
-   if(interrupts0&BIT5) TB0CCTL1 |= CCIE;    //TB0 Capture/Compare 1 interrupt enable
-   if(interrupts0&BIT6) TB0CCTL2 |= CCIE;    //TB0 Capture/Compare 2 interrupt enable
-   if(interrupts0&BIT7) TB0CCTL3 |= CCIE;    //TB0 Capture/Compare 3 interrupt enable
-   if(interrupts1&BIT0) TB0CCTL4 |= CCIE;    //TB0 Capture/Compare 4 interrupt enable
-   if(interrupts1&BIT1) TB0CCTL5 |= CCIE;    //TB0 Capture/Compare 5 interrupt enable
-   if(interrupts1&BIT2) TB0CCTL6 |= CCIE;    //TB0 Capture/Compare 6 interrupt enable
-   //Watchdog Timer_A interval Timer mode
-   if(interrupts1&BIT3) WDTCTL = (WDTCTL & 0x007F) + WDTPW; //Restart Watchdog (no need to clear counter as is in interval timer mode)
-   //USCI_A0
-   if(interrupts1&BIT4) UCA0CTL1 |= UCRXEIE; //USCI_A0 Receive erroneous-character interrupt enable
-   if(interrupts1&BIT5) UCA0CTL1 |= UCBRKIE; //USCI_A0 Receive break character interrupt enable
-   if(interrupts1&BIT6) UCA0IE |= UCTXIE;    //USCI_A0 Transmit interrupt enable
-   if(interrupts1&BIT7) UCA0IE |= UCRXIE;    //USCI_A0 Receive interrupt enable
-   //USCI_B0
-   if(interrupts2&BIT0) UCB0IE |= UCNACKIE;  //USCI_B0 Not-acknowledge interrupt enable
-   if(interrupts2&BIT1) UCB0IE |= UCALIE;    //USCI_B0 Arbitration lost interrupt enable
-   if(interrupts2&BIT2) UCB0IE |= UCSTPIE;   //USCI_B0 STOP condition interrupt enable
-   if(interrupts2&BIT3) UCB0IE |= UCSTTIE;   //USCI_B0 START condition interrupt enable
-   if(interrupts2&BIT4) UCB0IE |= UCTXIE;    //USCI_B0 Transmit interrupt enable
-   if(interrupts2&BIT5) UCB0IE |= UCRXIE;    //USCI_B0 Receive interrupt enable
-   //ADC12_A
-   if(interrupts2&BIT6) ADC12CTL0 |= ADC12OVIE;    //ADC12MEMx overflow-interrupt enable
-   if(interrupts2&BIT7) ADC12CTL0 |= ADC12TOVIE;   //ADC12_A conversion-time-overflow interrupt enable
-   if(interrupts3w) ADC12IE = interrupts3w;        //ADC12_A interrupt enable register
-   //TA0
-   if(interrupts4&BIT0) TA0CTL   |= TAIE;    //Timer_A interrupt enable
-   if(interrupts4&BIT1) TA0CCTL0 |= CCIE;    //TA0 Capture/Compare 0 interrupt enable
-   if(interrupts4&BIT2) TA0CCTL1 |= CCIE;    //TA0 Capture/Compare 1 interrupt enable
-   if(interrupts4&BIT3) TA0CCTL2 |= CCIE;    //TA0 Capture/Compare 2 interrupt enable
-   if(interrupts4&BIT4) TA0CCTL3 |= CCIE;    //TA0 Capture/Compare 3 interrupt enable
-   if(interrupts4&BIT5) TA0CCTL4 |= CCIE;    //TA0 Capture/Compare 4 interrupt enable
-   //DMA
-   if(interrupts5&BIT2) DMA0CTL |= DMAIE;    //DMA 0 interrupt enable
-   if(interrupts5&BIT3) DMA1CTL |= DMAIE;    //DMA 0 interrupt enable
-   if(interrupts5&BIT4) DMA2CTL |= DMAIE;    //DMA 0 interrupt enable
-   //TA1
-   if(interrupts5&BIT5) TA1CTL   |= TAIE;    //Timer_A1 interrupt enable
-   if(interrupts5&BIT6) TA1CCTL0 |= CCIE;    //TA1 Capture/Compare 0 interrupt enable
-   if(interrupts5&BIT7) TA1CCTL1 |= CCIE;    //TA1 Capture/Compare 1 interrupt enable
-   if(interrupts6&BIT0) TA1CCTL2 |= CCIE;    //TA1 Capture/Compare 2 interrupt enable
-   //I/O Port P1
-   if(interrupts7&0xF9) P1IE = interrupts7;  //Port 1 interrupt enable
-   //USCI_B1
-   if(interrupts6&BIT1) UCB1IE |= UCNACKIE;  //USCI_B1 Not-acknowledge interrupt enable
-   if(interrupts6&BIT2) UCB1IE |= UCALIE;    //USCI_B1 Arbitration lost interrupt enable
-   if(interrupts6&BIT3) UCB1IE |= UCSTPIE;   //USCI_B1 STOP condition interrupt enable
-   if(interrupts6&BIT4) UCB1IE |= UCSTTIE;   //USCI_B1 START condition interrupt enable
-   if(interrupts6&BIT5) UCB1IE |= UCTXIE;    //USCI_B1 Transmit interrupt enable
-   if(interrupts6&BIT6) UCB1IE |= UCRXIE;    //USCI_B1 Receive interrupt enable
-   //I/O Port P2
-   if(interrupts8) P2IE = interrupts8;       //Port 2 interrupt enable
-   //RTC_A
-   if(interrupts0&BIT1) RTCCTL0   |= RTCTEVIE;  //RTC time event interrupt enable
-   if(interrupts0&BIT2) RTCCTL0   |= RTCAIE;    //RTC alarm interrupt enable
-   if(interrupts4&BIT6) RTCCTL0   |= RTCRDYIE;  //RTC read ready interrupt enable
-   if(interrupts4&BIT7) RTCPS0CTL |= RT0PSIE;   //RTC prescale timer 0 interrupt enable
-   if(interrupts5&BIT0) RTCPS1CTL |= RT1PSIE;   //RTC prescale timer 1 interrupt enable
+   restoreInterruptSettings();
 }
 
 
@@ -566,302 +645,25 @@ void runSetCommands() {
 // in that they automatically return to data mode once they are issued
 // so no response and no "---" needed to return to data mode
 void runMasterCommands() {
-   //==================================================================================================================================
-   //Need to check all interrupt sources here (including global IE)
-   //save status and disable
-   //to ensure only receiving response from RN42 will cause execution to continue
-   //==================================================================================================================================
-   uint8_t interrupts0=0, interrupts1=0, interrupts2=0, interrupts4=0,
-         interrupts5=0, interrupts6=0, interrupts7=0, interrupts8=0;
-   uint16_t interrupts3w=0;
-   if(__get_SR_register()&0x0008) interrupts0 |= BIT0; //global interrupts
-   //TB0
-   if(TB0CTL&TBIE) { //Timer_B interrupt enable
-      interrupts0 |= BIT3;
-      TB0CTL &= ~TBIE;
-   }
-   if(TB0CCTL0&CCIE) { //TB0 Capture/Compare 0 interrupt enable
-      interrupts0 |= BIT4;
-      TB0CCTL0 &= ~CCIE;
-   }
-   if(TB0CCTL1&CCIE) { //TB0 Capture/Compare 1 interrupt enable
-      interrupts0 |= BIT5;
-      TB0CCTL1 &= ~CCIE;
-   }
-   if(TB0CCTL2&CCIE) { //TB0 Capture/Compare 2 interrupt enable
-      interrupts0 |= BIT6;
-      TB0CCTL2 &= ~CCIE;
-   }
-   if(TB0CCTL3&CCIE) { //TB0 Capture/Compare 3 interrupt enable
-      interrupts0 |= BIT7;
-      TB0CCTL3 &= ~CCIE;
-   }
-   if(TB0CCTL4&CCIE) { //TB0 Capture/Compare 4 interrupt enable
-      interrupts1 |= BIT0;
-      TB0CCTL4 &= ~CCIE;
-   }
-   if(TB0CCTL5&CCIE) { //TB0 Capture/Compare 5 interrupt enable
-      interrupts1 |= BIT1;
-      TB0CCTL5 &= ~CCIE;
-   }
-   if(TB0CCTL6&CCIE) { //TB0 Capture/Compare 6 interrupt enable
-      interrupts1 |= BIT2;
-      TB0CCTL6 &= ~CCIE;
-   }
-   //Watchdog Timer_A interval Timer mode
-   if((WDTCTL&WDTTMSEL) && ~(WDTCTL&WDTHOLD)) { //Watchdog timer running and in interval timer mode
-      interrupts1 |= BIT3;
-      WDTCTL = (WDTCTL & 0x00FF) + WDTPW + WDTHOLD; //Stop Watchdog
-   }
-   //USCI_A0
-   if(UCA0CTL1&UCRXEIE) { //USCI_A0 Receive erroneous-character interrupt enable
-      interrupts1 |= BIT4;
-      UCA0CTL1 &= ~UCRXEIE;
-   }
-   if(UCA0CTL1&UCBRKIE) { //USCI_A0 Receive break character interrupt enable
-      interrupts1 |= BIT5;
-      UCA0CTL1 &= ~UCBRKIE;
-   }
-   if(UCA0IE&UCTXIE) { //USCI_A0 Transmit interrupt enable
-      interrupts1 |= BIT6;
-      UCA0IE &= ~UCTXIE;
-   }
-   if(UCA0IE&UCRXIE) { //USCI_A0 Receive interrupt enable
-      interrupts1 |= BIT7;
-      UCA0IE &= ~UCRXIE;
-   }
-   //USCI_B0
-   if(UCB0IE&UCNACKIE) { //USCI_B0 Not-acknowledge interrupt enable
-      interrupts2 |= BIT0;
-      UCB0IE &= ~UCNACKIE;
-   }
-   if(UCB0IE&UCALIE) { //USCI_B0 Arbitration lost interrupt enable
-      interrupts2 |= BIT1;
-      UCB0IE &= ~UCALIE;
-   }
-   if(UCB0IE&UCSTPIE) { //USCI_B0 STOP condition interrupt enable
-      interrupts2 |= BIT2;
-      UCB0IE &= ~UCSTPIE;
-   }
-   if(UCB0IE&UCSTTIE) { //USCI_B0 START condition interrupt enable
-      interrupts2 |= BIT3;
-      UCB0IE &= ~UCSTTIE;
-   }
-   if(UCB0IE&UCTXIE) { //USCI_B0 Transmit interrupt enable
-      interrupts2 |= BIT4;
-      UCB0IE &= ~UCTXIE;
-   }
-   if(UCB0IE&UCRXIE) { //USCI_B0 Receive interrupt enable
-      interrupts2 |= BIT5;
-      UCB0IE &= ~UCRXIE;
-   }
-   //ADC12_A
-   if(ADC12CTL0&ADC12OVIE) { //ADC12MEMx overflow-interrupt enable
-      interrupts2 |= BIT6;
-      ADC12CTL0 &= ~ADC12OVIE;
-   }
-   if(ADC12CTL0&ADC12TOVIE) { //ADC12_A conversion-time-overflow interrupt enable
-      interrupts2 |= BIT7;
-      ADC12CTL0 &= ~ADC12TOVIE;
-   }
-   if(ADC12IE) { //ADC12_A interrupt enable register
-      interrupts3w = ADC12IE;
-      ADC12IE = 0;
-   }
-   //TA0
-   if(TA0CTL&TAIE) { //Timer_A0 interrupt enable
-      interrupts4 |= BIT0;
-      TA0CTL &= ~TAIE;
-   }
-   if(TA0CCTL0&CCIE) { //TA0 Capture/Compare 0 interrupt enable
-      interrupts4 |= BIT1;
-      TA0CCTL0 &= ~CCIE;
-   }
-   if(TA0CCTL1&CCIE) { //TA0 Capture/Compare 1 interrupt enable
-      interrupts4 |= BIT2;
-      TA0CCTL1 &= ~CCIE;
-   }
-   if(TA0CCTL2&CCIE) { //TA0 Capture/Compare 2 interrupt enable
-      interrupts4 |= BIT3;
-      TA0CCTL2 &= ~CCIE;
-   }
-   if(TA0CCTL3&CCIE) { //TA0 Capture/Compare 3 interrupt enable
-      interrupts4 |= BIT4;
-      TA0CCTL3 &= ~CCIE;
-   }
-   if(TA0CCTL4&CCIE) { //TA0 Capture/Compare 4 interrupt enable
-      interrupts4 |= BIT5;
-      TA0CCTL4 &= ~CCIE;
-   }
-   //DMA
-   if(DMA0CTL&DMAIE) { //DMA 0 interrupt enable
-      interrupts5 |= BIT2;
-      DMA0CTL &= ~DMAIE;
-   }
-   if(DMA1CTL&DMAIE) { //DMA 1 interrupt enable
-      interrupts5 |= BIT3;
-      DMA1CTL &= ~DMAIE;
-   }
-   if(DMA2CTL&DMAIE) { //DMA 2 interrupt enable
-      interrupts5 |= BIT4;
-      DMA2CTL &= ~DMAIE;
-   }
-   //TA1
-   if(TA1CTL&TAIE) { //Timer_A1 interrupt enable
-      interrupts5 |= BIT5;
-      TA1CTL &= ~TAIE;
-   }
-   if(TA1CCTL0&CCIE) { //TA1 Capture/Compare 0 interrupt enable
-      interrupts5 |= BIT6;
-      TA1CCTL0 &= ~CCIE;
-   }
-   if(TA1CCTL1&CCIE) { //TA1 Capture/Compare 1 interrupt enable
-      interrupts5 |= BIT7;
-      TA1CCTL1 &= ~CCIE;
-   }
-   if(TA1CCTL2&CCIE) { //TA1 Capture/Compare 2 interrupt enable
-      interrupts6 |= BIT0;
-      TA1CCTL2 &= ~CCIE;
-   }
-   //I/O Port P1
-   if(P1IE&0xF9) { //Port 1 interrupt enable
-      interrupts7 = P1IE;
-      P1IE &= 0x06; //preserve BT_PIO and BT_RTS setting
-   }
-   //USCI_B1
-   if(UCB1IE&UCNACKIE) { //USCI_B1 Not-acknowledge interrupt enable
-      interrupts6 |= BIT1;
-      UCB1IE &= ~UCNACKIE;
-   }
-   if(UCB1IE&UCALIE) { //USCI_B1 Arbitration lost interrupt enable
-      interrupts6 |= BIT2;
-      UCB1IE &= ~UCALIE;
-   }
-   if(UCB1IE&UCSTPIE) { //USCI_B1 STOP condition interrupt enable
-      interrupts6 |= BIT3;
-      UCB1IE &= ~UCSTPIE;
-   }
-   if(UCB1IE&UCSTTIE) { //USCI_B1 START condition interrupt enable
-      interrupts6 |= BIT4;
-      UCB1IE &= ~UCSTTIE;
-   }
-   if(UCB1IE&UCTXIE) { //USCI_B1 Transmit interrupt enable
-      interrupts6 |= BIT5;
-      UCB1IE &= ~UCTXIE;
-   }
-   if(UCB1IE&UCRXIE) { //USCI_B1 Receive interrupt enable
-      interrupts6 |= BIT6;
-      UCB1IE &= ~UCRXIE;
-   }
-   //I/O Port P2
-   if(P2IE) { //Port 2 interrupt enable
-      interrupts8 = P2IE;
-      P2IE = 0;
-   }
-   //RTC_A
-   if(RTCCTL0&RTCTEVIE) { //RTC time event interrupt enable
-      interrupts0 |= BIT1;
-      RTCCTL0 &= ~RTCTEVIE;
-   }
-   if(RTCCTL0&RTCAIE) { //RTC alarm interrupt enable
-      interrupts0 |= BIT2;
-      RTCCTL0 &= ~RTCAIE;
-   }
-   if(RTCCTL0&RTCRDYIE) { //RTC read ready interrupt enable
-      interrupts4 |= BIT6;
-      RTCCTL0 &= ~RTCRDYIE;
-   }
-   if(RTCPS0CTL&RT0PSIE) { //RTC prescale timer 0 interrupt enable
-      interrupts4 |= BIT7;
-      RTCPS0CTL &= ~RT0PSIE;
-   }
-   if(RTCPS1CTL&RT1PSIE) { //RTC prescale timer 1 interrupt enable
-      interrupts5 |= BIT0;
-      RTCPS1CTL &= ~RT1PSIE;
-   }
-   //==================================================================================================================================
-   //==================================================================================================================================
+   saveInterruptSettings();
 
    writeCommand("$$$", "CMD\r\n");
    __bis_SR_register(LPM3_bits + GIE); //wait until response is received
 
-    //Connect
-    if(deviceConn && (!btConnected)){  //Connect
+   //Connect
+   if(deviceConn && (!btConnected)){  //Connect
       sprintf(commandbuf, "C,%s\r", targetBt);
       writeCommandNoRsp(commandbuf);
-    } else if((!deviceConn) && (btConnected)) { //Disconnect
+   } else if((!deviceConn) && (btConnected)) { //Disconnect
       writeCommandNoRsp("K,\r");
-    } else { //exit command mode
+   } else { //exit command mode
       //not needed for connect and disconnect commands */
       writeCommand("---\r", "END\r\n");
       __bis_SR_register(LPM3_bits + GIE); //wait until response is received
       deviceConn = 0;
-    }
+   }
 
-   //==================================================================================================================================
-   //restore interrupt settings
-   //==================================================================================================================================
-   if(!(interrupts0 & BIT0)) _disable_interrupts(); //global interrupts
-   //TB0
-   if(interrupts0&BIT3) TB0CTL |= TBIE;      //Timer_B interrupt enable
-   if(interrupts0&BIT4) TB0CCTL0 |= CCIE;    //TB0 Capture/Compare 0 interrupt enable
-   if(interrupts0&BIT5) TB0CCTL1 |= CCIE;    //TB0 Capture/Compare 1 interrupt enable
-   if(interrupts0&BIT6) TB0CCTL2 |= CCIE;    //TB0 Capture/Compare 2 interrupt enable
-   if(interrupts0&BIT7) TB0CCTL3 |= CCIE;    //TB0 Capture/Compare 3 interrupt enable
-   if(interrupts1&BIT0) TB0CCTL4 |= CCIE;    //TB0 Capture/Compare 4 interrupt enable
-   if(interrupts1&BIT1) TB0CCTL5 |= CCIE;    //TB0 Capture/Compare 5 interrupt enable
-   if(interrupts1&BIT2) TB0CCTL6 |= CCIE;    //TB0 Capture/Compare 6 interrupt enable
-   //Watchdog Timer_A interval Timer mode
-   if(interrupts1&BIT3) WDTCTL = (WDTCTL & 0x007F) + WDTPW; //Restart Watchdog (no need to clear counter as is in interval timer mode)
-   //USCI_A0
-   if(interrupts1&BIT4) UCA0CTL1 |= UCRXEIE; //USCI_A0 Receive erroneous-character interrupt enable
-   if(interrupts1&BIT5) UCA0CTL1 |= UCBRKIE; //USCI_A0 Receive break character interrupt enable
-   if(interrupts1&BIT6) UCA0IE |= UCTXIE;    //USCI_A0 Transmit interrupt enable
-   if(interrupts1&BIT7) UCA0IE |= UCRXIE;    //USCI_A0 Receive interrupt enable
-   //USCI_B0
-   if(interrupts2&BIT0) UCB0IE |= UCNACKIE;  //USCI_B0 Not-acknowledge interrupt enable
-   if(interrupts2&BIT1) UCB0IE |= UCALIE;    //USCI_B0 Arbitration lost interrupt enable
-   if(interrupts2&BIT2) UCB0IE |= UCSTPIE;   //USCI_B0 STOP condition interrupt enable
-   if(interrupts2&BIT3) UCB0IE |= UCSTTIE;   //USCI_B0 START condition interrupt enable
-   if(interrupts2&BIT4) UCB0IE |= UCTXIE;    //USCI_B0 Transmit interrupt enable
-   if(interrupts2&BIT5) UCB0IE |= UCRXIE;    //USCI_B0 Receive interrupt enable
-   //ADC12_A
-   if(interrupts2&BIT6) ADC12CTL0 |= ADC12OVIE;    //ADC12MEMx overflow-interrupt enable
-   if(interrupts2&BIT7) ADC12CTL0 |= ADC12TOVIE;   //ADC12_A conversion-time-overflow interrupt enable
-   if(interrupts3w) ADC12IE = interrupts3w;        //ADC12_A interrupt enable register
-   //TA0
-   if(interrupts4&BIT0) TA0CTL   |= TAIE;    //Timer_A interrupt enable
-   if(interrupts4&BIT1) TA0CCTL0 |= CCIE;    //TA0 Capture/Compare 0 interrupt enable
-   if(interrupts4&BIT2) TA0CCTL1 |= CCIE;    //TA0 Capture/Compare 1 interrupt enable
-   if(interrupts4&BIT3) TA0CCTL2 |= CCIE;    //TA0 Capture/Compare 2 interrupt enable
-   if(interrupts4&BIT4) TA0CCTL3 |= CCIE;    //TA0 Capture/Compare 3 interrupt enable
-   if(interrupts4&BIT5) TA0CCTL4 |= CCIE;    //TA0 Capture/Compare 4 interrupt enable
-   //DMA
-   if(interrupts5&BIT2) DMA0CTL |= DMAIE;    //DMA 0 interrupt enable
-   if(interrupts5&BIT3) DMA1CTL |= DMAIE;    //DMA 0 interrupt enable
-   if(interrupts5&BIT4) DMA2CTL |= DMAIE;    //DMA 0 interrupt enable
-   //TA1
-   if(interrupts5&BIT5) TA1CTL   |= TAIE;    //Timer_A1 interrupt enable
-   if(interrupts5&BIT6) TA1CCTL0 |= CCIE;    //TA1 Capture/Compare 0 interrupt enable
-   if(interrupts5&BIT7) TA1CCTL1 |= CCIE;    //TA1 Capture/Compare 1 interrupt enable
-   if(interrupts6&BIT0) TA1CCTL2 |= CCIE;    //TA1 Capture/Compare 2 interrupt enable
-   //I/O Port P1
-   if(interrupts7&0xF9) P1IE = interrupts7;  //Port 1 interrupt enable
-   //USCI_B1
-   if(interrupts6&BIT1) UCB1IE |= UCNACKIE;  //USCI_B1 Not-acknowledge interrupt enable
-   if(interrupts6&BIT2) UCB1IE |= UCALIE;    //USCI_B1 Arbitration lost interrupt enable
-   if(interrupts6&BIT3) UCB1IE |= UCSTPIE;   //USCI_B1 STOP condition interrupt enable
-   if(interrupts6&BIT4) UCB1IE |= UCSTTIE;   //USCI_B1 START condition interrupt enable
-   if(interrupts6&BIT5) UCB1IE |= UCTXIE;    //USCI_B1 Transmit interrupt enable
-   if(interrupts6&BIT6) UCB1IE |= UCRXIE;    //USCI_B1 Receive interrupt enable
-   //I/O Port P2
-   if(interrupts8) P2IE = interrupts8;       //Port 2 interrupt enable
-   //RTC_A
-   if(interrupts0&BIT1) RTCCTL0   |= RTCTEVIE;  //RTC time event interrupt enable
-   if(interrupts0&BIT2) RTCCTL0   |= RTCAIE;    //RTC alarm interrupt enable
-   if(interrupts4&BIT6) RTCCTL0   |= RTCRDYIE;  //RTC read ready interrupt enable
-   if(interrupts4&BIT7) RTCPS0CTL |= RT0PSIE;   //RTC prescale timer 0 interrupt enable
-   if(interrupts5&BIT0) RTCPS1CTL |= RT1PSIE;   //RTC prescale timer 1 interrupt enable
+   restoreInterruptSettings();
 }
 
 
@@ -899,6 +701,8 @@ void BT_init() {
    setCustomPagingTime = 0;
    setBaudrate = 0;
    newAuthMode = 0;
+   txIe = 0;
+   slowRate = 0;
 
    //connect/disconnect commands
    deviceConn = btConnected = 0;
@@ -909,7 +713,7 @@ void BT_init() {
 
    initRN();
 
-   setupUART();
+   setupUART("115K");
 }
 
 
@@ -932,16 +736,17 @@ uint8_t BT_write(uint8_t *buf, uint8_t len) {
    if(messageInProgress)
       return 0;   //fail
 
-   messageInProgress = 1;
    charsSent = 0;
    memcpy(messageBuffer, buf, len);
    messageLength = len;
 
    if(!transmissionOverflow) {
+      messageInProgress = 1;
       sendNextChar();
+      return 1;   //success
+   } else {
+      return 0;   //fail
    }
-
-   return 1;      //success
 }
 
 
@@ -1066,8 +871,53 @@ void BT_setInquiryTime(char * hexval_time) {
    snprintf(newInquiryTime, 5, "%s", hexval_time);
 }
 
+
 void BT_resetDefaults() {
    resetDefaultsRequest = 1;
+}
+
+
+void BT_setTempBaudRate(char * baudRate) {
+   if((strlen(baudRate)==4) && (!strncmp(baudRate, "1200", 4) || !strncmp(baudRate, "2400", 4) ||
+         !strncmp(baudRate, "4800", 4) || !strncmp(baudRate, "9600", 4) || !strncmp(baudRate, "19.2", 4) ||
+         !strncmp(baudRate, "38.4", 4) || !strncmp(baudRate, "57.6", 4) || !strncmp(baudRate, "115K", 4) ||
+         !strncmp(baudRate, "230K", 4) || !strncmp(baudRate, "460K", 4) || !strncmp(baudRate, "921K", 4))) {
+
+      saveInterruptSettings();
+
+      writeCommand("$$$", "CMD\r\n");
+      __bis_SR_register(LPM3_bits + GIE); //wait until response is received
+
+      //Connect
+      sprintf(commandbuf, "U,%s,N\r", baudRate);
+
+      //if existing rate is 1200 or 2400 baud then something is going wrong with reading "AOK\r\n" response
+      //from the RN42
+      //So instead of reading response and then continuing, wait 200ms and then continue
+      //("U,XXXX\r" and "AOK\r\n" is 12 characters = 120 bit @ 1200baud = 100ms
+      //Double this for some processing margin)
+      //TODO
+      if(slowRate) {
+         UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
+         writeCommandNoRsp(commandbuf);
+         __delay_cycles(4800000);            //wait 200ms (assuming 24MHz MCLK)
+         UCA1IFG &= ~(UCSTTIFG + UCRXIFG);   //clear pending receive interrupts?
+         UCA1IE |= UCRXIE;                   //Enable USCI_A1 RX interrupt
+      } else {
+         writeCommand(commandbuf, "AOK\r\n");
+         __bis_SR_register(LPM3_bits + GIE); //wait until response is received
+      }
+
+      restoreInterruptSettings();
+
+      //change MSP430 UART to use new baud rate
+      setupUART(baudRate);
+      if(!strncmp(baudRate, "1200", 4) || !strncmp(baudRate, "2400", 4)) {
+         slowRate = 1;
+      } else {
+         slowRate = 0;
+      }
+   }
 }
 
 
@@ -1083,6 +933,15 @@ void BT_connectionInterrupt(uint8_t value) {
 
 void BT_rtsInterrupt(uint8_t value) {
    transmissionOverflow = value;
+   if(transmissionOverflow) {
+      //disable sending
+      txIe = UCA1IE & UCTXIE;
+      UCA1IE &= ~UCTXIE;
+   } else {
+      //re-enable sending if appropriate
+      if(txIe)
+         UCA1IE |= UCTXIE;
+   }
 }
 
 

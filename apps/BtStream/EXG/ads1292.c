@@ -168,6 +168,12 @@ void ADS1292_powerOn(void) {
 
 void ADS1292_powerOff(void) {
    P3OUT &= ~BIT3;
+
+   //Reset chip select pins to input ADC
+   P6DIR &= ~BIT1;            //A1 set as input
+   P6SEL |= BIT1;
+   P7DIR &= ~BIT6;            //A14 set as input
+   P7SEL |= BIT6;
 }
 
 
