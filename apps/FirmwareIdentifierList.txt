@@ -2,3 +2,5 @@
 # This is the master list of current firmware identifiers:
 BtStream          1      # General purpose streaming application
 SdLog             2      # General purpose logging application
+LogAndStream      3      # General purpose logging and streaming application
+

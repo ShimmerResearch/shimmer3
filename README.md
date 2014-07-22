@@ -22,5 +22,8 @@ A (very) brief description of the contents follows:
 * apps/SDLog 
    All purpose configurable sensing application that saves data to microSD card
 
+* apps/LogAndStream
+   All purpose configurable sensing application that simultaneously logs to microSD card while streaming over Bluetooth
+
 * apps/FirmwareIdentifireList.txt  
    List of identifiers used by applications to identify themselves
