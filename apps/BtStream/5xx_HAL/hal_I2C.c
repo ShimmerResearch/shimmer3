@@ -40,6 +40,12 @@
 #include <stdint.h>
 #include "msp430.h"
 #include "hal_I2C.h"
+#include "hal_TB0.h"
+
+#define I2C_TIMEOUT  164      //164/32768 = 5.005ms
+                              //Longest I2C operations is reading 128bytes from
+                              //EEPROM on daughter card. This takes approx. 3.6ms
+                              //(from measurements)
 
 
 // Local Variables
@@ -299,9 +305,12 @@ uint8_t I2C_Interrupt_Status(uint8_t mask) {
 * be written to. This function requires the user to have used I2C_Set_Slave_Address(),
 * to set the address of the sensor. 
 * <BR> uint8_t <b>dataLength</b> is the number of data bytes to be written.
-* @return Return Values: None               
+* @return Return Values:
+* <BR>Returns 0x01 if successful; otherwise, returns 0x00.
 **/ 
-void I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
+uint8_t I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
+   uint16_t start, now;
+
    // Assign values to local variables
    tx_packet_length = dataLength;
    tx_packet_data = writeData;
@@ -318,9 +327,24 @@ void I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
    I2C_Interrupt_Enable(UCNACKIE);
    UCB0IFG |= UCB0TXIFG;
   
+   start = GetTB0();
    // Enter Low Power Mode 0
-   while(transmit_flag == 1)
+   while(transmit_flag == 1) {
       __bis_SR_register(LPM0_bits + GIE);       // CPU off, enable interrupts
+      if(transmit_flag) {
+         //only check for timeout if still waiting to transmit
+         now = GetTB0();
+         if(((!((start+I2C_TIMEOUT)<start)) && (now >= (start+I2C_TIMEOUT))) ||
+               (((start+I2C_TIMEOUT)<start) && (now<start) && (now >= (start+I2C_TIMEOUT)))) {  //needed to handle timer overflow
+            //timeout
+            I2C_Disable();
+            __delay_cycles(240000); //10ms (assuming 24MHz clock)
+            I2C_Enable();
+            return 0;
+         }
+      }
+   }
+   return 1;
 }
 
 
@@ -333,10 +357,12 @@ void I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
 * be read from. This function requires the user to have used I2C_Set_Slave_Address(),
 * to set the address of the sensor. 
 * <BR> uint8_t * <b>readData</b> is the number of data bytes to be read.                                       
-* @return Return Values: None                 
+* @return Return Values:
+* <BR>Returns 0x01 if successful; otherwise, returns 0x00.
 **/ 
-void I2C_Read_Packet_From_Sensor(uint8_t *readData,
-      uint16_t dataLength) {
+uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData, uint16_t dataLength) {
+   uint16_t start, now;
+
    // Assign values to local variables
    rx_packet_length = dataLength;
    rx_packet_data = readData;
@@ -354,9 +380,24 @@ void I2C_Read_Packet_From_Sensor(uint8_t *readData,
    I2C_Interrupt_Enable(UCNACKIE);
    UCB0IFG |= UCB0TXIFG;
   
+   start = GetTB0();
    // Enter Low Power Mode 0
-   while(receive_flag == 1)
+   while(receive_flag == 1) {
       __bis_SR_register(LPM0_bits + GIE);       // CPU off, enable interrupts
+      if(receive_flag) {
+         //only check for timeout if still waiting to transmit
+         now = GetTB0();
+         if(((!((start+I2C_TIMEOUT)<start)) && (now >= (start+I2C_TIMEOUT))) ||
+               (((start+I2C_TIMEOUT)<start) && (now<start) && (now >= (start+I2C_TIMEOUT)))) {  //needed to handle timer overflow
+            //timeout
+            I2C_Disable();
+            __delay_cycles(240000); //10ms (assuming 24MHz clock)
+            I2C_Enable();
+            return 0;
+         }
+      }
+   }
+   return 1;
 }
 
 
@@ -384,7 +425,6 @@ __interrupt void USCI_I2C_ISR(void) {
          *rx_packet_data= UCB0RXBUF;
          I2C_Interrupt_Disable(UCNACKIE);
          I2C_Interrupt_Disable(UCB0RXIE);
-         __bic_SR_register_on_exit(LPM0_bits);  // Exit active CPU
       }
       break;                           
    case 12:                                     // Vector 12: TXIFG  
@@ -401,7 +441,6 @@ __interrupt void USCI_I2C_ISR(void) {
             I2C_Interrupt_Disable(UCB0TXIE);
             I2C_Interrupt_Disable(UCNACKIE);
             transmit_flag = 0;
-            __bic_SR_register_on_exit(LPM0_bits);  // Exit active CPU
          }
       } else if(receive_flag) {
          if(tx_byte_ctr == 0) {
@@ -428,4 +467,5 @@ __interrupt void USCI_I2C_ISR(void) {
       break;                          
    default: break;
    }
+   __bic_SR_register_on_exit(LPM0_bits);  // Exit active CPU
 }

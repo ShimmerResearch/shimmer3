@@ -183,7 +183,7 @@ The breakdown of the kinematic (accel x 2, gyro and mag) calibration values is a
 The SET_CHARGE_STATUS_LED_COMMAND changes which LED is used to indicate the shimmer's state:
 - selected LED operation
    - Occasional flash of selected LED when on but not connected
-      - On for approx 50ms
+      - On for approx 100ms
       - Off for 2s
    - Solid LED when connected but not streaming
    - Flash LED @1Hz when connected and streaming
@@ -198,10 +198,34 @@ The SET_CHARGE_STATUS_LED_COMMAND changes which LED is used to indicate the shim
 
 When the Shimmer is docked (in the programming dock or multi-gang charger) the lower LEDs indicate charger status:
 - Yellow on: charging
--  Green on: charging completed 
+- Green on: charging completed 
 
+
+When the Shimmer is docked, and not actively streaming data, it will respond to the following commands through the external serial (UART) port. Each command, and response, ends with a carriage return and line feed (ASCII: 0x0D and 0x0A).A CRC checksum is included in each response, which is calculated over the data portion of the response.
+Command |                     Description                       |                   Response
+--------|-------------------------------------------------------|----------------------------------------------
+  mac$  | Returns the MAC address of the Bluetooth module       | "XXXXXXXXXXXX" + CrcLSB + CrcMSB + "\r\n"
+--------|-------------------------------------------------------|----------------------------------------------
+  ver$  | Returns the version information                       | devVer + fwVerLSB + fwVerMSB + fwMajorLSB + 
+        |                                                       | fwMajorMSB + fwMinor + fwRevision + CrcLSB +
+        |                                                       | CrcMSB + "\r\n"
+--------|-------------------------------------------------------|----------------------------------------------
+  bat$  | Returns the current battery voltage and charge status | battAdcLSB + battAdcMSB + chargeStatus + 
+        |                                                       | CrcLSB + CrcMSB + "\r\n"
+--------|-------------------------------------------------------|----------------------------------------------
+  mem$  | Returns the configuration in the MSP430s InfoMem      | (Current configuration, see "Infomem 
+        |                                                       | Contents" portion of shimmer.h. Length is 
+        |                                                       | equal to NV_TOTAL_NUM_CONFIG_BYTES) + CrcLSB 
+        |                                                       | + CrcMSB + "\r\n"
 
 Changelog:
+V0.5 (10 September 2014)
+   - add support for serial/UART commands
+      - supported commands: ver$, mac$, bat$ and mem$
+   - changed timing of LED blinking
+   - add I2C timeout 
+   - handle external EEPROM data read error 
+   - No longer change BT baud rate when running RESET_TO_DEFAULT_CONFIGURATION_COMMAND 
 V0.4 (2 July 2014)
    - add support for bridge amplifier
    - add commands to change baud rate of comms with Bluetooth module

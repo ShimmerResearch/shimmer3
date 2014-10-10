@@ -94,6 +94,15 @@ extern void BT_setBaudrate(char *newBaud);
 extern void BT_setPagingTime(char *hexvalTime);    // max 4 chars (hex word)
 extern void BT_setInquiryTime(char *hexvalTime);   // max 4 chars (hex word)
 
+//Set's the mac variable to be the RN42's mac address
+//mac must be 12 bytes in length
+//Returns 0  if mac address not valid
+//Returns 1 if mac address valid
+//Will only be valid *after* BT_Configure() is run
+//BT_init() needs to be run before the return value
+//can be trusted
+extern uint8_t BT_getMacAddress(uint8_t *mac);
+
 extern void BT_resetDefaults();
 
 //set new baud rate. This change is effective immediately.

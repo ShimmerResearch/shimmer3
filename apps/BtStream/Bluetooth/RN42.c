@@ -53,7 +53,7 @@ uint8_t messageInProgress, transmissionOverflow, messageLength;
 uint8_t messageBuffer[256]; //max possible size
 uint8_t receiveBuffer[5];
 char expectedCommandResponse[6], newName[17], newPIN[17], newSvcClass[5], newDevClass[5], newSvcName[17], newRawBaudrate[5],
-     newBaudrate[5], newInquiryTime[5], newPagingTime[5], newFriendlyName[16];
+     newBaudrate[5], newInquiryTime[5], newPagingTime[5], newFriendlyName[16], rn42Mac[14];
 char commandbuf[32];
 
 uint8_t radioMode, charsSent, charsReceived;
@@ -519,6 +519,12 @@ void runSetCommands() {
    writeCommand("$$$", "CMD\r\n");
    __bis_SR_register(LPM3_bits + GIE);    //wait until response is received
 
+   //Get MAC address
+   //use an expected command response of "M" to indicate waiting for 14
+   //bytes of MAC address response
+   writeCommand("GB\r", "M");
+   __bis_SR_register(LPM3_bits + GIE);    //wait until response is received
+
    //reset factory defaults
    if(resetDefaultsRequest) {
       writeCommand("SF,1\r", "AOK\r\n");
@@ -703,6 +709,7 @@ void BT_init() {
    newAuthMode = 0;
    txIe = 0;
    slowRate = 0;
+   *rn42Mac = '\0';
 
    //connect/disconnect commands
    deviceConn = btConnected = 0;
@@ -871,6 +878,14 @@ void BT_setInquiryTime(char * hexval_time) {
    snprintf(newInquiryTime, 5, "%s", hexval_time);
 }
 
+uint8_t BT_getMacAddress(uint8_t *mac) {
+   if(*rn42Mac) {
+      memcpy(mac, rn42Mac, 12);
+      return 1;
+   } else {
+      return 0;
+   }
+}
 
 void BT_resetDefaults() {
    resetDefaultsRequest = 1;
@@ -896,7 +911,6 @@ void BT_setTempBaudRate(char * baudRate) {
       //So instead of reading response and then continuing, wait 200ms and then continue
       //("U,XXXX\r" and "AOK\r\n" is 12 characters = 120 bit @ 1200baud = 100ms
       //Double this for some processing margin)
-      //TODO
       if(slowRate) {
          UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
          writeCommandNoRsp(commandbuf);
@@ -956,12 +970,21 @@ __interrupt void USCI_A1_ISR(void) {
                __bic_SR_register_on_exit(LPM3_bits);
          }
       } else {
-         receiveBuffer[charsReceived++] = UCA1RXBUF;
-         if(charsReceived == strlen(expectedCommandResponse)) {
-            if(!memcmp(receiveBuffer, expectedCommandResponse, charsReceived)) {
-               //continue
+         if(*expectedCommandResponse == 'M') {
+            //Getting MAC address
+            rn42Mac[charsReceived++] = UCA1RXBUF;
+            if(charsReceived == 14) {
                *expectedCommandResponse = '\0';
                __bic_SR_register_on_exit(LPM3_bits);
+            }
+         } else {
+            receiveBuffer[charsReceived++] = UCA1RXBUF;
+            if(charsReceived == strlen(expectedCommandResponse)) {
+               if(!memcmp(receiveBuffer, expectedCommandResponse, charsReceived)) {
+                  //continue
+                  *expectedCommandResponse = '\0';
+                  __bic_SR_register_on_exit(LPM3_bits);
+               }
             }
          }
       }

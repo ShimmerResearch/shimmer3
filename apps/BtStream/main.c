@@ -102,6 +102,7 @@
 #include "hal_ADC.h"
 #include "hal_DMA.h"
 #include "hal_InfoMem.h"
+#include "hal_TB0.h"
 #include "RN42.h"
 #include "lsm303dlhc.h"
 #include "string.h"
@@ -110,6 +111,8 @@
 #include "gsr.h"
 #include "exg.h"
 #include "cat24c16.h"
+#include "hal_UCA0.h"
+#include "hal_UartA0.h"
 
 void Init(void);
 void BlinkTimerStart(void);
@@ -124,10 +127,6 @@ void ConfigureChannels();
 inline void StartStreaming(void);
 inline void StopStreaming(void);
 void SetDefaultConfiguration(void);
-inline void StartTB0(void);
-inline void ResetTB0(void);
-inline void StopTB0(void);
-inline uint16_t GetTB0(void);
 void ChargeStatusTimerStart(void);
 void ChargeStatusTimerStop(void);
 inline void SetLed(void);
@@ -138,6 +137,11 @@ inline void MonitorChargeStatusStop(void);
 inline void SetChargeStatusLeds(void);
 inline void GsrRange(void);
 void SetBtBaudRate(uint8_t rate);
+void ReadBatt(uint8_t val);
+
+#define ACLK_1S      32768    //1s for ACLK (running at 32768Hz)
+#define ACLK_2S      65536    //2s for ACLK (running at 32768Hz)
+#define ACLK_100ms   3278     //approx 100ms for ACLK (running at 32768Hz)
 
 //data segment initialisation is disabled in system_pre_init.c
 uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateResponse, startSensing, stopSensing,
@@ -172,6 +176,8 @@ uint8_t dcMemLength;
 uint16_t dcMemOffset;
 //BT baud rate
 uint8_t changeBtBaudRate;
+
+uint8_t btMac[12], fwInfo[7], battVal[3];
 
 char *dierecord;
 
@@ -514,12 +520,36 @@ void Init(void) {
    btCommsBaudRateResponse = 0;
    changeBtBaudRate = 0xFF;   //indicates doesn't need changing
 
+   *fwInfo = DEVICE_VER;
+   *(fwInfo + 1) = (FW_IDENTIFIER & 0xFF);
+   *(fwInfo + 2) = ((FW_IDENTIFIER & 0xFF00) >> 8);
+   *(fwInfo + 3) = FW_VER_MAJOR & 0xFF;
+   *(fwInfo + 4) = ((FW_VER_MAJOR & 0xFF00) >> 8);
+   *(fwInfo + 5) = FW_VER_MINOR;
+   *(fwInfo + 6) = FW_VER_REL;
+
    //Globally enable interrupts
    _enable_interrupts();
+
+   BT_init();
+   BT_disableRemoteConfig(1);
+   BT_setRadioMode(SLAVE_MODE);
+   BT_configure();
+   BT_receiveFunction(&BtDataAvailable);
+   BT_getMacAddress(btMac);
+
+   UCA0_isrInit();
+   UART_init();
+   UART_regCmd("ver$", fwInfo, 7, 0, 0, 0);
+   UART_regCmd("mac$", btMac, 12, 0, 0, 0);
+   UART_regCmd("bat$", battVal, 3, 0, 0, ReadBatt);
+   UART_regCmd("mem$", storedConfig, NV_TOTAL_NUM_CONFIG_BYTES, 0, 0, 0);
 
    if(P2IN & BIT3) {
       //high (docked)
       P2IES |= BIT3;    //look for falling edge
+      if(!sensing)
+         UART_activate();
       docked = 1;
    } else {
       //low (undocked)
@@ -527,12 +557,6 @@ void Init(void) {
    }
    P2IFG &= ~BIT3;      //clear flag
    P2IE |= BIT3;        //enable interrupt
-
-   BT_init();
-   BT_disableRemoteConfig(1);
-   BT_setRadioMode(SLAVE_MODE);
-   BT_configure();
-   BT_receiveFunction(&BtDataAvailable);
 
    // enable switch1 interrupt
    Button_init();
@@ -550,8 +574,12 @@ void Init(void) {
 
 inline void StartStreaming(void) {
    uint8_t offset;
+
    if(!sensing) {
       sensing = 1;
+
+      if(docked)
+         UART_deactivate();
 
       if(storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL) {
          P8REN &= ~BIT6;      //disable pull down resistor
@@ -792,6 +820,8 @@ inline void StopStreaming(void) {
       preSampleMpuMag = 0;
       preSampleBmpPress = 0;
       sensing = 0;
+      if(docked)
+         UART_activate();
    }
 }
 
@@ -943,8 +973,6 @@ void ConfigureChannels(void) {
       if(adcStartPtr)
          DMA0_init(adcStartPtr, (uint16_t *)(txBuff0+4), nbrAdcChans);
    }
-
-   //TODO: check if was sensing, and if so restart
 }
 
 uint8_t BtDataAvailable(uint8_t data) {
@@ -1620,7 +1648,8 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_EXG_ADS1292R_2_RESP2] = 0x02;
 
    //set BT baud rate to 115200
-   storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;                                                  // 115200 baud
+   if(storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF)
+      storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;                                               // 115200 baud
 
    InfoMem_write((void*)0, storedConfig, NV_NUM_SETTINGS_BYTES);
 }
@@ -1731,39 +1760,14 @@ inline uint8_t IsLedSet(void) {
 }
 
 /**
-*** TB0 is used for both the blink timer and sample timers
+*** TB0 is used for both the blink, charge status and sample timers
 **/
-inline void StartTB0(void) {
-   TB0CTL = TBSSEL_1 + MC_2 + TBCLR;   //ACLK, continuous mode, clear TBR
-}
-
-inline void ResetTB0(void) {
-   TB0CTL += TBCLR;
-}
-
-inline void StopTB0(void) {
-   TB0CTL = MC0;
-}
-
-//read TB0 counter while timer is running
-inline uint16_t GetTB0(void) {
-   register uint16_t t0, t1;
-   uint8_t ie;
-   if(ie=(__get_SR_register()&0x0008)) //interrupts enabled?
-      __disable_interrupt();
-   t1 = TB0R;
-   do {t0=t1; t1=TB0R;} while(t0!=t1);
-   if(ie)
-      __enable_interrupt();
-   return t1;
-}
-
 
 /**
 *** Charge Status Timer
 **/
 void ChargeStatusTimerStart(void) {
-   TB0CCR3 = GetTB0() + 100;
+   TB0CCR3 = GetTB0() + ACLK_100ms;
    TB0CCTL3 = CCIE;
    SetLed();
 }
@@ -1816,10 +1820,10 @@ inline void SetChargeStatusLeds(void) {
 // USING TB0 with CCR4
 void BlinkTimerStart(void) {
    if(sensing) {
-      TB0CCR4 = GetTB0() + 32768;   //1Hz
+      TB0CCR4 = GetTB0() + ACLK_1S;   //1Hz
       Board_ledOff(LED_BLUE);
    } else {
-      TB0CCR4 = GetTB0() + 100;
+      TB0CCR4 = GetTB0() + ACLK_100ms;
       Board_ledOn(LED_BLUE);
       if(!docked) {
          //to keep both LEDs in sync
@@ -1943,26 +1947,26 @@ __interrupt void TIMER0_B1_ISR(void) {
    case  6:                               // TB0CCR3
       //Charge status LED
       if(IsLedSet()) {                    //check current status of LED
-         TB0CCR3 += 65435;
+         TB0CCR3 += ACLK_2S;
          ClearLed();
       } else {
          //LED is off
-         TB0CCR3 += 100;
+         TB0CCR3 += ACLK_100ms;
           SetLed();
       }
       break;
    case  8:                               // TB0CCR4
       //Control blue LED
       if(sensing) {
-         TB0CCR4 += 32768;
+         TB0CCR4 += ACLK_1S;
           Board_ledToggle(LED_BLUE);
       } else {
          if(P1OUT & BIT2) {               //check current status of blue LED
-            TB0CCR4 += 65435;
+            TB0CCR4 += ACLK_2S;
             Board_ledOff(LED_BLUE);
           } else {
             //LED is off
-            TB0CCR4 += 100;
+            TB0CCR4 += ACLK_100ms;
             Board_ledOn(LED_BLUE);
           }
       }
@@ -2007,6 +2011,8 @@ __interrupt void Port2_ISR(void) {
          ChargeStatusTimerStop();
          MonitorChargeStatus();
          selectedLed = 0;  //reset to green for when removed from dock
+         if(!sensing)
+            UART_activate();
       } else {
          P2IES &= ~BIT3;   //look for rising edge
          docked = 0;
@@ -2018,6 +2024,8 @@ __interrupt void Port2_ISR(void) {
             ClearLed();
             BlinkTimerStart();
          }
+         if(!sensing)
+            UART_deactivate();
       }
       break;
 
@@ -2128,6 +2136,26 @@ void SetBtBaudRate(uint8_t rate) {
    }
 }
 
+
+uint8_t Dma0BatteryRead(void) {
+   ADC_disable();
+   DMA0_disable();
+   return 1;
+}
+
+void ReadBatt(uint8_t val){
+   adcStartPtr = ADC_init(MASK_VBATT);
+   DMA0_transferDoneFunction(&Dma0BatteryRead);
+   if(adcStartPtr) {
+      DMA0_init(adcStartPtr, (uint16_t *)(battVal), 1);
+      DMA0_enable();
+      ADC_startConversion();
+      __bis_SR_register(LPM3_bits + GIE); //ACLK remains active
+      configureChannels = 1;              //need to reconfigure channels before streaming again
+   }
+
+   battVal[2] = P2IN & 0xC0;
+}
 
 /**
 ***

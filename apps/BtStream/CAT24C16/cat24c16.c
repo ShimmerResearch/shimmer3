@@ -8,6 +8,7 @@
 #include "cat24c16.h"
 #include "hal_I2C.h"
 #include "msp430.h"
+#include "string.h"
 
 #define min(a,b) ((a<b)?a:b)
 
@@ -38,7 +39,10 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer) {
 	I2C_Set_Slave_Address(CAT24C16_ADDR|(address>>8));
 	*outBuffer = (uint8_t)(address & 0xFF);
 
-	I2C_Read_Packet_From_Sensor(outBuffer, length);
+	if(!I2C_Read_Packet_From_Sensor(outBuffer, length)) {
+	   //read failed, set buffer to all 0xFF
+	   while(length--) *(outBuffer++) = 0xFF;
+	}
 }
 
 

@@ -48,7 +48,7 @@
 #define DEVICE_VER      3     //Represents shimmer3
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
-#define FW_VER_MINOR    4     //Minor version number: 0-255
+#define FW_VER_MINOR    5     //Minor version number: 0-255
 #define FW_VER_REL      0     //Release candidate version number: 0-255
 
 

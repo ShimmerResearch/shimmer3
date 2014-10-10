@@ -42,6 +42,10 @@
 
 #include "ads1292.h"
 #include "msp430.h"
+#include "hal_UCA0.h"
+
+uint8_t ads1292Uca0RxIsr();
+uint8_t ads1292Uca0TxIsr();
 
 uint8_t *activeBuffer;
 uint8_t chip1Buffer1[9], chip1Buffer2[9], chip2Buffer1[9], chip2Buffer2[9];
@@ -91,6 +95,7 @@ void ADS1292_init(void) {
    UCA0BR1 = 0;
    UCA0CTL1 &= ~UCSWRST;            // Clear SW reset, resume operation
 
+   UCA0_isrActivate(UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr));
 }
 
 void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata) {
@@ -438,45 +443,38 @@ void ADS1292_dataReadyChip2() {
 }
 
 
-#pragma vector=USCI_A0_VECTOR
-__interrupt void USCI_A0_ISR(void)
-{
-   switch(__even_in_range(UCA0IV,4)) {
-   case 0:break;                       //Vector 0 - no interrupt
+uint8_t ads1292Uca0RxIsr(){
+   while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
 
-   case 2:                             //Vector 2 - RXIFG
-      while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
-
-      activeBuffer[rxCount++] = UCA0RXBUF;
-      if ( rxCount == ADS1292_DATA_PACKET_LENGTH) {
-         UCA0IE &= ~UCRXIE;            //Disable USCI_A0 RX interrupt
-         if((activeBuffer == chip1Buffer1) || (activeBuffer == chip1Buffer2)) {
-            chip1ReadPending = 0;
-            if(activeBuffer == chip1Buffer1)
-               chip1CurrentFullBuffer = 1;
-            else
-               chip1CurrentFullBuffer = 2;
-            if(chip2ReadPending) {
-               chip2ReadPending = 0;
-               ADS1292_dataReadyChip2();
-            }
-         } else {
+   activeBuffer[rxCount++] = UCA0RXBUF;
+   if ( rxCount == ADS1292_DATA_PACKET_LENGTH) {
+      UCA0IE &= ~UCRXIE;            //Disable USCI_A0 RX interrupt
+      if((activeBuffer == chip1Buffer1) || (activeBuffer == chip1Buffer2)) {
+         chip1ReadPending = 0;
+         if(activeBuffer == chip1Buffer1)
+            chip1CurrentFullBuffer = 1;
+         else
+            chip1CurrentFullBuffer = 2;
+         if(chip2ReadPending) {
             chip2ReadPending = 0;
-            if(activeBuffer == chip2Buffer1)
-               chip2CurrentFullBuffer = 1;
-            else
-               chip2CurrentFullBuffer = 2;
-            if(chip1ReadPending) {
-               chip1ReadPending = 0;
-               ADS1292_dataReadyChip1();
-            }
+            ADS1292_dataReadyChip2();
          }
       } else {
-         UCA0TXBUF = 0xFF;             //To get Next byte.
+         chip2ReadPending = 0;
+         if(activeBuffer == chip2Buffer1)
+            chip2CurrentFullBuffer = 1;
+         else
+            chip2CurrentFullBuffer = 2;
+         if(chip1ReadPending) {
+            chip1ReadPending = 0;
+            ADS1292_dataReadyChip1();
+         }
       }
-      break;
-   case 4:break;                       //Vector 4 - TXIFG
-
-   default: break;
+   } else {
+      UCA0TXBUF = 0xFF;             //To get Next byte.
    }
+   return 0;
 }
+
+uint8_t ads1292Uca0TxIsr() {return 0;}  // to add if necessary
+
