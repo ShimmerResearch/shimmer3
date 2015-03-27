@@ -201,24 +201,35 @@ When the Shimmer is docked (in the programming dock or multi-gang charger) the l
 - Green on: charging completed 
 
 
-When the Shimmer is docked, and not actively streaming data, it will respond to the following commands through the external serial (UART) port. Each command, and response, ends with a carriage return and line feed (ASCII: 0x0D and 0x0A).A CRC checksum is included in each response, which is calculated over the data portion of the response.
-Command |                     Description                       |                   Response
---------|-------------------------------------------------------|----------------------------------------------
-  mac$  | Returns the MAC address of the Bluetooth module       | "XXXXXXXXXXXX" + CrcLSB + CrcMSB + "\r\n"
---------|-------------------------------------------------------|----------------------------------------------
-  ver$  | Returns the version information                       | devVer + fwVerLSB + fwVerMSB + fwMajorLSB + 
-        |                                                       | fwMajorMSB + fwMinor + fwRevision + CrcLSB +
-        |                                                       | CrcMSB + "\r\n"
---------|-------------------------------------------------------|----------------------------------------------
-  bat$  | Returns the current battery voltage and charge status | battAdcLSB + battAdcMSB + chargeStatus + 
-        |                                                       | CrcLSB + CrcMSB + "\r\n"
---------|-------------------------------------------------------|----------------------------------------------
-  mem$  | Returns the configuration in the MSP430s InfoMem      | (Current configuration, see "Infomem 
-        |                                                       | Contents" portion of shimmer.h. Length is 
-        |                                                       | equal to NV_TOTAL_NUM_CONFIG_BYTES) + CrcLSB 
-        |                                                       | + CrcMSB + "\r\n"
+When the Shimmer is docked, and not actively streaming data, it will respond to commands through the external serial (UART) port. The format of the command are below:
+SET/GET/RESPONSE Packet Format:
+       start_sign | cmd | length | comp | prop |     data     |      crc     |
+Byte #:     0     |  1  |   2    |  3   |  4   | 5-(4+length) | (5-6)+length |
+
+where start_sign  (1 byte) = '$' (0x24)
+      cmd         (1 byte) = command names (e.g. SET/GET/RSP/ACK)
+      length      (1 byte) = size of comp + prop + data
+      comp        (1 byte) = component names (e.g. SHIMMER/BATT/DAUGHTER CARD)
+      prop        (1 byte) = property of the corresponding component (e.g. MAC/RANGE/OFFSET)
+      data        (up to 128 bytes) = args to pass
+      crc         (2 bytes)
+example: to get shimmer mac address, send:
+|  byte #    | 1  |  2    3    4    5    6      7   |
+|content(0x) | 24 | 03   03   01   02  crc_l  crc_h |
+
+ack/nack Packet Format:
+       start_sign | cmd |      crc     |
+Byte:       0     |  1  | (5-6)+length |
+
+example: bad argument nack
+|  byte #   | 1  |   2     3     4   |
+|content(0x)| 24 | 0xfd  crc_l crc_h |
+
 
 Changelog:
+V0.6 (27 March 2015)
+   - changed format of serial/UART commands
+   - added support for DERIVED_CHANNEL configuration bytes
 V0.5 (10 September 2014)
    - add support for serial/UART commands
       - supported commands: ver$, mac$, bat$ and mem$

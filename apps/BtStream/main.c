@@ -92,6 +92,7 @@
 //TODO: figure out why first sample after starting streaming is sometimes incorrect when using DMA with the ADC
 
 #include <stdint.h>
+#include <stdlib.h>
 #include "msp430.h"
 #include "shimmer.h"
 #include "hal_pmm.h"
@@ -113,6 +114,7 @@
 #include "cat24c16.h"
 #include "hal_UCA0.h"
 #include "hal_UartA0.h"
+#include "hal_CRC.h"
 
 void Init(void);
 void BlinkTimerStart(void);
@@ -137,7 +139,13 @@ inline void MonitorChargeStatusStop(void);
 inline void SetChargeStatusLeds(void);
 inline void GsrRange(void);
 void SetBtBaudRate(uint8_t rate);
-void ReadBatt(uint8_t val);
+void ReadBatt();
+uint8_t UartCheckCrc(uint8_t len);
+void UartProcessCmd();
+void UartSendRsp();
+uint8_t UartCallback(uint8_t data);
+void UartCbufPush(uint8_t elem);
+void UartCbufPickData(uint8_t * dst_buf, uint8_t offset, uint8_t len);
 
 #define ACLK_1S      32768    //1s for ACLK (running at 32768Hz)
 #define ACLK_2S      65536    //2s for ACLK (running at 32768Hz)
@@ -153,7 +161,7 @@ uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateRes
       mpu9150GyroRangeResponse, mpu9150SamplingRateResponse, mpu9150AccelRangeResponse, sampleMpu9150Mag,
       mpu9150MagSensAdjValsResponse, sampleBmp180Press, bmp180CalibrationCoefficientsResponse,
       bmp180OversamplingRatioResponse, blinkLedResponse, gsrRangeResponse, internalExpPowerEnableResponse,
-      exgRegsResponse, dcIdResponse, dcMemResponse, btCommsBaudRateResponse;
+      exgRegsResponse, dcIdResponse, dcMemResponse, btCommsBaudRateResponse, derivedChannelBytesResponse;
 uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE], waitingForArgs, argsSize;
 uint8_t resPacket[RESPONSE_PACKET_SIZE];
@@ -180,6 +188,23 @@ uint8_t changeBtBaudRate;
 uint8_t btMac[12], fwInfo[7], battVal[3];
 
 char *dierecord;
+
+uint8_t uartDcMemLength, uartInfoMemLength;
+uint16_t uartDcMemOffset, uartInfoMemOffset;
+uint8_t uartSteps, uartArgSize, uartArg2Wait, uartCrc2Wait, uartOldAction, uartAction;
+uint8_t uartRxBuf[UART_DATA_LEN_MAX], uartRespBuf[UART_RSP_PACKET_SIZE];
+uint8_t uartProcessCmds, uartSendResponses,
+        uartSendRspOldMac, uartSendRspOldVer, uartSendRspOldBat, uartSendRspOldMem, uartSendRspMac,
+        uartSendRspVer, uartSendRspBat, uartSendRspGdi, uartSendRspGdm, uartSendRspGim,
+        uartSendRspAck, uartSendRspBadCmd, uartSendRspBadArg, uartSendRspBadCrc;
+uint8_t btMacHex[6];
+
+#define CBUF_SIZE                   27
+#define CBUF_PARAM_LEN_MAX          CBUF_SIZE-6
+struct {
+   uint8_t idx;
+   uint8_t entry[ CBUF_SIZE ];
+}ucBuf;
 
 void main(void) {
    uint8_t digi_offset;
@@ -245,6 +270,14 @@ void main(void) {
       if(sendResponse) {
          sendResponse = 0;
          SendResponse();
+      }
+      if(uartProcessCmds){
+         uartProcessCmds = 0;
+         UartProcessCmd();
+      }
+      if(uartSendResponses){
+         uartSendResponses = 0;
+         UartSendRsp();
       }
       if(startSensing) {
          if(!stopSensing) {
@@ -518,7 +551,29 @@ void Init(void) {
    gsrRangeResponse = 0;
    last_GSR_val = 0;
    btCommsBaudRateResponse = 0;
+   derivedChannelBytesResponse = 0;
    changeBtBaudRate = 0xFF;   //indicates doesn't need changing
+   uartSendRspOldMac = 0;
+   uartSendRspOldVer = 0;
+   uartSendRspOldBat = 0;
+   uartSendRspOldMem = 0;
+   uartSendRspAck = 0;
+   uartSendRspMac = 0;
+   uartSendRspVer = 0;
+   uartSendRspBat = 0;
+   uartSendRspGdi = 0;
+   uartSendRspGdm = 0;
+   uartSendRspGim = 0;
+   uartSendRspBadCmd = 0;
+   uartSendRspBadArg = 0;
+   uartSendRspBadCrc = 0;
+   uartSteps = 0;
+   uartArgSize = 0;
+   uartArg2Wait = 0;
+   uartCrc2Wait = 0;
+   ucBuf.idx=0;
+   uartProcessCmds = 0;
+   uartSendResponses = 0;
 
    *fwInfo = DEVICE_VER;
    *(fwInfo + 1) = (FW_IDENTIFIER & 0xFF);
@@ -539,11 +594,14 @@ void Init(void) {
    BT_getMacAddress(btMac);
 
    UCA0_isrInit();
-   UART_init();
-   UART_regCmd("ver$", fwInfo, 7, 0, 0, 0);
-   UART_regCmd("mac$", btMac, 12, 0, 0, 0);
-   UART_regCmd("bat$", battVal, 3, 0, 0, ReadBatt);
-   UART_regCmd("mem$", storedConfig, NV_TOTAL_NUM_CONFIG_BYTES, 0, 0, 0);
+   UART_init(UartCallback);
+   uint8_t i, pchar[3];
+   pchar[2]=0;
+   for(i=0; i <6; i++){
+      pchar[0] = btMac[i*2];
+      pchar[1] = btMac[i*2+1];
+      btMacHex[i] = strtoul((char*)pchar,0,16);
+   }
 
    if(P2IN & BIT3) {
       //high (docked)
@@ -1025,6 +1083,7 @@ uint8_t BtDataAvailable(uint8_t data) {
       case RESET_CALIBRATION_VALUE_COMMAND:
       case GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND:
       case GET_BT_COMMS_BAUD_RATE:
+      case GET_DERIVED_CHANNEL_BYTES:
          gAction = data;
          processCommand = 1;
          return 1;
@@ -1055,6 +1114,7 @@ uint8_t BtDataAvailable(uint8_t data) {
       case SET_EXG_REGS_COMMAND:
       case GET_DAUGHTER_CARD_MEM_COMMAND:
       case SET_DAUGHTER_CARD_MEM_COMMAND:
+      case SET_DERIVED_CHANNEL_BYTES:
          waitingForArgs = 3;
          gAction = data;
          return 0;
@@ -1421,6 +1481,15 @@ void ProcessCommand(void) {
          }
       }
       break;
+   case GET_DERIVED_CHANNEL_BYTES:
+      derivedChannelBytesResponse = 1;
+      break;
+   case SET_DERIVED_CHANNEL_BYTES:
+      storedConfig[NV_DERIVED_CHANNEL_BYTE_0] = args[0];
+      storedConfig[NV_DERIVED_CHANNEL_BYTE_1] = args[1];
+      storedConfig[NV_DERIVED_CHANNEL_BYTE_2] = args[2];
+      InfoMem_write((void*)NV_DERIVED_CHANNEL_BYTE_0, &storedConfig[NV_DERIVED_CHANNEL_BYTE_0], 3);
+      break;
    default:;
    }
    sendAck = 1;
@@ -1603,6 +1672,11 @@ void SendResponse(void) {
          *(resPacket + packet_length++) = BT_COMMS_BAUD_RATE_RESPONSE;
          *(resPacket + packet_length++) = storedConfig[NV_BT_COMMS_BAUD_RATE];
          btCommsBaudRateResponse = 0;
+      } else if(derivedChannelBytesResponse) {
+         *(resPacket + packet_length++) = DERIVED_CHANNEL_BYTES_RESPONSE;
+         memcpy((resPacket+packet_length), &storedConfig[NV_DERIVED_CHANNEL_BYTE_0], 3);
+         packet_length += 3;
+         derivedChannelBytesResponse = 0;
       }
    }
 
@@ -1650,6 +1724,10 @@ void SetDefaultConfiguration(void) {
    //set BT baud rate to 115200
    if(storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF)
       storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;                                               // 115200 baud
+
+   storedConfig[NV_DERIVED_CHANNEL_BYTE_0] = 0x00;
+   storedConfig[NV_DERIVED_CHANNEL_BYTE_1] = 0x00;
+   storedConfig[NV_DERIVED_CHANNEL_BYTE_2] = 0x00;
 
    InfoMem_write((void*)0, storedConfig, NV_NUM_SETTINGS_BYTES);
 }
@@ -2143,7 +2221,7 @@ uint8_t Dma0BatteryRead(void) {
    return 1;
 }
 
-void ReadBatt(uint8_t val){
+void ReadBatt(void){
    adcStartPtr = ADC_init(MASK_VBATT);
    DMA0_transferDoneFunction(&Dma0BatteryRead);
    if(adcStartPtr) {
@@ -2155,6 +2233,382 @@ void ReadBatt(uint8_t val){
    }
 
    battVal[2] = P2IN & 0xC0;
+}
+
+
+#define UART_STEP_WAIT4_CMD         4
+#define UART_STEP_WAIT4_LEN         3
+#define UART_STEP_WAIT4_DATA        2
+#define UART_STEP_WAIT4_CRC         1
+
+uint8_t UartCallback(uint8_t data){
+   UartCbufPush(data);
+   if(uartSteps){ //wait for: cmd, len, data, crc -> process
+      if(uartSteps == UART_STEP_WAIT4_CMD){
+         uartAction = data;
+         uartArgSize = UART_RXBUF_CMD;
+         uartRxBuf[uartArgSize++] = data;
+         switch(uartAction){
+         case UART_SET:
+         case UART_GET:
+            uartSteps = UART_STEP_WAIT4_LEN;
+            return 0;
+         default:
+            uartSteps = 0;
+            uartSendRspBadCmd = 1;
+            uartSendResponses = 1;
+            return 1;
+         }
+      }
+      else if(uartSteps == UART_STEP_WAIT4_LEN){
+         uartSteps =  UART_STEP_WAIT4_DATA;
+         uartArgSize = UART_RXBUF_LEN;
+         uartRxBuf[uartArgSize++] = data;
+         uartArg2Wait = data;
+         return 0;
+      }
+      else if(uartSteps == UART_STEP_WAIT4_DATA){
+         uartRxBuf[uartArgSize++] = data;
+         if(!--uartArg2Wait) {
+            uartCrc2Wait = 2;
+            uartSteps = UART_STEP_WAIT4_CRC;
+         }
+         return 0;
+      }
+      else if(uartSteps == UART_STEP_WAIT4_CRC){
+         uartRxBuf[uartArgSize++] = data;
+         if(!--uartCrc2Wait) {
+            uartSteps = 0;
+            uartArgSize = 0;
+            uartProcessCmds = 1;
+            return 1;
+         }
+         else
+            return 0;
+      }
+      else{
+         uartSteps = 0;
+         return 0;
+      }
+   }
+   else{
+      if(data == '$'){
+         uint8_t uart_cmd_str[4];
+         UartCbufPickData(uart_cmd_str, 0, 4);
+         uartAction = 0;
+         if(!memcmp(uart_cmd_str, "mac$", 4)){
+            uartSendResponses = 1;
+            uartSendRspOldMac = 1;
+            return 1;
+         }
+         else if(!memcmp(uart_cmd_str, "ver$", 4)){
+            uartSendResponses = 1;
+            uartSendRspOldVer = 1;
+            return 1;
+         }
+         else if(!memcmp(uart_cmd_str, "bat$", 4)){
+            uartSendResponses = 1;
+            uartSendRspOldBat = 1;
+            return 1;
+         }
+         else if(!memcmp(uart_cmd_str, "mem$", 4)){
+            uartSendResponses = 1;
+            uartSendRspOldMem = 1;
+            return 1;
+         }
+         else{
+            uartArgSize = UART_RXBUF_START;
+            uartRxBuf[UART_RXBUF_START] = '$';
+            uartSteps = UART_STEP_WAIT4_CMD;
+            return 0;
+         }
+      }
+   }
+   return 0;
+}
+
+void UartProcessCmd(){
+   if(uartAction){
+      if(UartCheckCrc(uartRxBuf[UART_RXBUF_LEN]+3)){
+         if(uartAction == UART_GET){  //get
+            if(uartRxBuf[UART_RXBUF_COMP] == UART_COMP_SHIMMER){ //get shimmer
+               switch(uartRxBuf[UART_RXBUF_PROP]){
+               case UART_PROP_MAC:
+                  if((uartRxBuf[UART_RXBUF_LEN] == 2))
+                     uartSendRspMac = 1;
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               case UART_PROP_VER:
+                  if((uartRxBuf[UART_RXBUF_LEN] == 2))
+                     uartSendRspVer = 1;
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               case UART_PROP_INFOMEM:
+                  uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
+                  uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
+                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff)  && (uartInfoMemOffset>=0x1800)
+                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)){
+                     uartInfoMemOffset -= 0x1800;
+                     uartSendRspGim = 1;
+                  }
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               default:
+                  uartSendRspBadCmd = 1;
+                  break;
+               }
+            } else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_BAT){ //get battery
+               switch(uartRxBuf[UART_RXBUF_PROP]){
+               case UART_PROP_VALUE:
+                  if((uartRxBuf[UART_RXBUF_LEN] == 2))
+                     uartSendRspBat = 1;
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               default:
+                  uartSendRspBadCmd = 1;
+                  break;
+               }
+            } else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_DAUGHTER_CARD){ //get daughter card
+               switch(uartRxBuf[UART_RXBUF_PROP]){
+               case UART_PROP_CARD_ID:
+                  uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
+                  uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1];
+                  if((uartDcMemLength<=16) && (uartDcMemOffset<=15) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=16)){
+                     uartSendRspGdi = 1;
+                  }
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               case UART_PROP_CARD_MEM:
+                  uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
+                  uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
+                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)){
+                     uartSendRspGdm = 1;
+                  }
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               default:
+                  uartSendRspBadCmd = 1;
+                  break;
+               }
+            }
+            else {
+               uartSendRspBadCmd = 1;
+            }
+         }
+         else if(uartAction == UART_SET){ //set
+            if(uartRxBuf[UART_RXBUF_COMP] == UART_COMP_SHIMMER){ //set shimmer
+               switch(uartRxBuf[UART_RXBUF_PROP]){
+               case UART_PROP_INFOMEM:
+                  uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
+                  uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
+                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff) && (uartInfoMemOffset>=0x1800)
+                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)) {
+                     uartInfoMemOffset -= 0x1800;
+                     InfoMem_write((void*)uartInfoMemOffset, uartRxBuf+UART_RXBUF_DATA+3, uartInfoMemLength);
+                     uartSendRspAck = 1;
+                  }
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               default:
+                  uartSendRspBadCmd = 1;
+                  break;
+               }
+            }
+            else if(uartRxBuf[UART_RXBUF_COMP] == UART_COMP_DAUGHTER_CARD){ //set daughter card
+               switch(uartRxBuf[UART_RXBUF_PROP]){
+               case UART_PROP_CARD_MEM:
+                  uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
+                  uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
+                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
+                     CAT24C16_init();
+                     CAT24C16_write(uartDcMemOffset, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
+                     CAT24C16_powerOff();
+                     uartSendRspAck = 1;
+                  }
+                  else
+                     uartSendRspBadArg = 1;
+                  break;
+               default:
+                  uartSendRspBadCmd = 1;
+                  break;
+               }
+            }
+            else {
+               uartSendRspBadCmd = 1;
+            }
+         }
+      }
+      else
+         uartSendRspBadCrc = 1;
+      uartSendResponses = 1;
+   }
+}
+
+void UartSendRsp(){
+   uint8_t uart_resp_len = 0, cr = 0;
+   uint16_t uartRespCrc;
+
+   if(uartSendRspAck){
+      uartSendRspAck = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_ACK_RESPONSE;
+   } else if(uartSendRspBadCmd){
+      uartSendRspBadCmd = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_BAD_CMD_RESPONSE;
+   } else if(uartSendRspBadArg){
+      uartSendRspBadArg = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_BAD_ARG_RESPONSE;
+   } else if(uartSendRspBadCrc){
+      uartSendRspBadCrc = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_BAD_CRC_RESPONSE;
+   } else if(uartSendRspOldMac){
+      uartSendRspOldMac = 0;
+      memcpy(uartRespBuf, btMac, 12);
+      uart_resp_len+=12;
+      cr = 1;
+   } else if(uartSendRspOldVer){
+      uartSendRspOldVer = 0;
+      *(uartRespBuf + uart_resp_len++) = DEVICE_VER;
+      *(uartRespBuf + uart_resp_len++) = (FW_IDENTIFIER & 0xFF);
+      *(uartRespBuf + uart_resp_len++) = ((FW_IDENTIFIER & 0xFF00) >> 8);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_MAJOR & 0xFF);
+      *(uartRespBuf + uart_resp_len++) = ((FW_VER_MAJOR & 0xFF00) >> 8);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_MINOR);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_REL);
+      cr = 1;
+   } else if(uartSendRspOldBat){
+      uartSendRspOldBat = 0;
+      ReadBatt();
+      memcpy(uartRespBuf, battVal, 3);
+      uart_resp_len+=3;
+      cr = 1;
+   } else if(uartSendRspOldMem){
+      uartSendRspOldMem = 0;
+      memcpy(uartRespBuf, storedConfig, NV_TOTAL_NUM_CONFIG_BYTES);
+      uart_resp_len+=12;
+      cr = 1;
+   } else if(uartSendRspMac){
+      uartSendRspMac = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = 8;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_MAC;
+      memcpy(uartRespBuf + uart_resp_len, btMacHex, 6);
+      uart_resp_len+=6;
+   } else if(uartSendRspVer){
+      uartSendRspVer = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = 9;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_VER;
+      *(uartRespBuf + uart_resp_len++) = DEVICE_VER;
+      *(uartRespBuf + uart_resp_len++) = (FW_IDENTIFIER & 0xFF);
+      *(uartRespBuf + uart_resp_len++) = ((FW_IDENTIFIER & 0xFF00) >> 8);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_MAJOR & 0xFF);
+      *(uartRespBuf + uart_resp_len++) = ((FW_VER_MAJOR & 0xFF00) >> 8);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_MINOR);
+      *(uartRespBuf + uart_resp_len++) = (FW_VER_REL);
+   } else if(uartSendRspBat){
+      uartSendRspBat = 0;
+      ReadBatt();
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = 5;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_BAT;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_VALUE;
+      memcpy(uartRespBuf + uart_resp_len, battVal, 3);
+      uart_resp_len+=3;
+   } else if(uartSendRspGdi){
+      uartSendRspGdi = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = uartDcMemLength+2;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_DAUGHTER_CARD;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_ID;
+      if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
+         CAT24C16_init();
+         CAT24C16_read(uartDcMemOffset, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
+         CAT24C16_powerOff();
+      }
+      uart_resp_len += uartDcMemLength;
+   } else if(uartSendRspGdm){
+      uartSendRspGdm = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = uartDcMemLength+2;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_DAUGHTER_CARD;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
+      if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
+         CAT24C16_init();
+         CAT24C16_read(uartDcMemOffset, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
+         CAT24C16_powerOff();
+      }
+      uart_resp_len += uartDcMemLength;
+   } else if(uartSendRspGim){
+      uartSendRspGim = 0;
+      *(uartRespBuf + uart_resp_len++) = '$';
+      *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
+      *(uartRespBuf + uart_resp_len++) = uartInfoMemLength+2;
+      *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
+      *(uartRespBuf + uart_resp_len++) = UART_PROP_INFOMEM;
+      if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
+         InfoMem_read((void*)uartInfoMemOffset, uartRespBuf+uart_resp_len, uartInfoMemLength);
+      }
+      uart_resp_len += uartInfoMemLength;
+   }
+
+   uartRespCrc = CRC_data(uartRespBuf, uart_resp_len);
+   *(uartRespBuf + uart_resp_len++)= uartRespCrc & 0xff;
+   *(uartRespBuf + uart_resp_len++)= (uartRespCrc & 0xff00)>>8;
+   if(cr){  //character return was in the old commands
+      *(uartRespBuf + uart_resp_len++)= 0x0d;
+      *(uartRespBuf + uart_resp_len++)= 0x0a;
+   }
+
+   UART_write(uartRespBuf, uart_resp_len);
+}
+
+// == circular buffer start ==
+void UartCbufPush(uint8_t elem){
+   ucBuf.entry[ucBuf.idx++] = elem;
+   if(ucBuf.idx >= CBUF_SIZE)
+      ucBuf.idx = 0;
+}
+void UartCbufPickData(uint8_t * dst_buf, uint8_t offset, uint8_t len){
+   if((!len) || (len > CBUF_PARAM_LEN_MAX) || (offset > CBUF_PARAM_LEN_MAX) || ((len+offset) > CBUF_SIZE))
+      return;
+   if(ucBuf.idx >= offset+len){
+      memcpy(dst_buf, &ucBuf.entry[ucBuf.idx-len-offset], len);
+   }else if(ucBuf.idx <= offset){
+      memcpy(dst_buf, &ucBuf.entry[CBUF_SIZE + ucBuf.idx-len-offset], len);
+   }
+   else{// len+offset > ucBuf.idx > offset
+      memcpy(dst_buf, &ucBuf.entry[CBUF_SIZE + ucBuf.idx-len-offset], len+offset-ucBuf.idx);
+      memcpy(dst_buf+len+offset-ucBuf.idx, &ucBuf.entry[0], ucBuf.idx-offset);
+   }
+}
+// == circular buffer end ==
+
+uint8_t UartCheckCrc(uint8_t len){
+   if(len > UART_DATA_LEN_MAX)
+      return 0;
+   uint16_t uart_rx_crc, uart_calc_crc;
+   uart_calc_crc = CRC_data(uartRxBuf, len);
+   uart_rx_crc = (uint16_t)uartRxBuf[len];
+   uart_rx_crc += ((uint16_t)uartRxBuf[len+1])<<8;
+   return (uart_rx_crc == uart_calc_crc);
 }
 
 /**

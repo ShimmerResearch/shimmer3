@@ -63,16 +63,10 @@
 #define UART_VECTOR     USCI_A0_VECTOR
 #define UCIV            UCA0IV
 
-//initializes the uart_num_registered_cmds value
-extern void UART_init();
+//initializes callback for the ISR
+extern void UART_init(uint8_t (*uart_cb)(uint8_t data));
 
-// register commands
-// usage: on receiving 'cmd_buff' through uart0_rx,
-// return 'response_buf' through uart0_tx
-// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
-extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
-      uint8_t* param_buf, uint8_t param_len, void (*uart_cb)(uint8_t val));
+extern void UART_write(uint8_t *buf, uint8_t len);
 
 extern void UART_activate();
 

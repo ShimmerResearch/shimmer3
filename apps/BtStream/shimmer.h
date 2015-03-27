@@ -48,7 +48,7 @@
 #define DEVICE_VER      3     //Represents shimmer3
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
-#define FW_VER_MINOR    5     //Minor version number: 0-255
+#define FW_VER_MINOR    6     //Minor version number: 0-255
 #define FW_VER_REL      0     //Release candidate version number: 0-255
 
 
@@ -150,6 +150,9 @@
                                                                //Need to disconnect BT connection before change is active
 #define BT_COMMS_BAUD_RATE_RESPONSE                   0x6B
 #define GET_BT_COMMS_BAUD_RATE                        0x6C
+#define SET_DERIVED_CHANNEL_BYTES                     0x6D
+#define DERIVED_CHANNEL_BYTES_RESPONSE                0x6E
+#define GET_DERIVED_CHANNEL_BYTES                     0x6F
 //0x70 to 0x87 and 0xE0 reserved for Log+Stream
 #define ACK_COMMAND_PROCESSED                         0xFF
 
@@ -238,9 +241,9 @@
 
 
 // Infomem contents
-#define NV_NUM_SETTINGS_BYTES             31
+#define NV_NUM_SETTINGS_BYTES             34
 #define NV_NUM_CALIBRATION_BYTES          84
-#define NV_TOTAL_NUM_CONFIG_BYTES         115
+#define NV_TOTAL_NUM_CONFIG_BYTES         118
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
@@ -272,10 +275,13 @@
 #define NV_EXG_ADS1292R_2_RESP1           28
 #define NV_EXG_ADS1292R_2_RESP2           29
 #define NV_BT_COMMS_BAUD_RATE             30
-#define NV_A_ACCEL_CALIBRATION            31
-#define NV_MPU9150_GYRO_CALIBRATION       52
-#define NV_LSM303DLHC_MAG_CALIBRATION     73
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   94
+#define NV_DERIVED_CHANNEL_BYTE_0         31
+#define NV_DERIVED_CHANNEL_BYTE_1         32
+#define NV_DERIVED_CHANNEL_BYTE_2         33
+#define NV_A_ACCEL_CALIBRATION            34
+#define NV_MPU9150_GYRO_CALIBRATION       55
+#define NV_LSM303DLHC_MAG_CALIBRATION     76
+#define NV_LSM303DLHC_ACCEL_CALIBRATION   97
 
 
 //Config byte masks
@@ -365,5 +371,39 @@
 
 //BtStream specific extension to range values
 #define GSR_AUTORANGE               0x04
+
+//UART definitions
+//Command names
+#define UART_RXBUF_START            0
+#define UART_RXBUF_CMD              1
+#define UART_RXBUF_LEN              2
+#define UART_RXBUF_COMP             3
+#define UART_RXBUF_PROP             4     //data in rxbuf starts from byte 3
+#define UART_RXBUF_DATA             5     //data in rxbuf starts from byte 3
+#define UART_DATA_LEN_MAX           138   //max case: '$' + get + length + comp_shimmer+ prop_infomem
+#define UART_RSP_PACKET_SIZE        138   //+ info_len + info_loc*2 + 128bytes data + crc*2 = 138
+
+//Commands
+#define UART_SET                    0x01
+#define UART_RESPONSE               0x02
+#define UART_GET                    0x03
+#define UART_BAD_CMD_RESPONSE       0xFC
+#define UART_BAD_ARG_RESPONSE       0xFD
+#define UART_BAD_CRC_RESPONSE       0xFE
+#define UART_ACK_RESPONSE           0xFF
+
+//Components names
+#define UART_COMP_SHIMMER           0x01
+#define UART_COMP_BAT               0x02  //this is seen as a sensor
+#define UART_COMP_DAUGHTER_CARD     0x03
+
+//Property names
+#define UART_PROP_MAC               0x02
+#define UART_PROP_VER               0x03
+#define UART_PROP_INFOMEM           0x06
+#define UART_PROP_VALUE             0x02
+#define UART_PROP_CARD_ID           0x02
+#define UART_PROP_CARD_MEM          0x03
+
 
 #endif
