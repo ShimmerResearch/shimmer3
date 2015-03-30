@@ -139,14 +139,15 @@ SECTIONS
     .sysmem     : {} > RAM                /* DYNAMIC MEMORY ALLOCATION AREA    */
     .stack      : {} > RAM (HIGH)         /* SOFTWARE SYSTEM STACK             */
 
-    .text       : {}>> FLASH2 | FLASH     /* CODE                              */
+    .text       : {}>> FLASH | FLASH2     /* CODE                              */
     .text:_isr  : {} > FLASH              /* ISR CODE SPACE                    */
-    .cinit      : {} > FLASH              /* INITIALIZATION TABLES             */
-//#ifdef (__LARGE_DATA_MODEL__)
+#ifdef __LARGE_DATA_MODEL__
+    .cinit      : {} > FLASH | FLASH2     /* INITIALIZATION TABLES             */
     .const      : {} > FLASH | FLASH2     /* CONSTANT DATA                     */
-//#else
-//    .const      : {} > FLASH              /* CONSTANT DATA                     */
-//#endif
+#else
+    .cinit      : {} > FLASH              /* INITIALIZATION TABLES             */
+    .const      : {} > FLASH              /* CONSTANT DATA                     */
+#endif
     .cio        : {} > RAM                /* C I/O BUFFER                      */
 
     .pinit      : {} > FLASH              /* C++ CONSTRUCTOR TABLES            */

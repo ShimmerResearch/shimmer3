@@ -55,7 +55,7 @@ extern void BT_setServiceName(char *name); // max 16 chars
 extern void BT_setDeviceClass(char *deviceClass); // max 4 chars (hex word)
 extern void BT_disableRemoteConfig(uint8_t disableConfig);
 extern void BT_rst_MessageProgress();// reset messageInProgress to 0 as in the initialisation @weibo
-
+extern uint8_t BT_exitCmd();
 //rate_factor is baudrate * 0.004096, e.g. to set 115200, pass in "472"
 extern void BT_setRawBaudrate(char *rateFactor); // max 4 chars, must be integer
 
@@ -70,6 +70,13 @@ extern void BT_setInquiryTime(char *hexvalTime); // max 4 chars (hex word)
 
 extern void BT_resetDefaults();
 
+
+//set new baud rate. This change is effective immediately.
+//This change is only temporary. Reverts to previously configured rate after reset.
+//The string argument must be one of the following and EXACTLY 4 characters:
+//1200, 2400, 4800, 9600, 19.2(K), 38.4(K), 57.6(K), 115K, 230K, 460K or 921K
+//If any other value is used this function does nothing
+extern void BT_setTempBaudRate(char * baudRate);
 
 //pass in a pointer to the function that will get called when
 //data arrives

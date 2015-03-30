@@ -1,8 +1,11 @@
-/*******************************************************************************
+/* ****************************************************************************
  *
- *  UserExperience.c - system_pre_init.c
+ * HAL_MACROS.h
+ * Flash Library for flash memory controller of MSP430F5xx/6xx family
+ * 
  *
- *  Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/ 
+ * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/ 
+ * 
  * 
  *  Redistribution and use in source and binary forms, with or without 
  *  modification, are permitted provided that the following conditions 
@@ -31,41 +34,18 @@
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- ******************************************************************************/
- 
+ * 
+ * Created: Version 1.0 11/24/2009
+ * Updated: Version 2.0 12/15/2010
+ *  
+******************************************************************************/
+
+#ifndef HAL_MACROS_H
+#define HAL_MACROS_H
+
 /*
- * The function _system_pre_init it called by the start-up code before
- * "main" is called, and before data segment initialization is
- * performed.
- *
- * This is a template file, modify to perform any initialization that
- * should take place early.
- *
- * The return value of this function controls if data segment
- * initialization should take place. If 0 is returned, it is bypassed.
- *
- * For the MSP430 microcontroller family, please consider disabling
- * the watchdog timer here, as it could time-out during the data
- * segment initialization.
+ *  This macro is for use by other macros to form a fully valid C statement.
  */
- 
-#include <intrinsics.h>
-#include "msp430.h"
+#define st(x)      do { x } while (__LINE__ == -1)
 
-int _system_pre_init(void)
-{
-  /* Insert your low-level initializations here */
-
-  /* Disable Watchdog timer to prevent reset during */
-  /* long variable initialization sequences. */
-  WDTCTL = WDTPW | WDTHOLD;   
-  
-  /*==================================*/
-  /* Choose if segment initialization */
-  /* should be done or not.           */
-  /* Return: 0 to omit initialization */
-  /* 1 to run initialization          */
-  /*==================================*/
-  return 0;
-}
+#endif /* HAL_MACROS_H */

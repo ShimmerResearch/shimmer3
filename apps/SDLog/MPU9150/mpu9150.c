@@ -220,3 +220,16 @@ void MPU9150_getMagSensitivityAdj(uint8_t *buf) {
    I2C_Write_Packet_To_Sensor(localbuf,2);
    __delay_cycles(2400);   //100us (assuming 24MHz clock)
 }
+
+// Reset MPU9150 - needed for InvenSense motion library
+void MPU9150_reset(void) {
+	unsigned char buf[2];
+	I2C_Set_Slave_Address(MPU9150_ADDR);
+	*buf = MPU9150_PWR_MGMT_1;
+	I2C_Read_Packet_From_Sensor(buf, 1);
+
+	buf[1] = buf[0] | 0x80;
+
+	*buf = MPU9150_PWR_MGMT_1;
+	I2C_Write_Packet_To_Sensor(buf,2);
+}

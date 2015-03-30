@@ -590,28 +590,7 @@ void ADS1292_dataReadyChip2();
 //Bit 0 Must be set to '1;
 #define ADS1x9x_REG_RESP2      (0x00Au)
 
-//============================== below is the UART part ===============================
-#define UARTSEL 		P3SEL
-#define UARTTXD 		BIT4
-#define UARTRXD 		BIT5
 
-#define UARTCTL0     	UCA0CTL0
-#define UARTCTL1     	UCA0CTL1
-#define UARTBR0 		UCA0BR0
-#define UARTBR1			UCA0BR1
-#define UARTMCTL 		UCA0MCTL
-#define UARTIFG 		UCA0IFG
-#define UARTIE 			UCA0IE
-#define UARTTXBUF		UCA0TXBUF
-#define UARTRXBUF		UCA0RXBUF
-#define UART_VECTOR		USCI_A0_VECTOR
-#define UCIV			UCA0IV
-
-//exgOrUart: 0=exg; 1=uart
-void UART_setExgOrUart(uint8_t val);
-void UART_init();
-void UART_setStr(uint8_t *exp_buff, uint8_t exp_length, uint8_t *buf, uint8_t buf_length);
-void UART_send();
-void UART_sendNextChar();
-//============================== above is the UART part ===============================
+//void ADS1292_reg2Uca0();
+//void ADS1292_activate();
 #endif //ADS1292_H

@@ -147,6 +147,7 @@ void Board_init(void) {
    P2DIR &= ~BIT3;            //set as input
    //DETECT_N
    P6OUT |= BIT0;             //set high
+   P6REN |= BIT0;             //enable pull up
    P6DIR |= BIT0;             //set as output
 
    //EXP_RESET_N

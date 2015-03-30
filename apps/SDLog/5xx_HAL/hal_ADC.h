@@ -45,17 +45,6 @@
 
 #include <stdint.h>
 
-//ADC initialisation mask
-#define MASK_A_ACCEL 0x0001
-#define MASK_VBATT   0x0002
-#define MASK_EXT_A7  0x0004
-#define MASK_EXT_A6  0x0008
-#define MASK_EXT_A15 0x0010
-#define MASK_INT_A1  0x0020
-#define MASK_INT_A12 0x0040
-#define MASK_INT_A13 0x0080
-#define MASK_INT_A14 0x0100
-#define MASK_GSR     0x0020   //uses ADC1
 
 extern uint16_t* ADC_init(uint16_t mask);
 extern void ADC_startConversion(void);

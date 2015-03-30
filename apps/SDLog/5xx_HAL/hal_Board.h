@@ -40,11 +40,11 @@
 
 #include <stdint.h>
 
-#define LED_RED 	0x01
+#define LED_RED 	   0x01
 #define LED_GREEN0	0x02
 #define LED_GREEN1	0x04
 #define LED_YELLOW	0x08
-#define LED_BLUE	0x10
+#define LED_BLUE	   0x10
 #define LED_ALL		0xFF
 
 extern void Board_init(void);

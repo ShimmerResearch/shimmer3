@@ -42,7 +42,7 @@
 
 #include "msp430.h"
 #include "hal_ADC.h"
-//#include "../shimmer.h"
+#include "../shimmer_sd.h"
 
 uint8_t (*reportConversionDoneFuncPtr)(void) = 0;
 

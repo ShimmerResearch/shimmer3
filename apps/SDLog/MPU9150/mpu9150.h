@@ -140,4 +140,7 @@ void MPU9150_getMag(uint8_t *buf);
 //read the x, y and z mag sensitivity adjustment values
 void MPU9150_getMagSensitivityAdj(uint8_t *buf);
 
+// Reset MPU9150 - needed for InvenSense motion library
+void MPU9150_reset(void);
+
 #endif //MPU9150_H

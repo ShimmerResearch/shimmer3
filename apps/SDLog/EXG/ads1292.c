@@ -43,16 +43,21 @@
 #include "ads1292.h"
 #include "msp430.h"
 #include <string.h>
+#include "../5XX_hal/hal_UCA0.h"
 
-uint8_t exgOrUart;
+//uint8_t exgOrUart;
+
+uint8_t ads1292Uca0RxIsr();
+uint8_t ads1292Uca0TxIsr();
 
 uint8_t *activeBuffer;
 uint8_t chip1Buffer1[9], chip1Buffer2[9], chip2Buffer1[9], chip2Buffer2[9];
 uint8_t chip1CurrentFullBuffer, chip2CurrentFullBuffer;
 uint8_t rxCount, chip1ReadPending, chip2ReadPending;
+//uint8_t ads1292_isr_number;
 
 void ADS1292_init(void) {
-   exgOrUart = 0;
+   //exgOrUart = 0;
 
    P3OUT &= ~BIT3;                  //EXP_RESET_N set low
    P3DIR |= BIT3;                   //EXP_RESET_N set as output
@@ -96,6 +101,7 @@ void ADS1292_init(void) {
    UCA0BR1 = 0;
    UCA0CTL1 &= ~UCSWRST;            // Clear SW reset, resume operation
 
+   UCA0_isrActivate(UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr));
 }
 
 void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata) {
@@ -435,137 +441,46 @@ void ADS1292_dataReadyChip2() {
       }
    }
 }
-//============================== below is the UART part ===============================
-uint8_t *uart_str_buf, uart_str_len, *uart_exp_buf, uart_exp_len;
-uint8_t uart_messageInProgress, uart_charssent, uart_charsreceived, rx_buf[12];
-uint16_t led_cnt;
 
-void UART_setExgOrUart(uint8_t val){
-	exgOrUart = val;
-}
+uint8_t ads1292Uca0RxIsr(){
+   while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
 
-void uartRxEnable(){
-   UARTIE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
-}
-
-void uartRxDisable(){
-   UARTIE &= ~UCRXIE;                        // Enable USCI_A0 RX interrupt
-}
-
-void uartTxEnable(){
-   UARTIE |= UCTXIE;                         // Enable USCI_A0 RX interrupt
-}
-
-void uartTxDisable(){
-   UARTIE &= ~UCTXIE;                        // Enable USCI_A0 RX interrupt
-}
-
-void UART_init(){
-
-	UARTSEL |= UARTTXD+UARTRXD;
-
-	UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
-	UARTCTL1 |= UCSSEL_2;                     // SMCLK
-
-   UARTBR0 = 0x9c;                           // 24MHz 9600
-   UARTBR1 = 0;
-   UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
-
-	UARTCTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
-
-	uart_messageInProgress = 0;
-	uart_charsreceived = 0;
-	UARTIFG=0;
-	led_cnt=1;
-	uartRxEnable();
-	uartTxEnable();
-}
-void UART_setStr(uint8_t *exp_buff, uint8_t exp_length, uint8_t *buf, uint8_t buf_length){
-	uart_str_buf = buf;
-	uart_str_len = buf_length;
-	uart_exp_buf = exp_buff;
-	uart_exp_len = exp_length;
-	uart_charsreceived = 0;
-}
-
-void UART_send(){
-	if(uart_messageInProgress)
-		return; //fail
-
-	uart_messageInProgress = 1;
-	uart_charssent = 0;
-
-	UART_sendNextChar();
-}
-void UART_sendNextChar() {
-	if(uart_charssent < uart_str_len){
-		while (UARTIFG & UCTXIFG); //ensure no tx interrupt is pending
-		UARTTXBUF = *(uart_str_buf + uart_charssent++);
-	} else {
-		uart_messageInProgress = 0; //false
-	}
-}
-//============================== above is the UART part ===============================
-
-
-#pragma vector=USCI_A0_VECTOR
-__interrupt void USCI_A0_ISR(void)
-{
-   switch(__even_in_range(UCA0IV,4)) {
-   case 0:break;                       //Vector 0 - no interrupt
-
-   case 2:                             //Vector 2 - RXIFG
-	 if(exgOrUart){// uart
-       P7OUT ^= BIT3;
-		rx_buf[uart_charsreceived++]=UARTRXBUF;
-		if(uart_charsreceived==uart_exp_len){
-			if(!memcmp(uart_exp_buf, rx_buf, uart_charsreceived)){
-				uart_charsreceived=0;
-				UART_send();
-			}
-		}
-		else if(UARTRXBUF=='$'){
-			uart_charsreceived=0;
-		}
-		break;
-	 } else {// exg
-      while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
-
-      activeBuffer[rxCount++] = UCA0RXBUF;
-      if ( rxCount == ADS1292_DATA_PACKET_LENGTH) {
-         UCA0IE &= ~UCRXIE;            //Disable USCI_A0 RX interrupt
-         if((activeBuffer == chip1Buffer1) || (activeBuffer == chip1Buffer2)) {
-            chip1ReadPending = 0;
-            if(activeBuffer == chip1Buffer1)
-               chip1CurrentFullBuffer = 1;
-            else
-               chip1CurrentFullBuffer = 2;
-            if(chip2ReadPending) {
-               chip2ReadPending = 0;
-               ADS1292_dataReadyChip2();
-            }
-         } else {
+   activeBuffer[rxCount++] = UCA0RXBUF;
+   if ( rxCount == ADS1292_DATA_PACKET_LENGTH) {
+      UCA0IE &= ~UCRXIE;            //Disable USCI_A0 RX interrupt
+      if((activeBuffer == chip1Buffer1) || (activeBuffer == chip1Buffer2)) {
+         chip1ReadPending = 0;
+         if(activeBuffer == chip1Buffer1)
+            chip1CurrentFullBuffer = 1;
+         else
+            chip1CurrentFullBuffer = 2;
+         if(chip2ReadPending) {
             chip2ReadPending = 0;
-            if(activeBuffer == chip2Buffer1)
-               chip2CurrentFullBuffer = 1;
-            else
-               chip2CurrentFullBuffer = 2;
-            if(chip1ReadPending) {
-               chip1ReadPending = 0;
-               ADS1292_dataReadyChip1();
-            }
+            ADS1292_dataReadyChip2();
          }
       } else {
-         UCA0TXBUF = 0xFF;             //To get Next byte.
+         chip2ReadPending = 0;
+         if(activeBuffer == chip2Buffer1)
+            chip2CurrentFullBuffer = 1;
+         else
+            chip2CurrentFullBuffer = 2;
+         if(chip1ReadPending) {
+            chip1ReadPending = 0;
+            ADS1292_dataReadyChip1();
+         }
       }
-      break;
-	 }
-   case 4:
-		if(exgOrUart){
-			UART_sendNextChar();
-		}
-		break;                       //Vector 4 - TXIFG
-
-   default: break;
+   } else {
+      UCA0TXBUF = 0xFF;             //To get Next byte.
    }
+   return 0;
 }
+
+uint8_t ads1292Uca0TxIsr(){ return 0;}  // to add if necessary
+
+//void ADS1292_reg2Uca0(){
+//   ads1292_isr_number = UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr);
+//}
+
+//void ADS1292_activate(){
+//   UCA0_isrActivate(ads1292_isr_number);
+//}
