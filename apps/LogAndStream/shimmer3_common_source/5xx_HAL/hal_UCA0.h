@@ -11,13 +11,13 @@
 #include <stdint.h>
 
 // run this only once in init() if using any mode of uca0
-extern void UCA0_isrInit();
+void UCA0_isrInit();
 
 // run this only once in init() for any driver if they are using any mode of uca0
-extern uint8_t UCA0_isrRegister(void (*rx_isr)(void), uint8_t rx_exit_lpm, void (*tx_isr)(void), uint8_t tx_exit_lpm);
+uint8_t UCA0_isrRegister(uint8_t (*rx_isr)(void), uint8_t (*tx_isr)(void));
 
 // run this every time the driver wants to take charge of uca0
-extern void UCA0_isrActivate(uint8_t isr);
+void UCA0_isrActivate(uint8_t isr);
 
 
 

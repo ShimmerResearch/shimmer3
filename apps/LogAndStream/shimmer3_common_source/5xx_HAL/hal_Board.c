@@ -143,10 +143,13 @@ void Board_init(void) {
    P4DIR |= BIT2;             //set as output
    //SD card detect (SD_DETECT_N)
    P4DIR &= ~BIT1;            //set as input
+   P4REN |= BIT1;             //enable pull up
+   P4OUT |= BIT1;             //pull up when no sd card
    //DOCK
    P2DIR &= ~BIT3;            //set as input
    //DETECT_N
    P6OUT |= BIT0;             //set high
+   P6REN |= BIT0;             //enable pull up
    P6DIR |= BIT0;             //set as output
 
    //EXP_RESET_N

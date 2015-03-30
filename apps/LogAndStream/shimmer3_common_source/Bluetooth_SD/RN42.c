@@ -4,7 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
-#include "../msp430_clock/msp430_clock.h"
+//#include "../msp430_clock/msp430_clock.h"
 
 // copied as directly as possible from TinyOS RovingNetworksP.nc
 // http://code.google.com/p/tinyos-main/source/browse/trunk/tos/platforms/shimmer/chips/bluetooth/RovingNetworksP.nc
@@ -22,6 +22,8 @@ char commandbuf[32];
 uint8_t bt_setcommands_step,command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
+uint8_t bt_setbaudrate_step,bt_setbaudrate_start;
+char userBaudRate[5];
 
 uint8_t radioMode, charsSent, charsReceived;
 
@@ -35,6 +37,7 @@ char targetBt[16];
 
 uint8_t (*dataAvailableFuncPtr)(uint8_t data) = 0;
 
+uint8_t slowRate;
 
 void BT_startDone_cb(void (*cb)(void)){
    runSetCommands_cb = cb;
@@ -63,7 +66,76 @@ void initRN3() {
    P2OUT &= ~BIT2;      // active low
 }
 
-void setupUART() {
+void setupUART(char * baudRate) {
+   UCA1CTL1 |= UCSWRST;                   //**Put state machine in reset**
+   UCA1CTL1 |= UCSSEL_2;                  //SMCLK
+
+   if((strlen(baudRate)==4) && (strncmp(baudRate, "115K", 4))) {
+      if(!strncmp(baudRate, "1200", 4)) {
+         //1200
+         UCA1BR0 = 226;                         //24MHz 38400
+         UCA1BR1 = 4;                           //24MHz 38400
+         UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+      } else if (!strncmp(baudRate, "2400", 4)) {
+         //2400
+         UCA1BR0 = 113;                         //24MHz 2400
+         UCA1BR1 = 2;                           //24MHz 2400
+         UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+      } else if (!strncmp(baudRate, "4800", 4)) {
+         //4800
+         UCA1BR0 = 56;                          //24MHz 4800
+         UCA1BR1 = 1;                           //24MHz 4800
+         UCA1MCTL = UCBRS_0 + UCBRF_8 + UCOS16; //Modln UCBRSx=0, UCBRFx=8, over sampling
+      } else if (!strncmp(baudRate, "9600", 4)) {
+         //9600
+         UCA1BR0 = 156;                         //24MHz 9600
+         UCA1BR1 = 0;                           //24MHz 9600
+         UCA1MCTL = UCBRS_0 + UCBRF_4 + UCOS16; //Modln UCBRSx=0, UCBRFx=4, over sampling
+      } else if (!strncmp(baudRate, "19.2", 4)) {
+         //19200
+         UCA1BR0 = 78;                          //24MHz 19200
+         UCA1BR1 = 0;                           //24MHz 19200
+         UCA1MCTL = UCBRS_0 + UCBRF_2 + UCOS16; //Modln UCBRSx=0, UCBRFx=2, over sampling
+      } else if (!strncmp(baudRate, "38.4", 4)) {
+         //38400
+         UCA1BR0 = 39;                          //24MHz 38400
+         UCA1BR1 = 0;                           //24MHz 38400
+         UCA1MCTL = UCBRS_0 + UCBRF_1 + UCOS16; //Modln UCBRSx=0, UCBRFx=1, over sampling
+      } else if (!strncmp(baudRate, "57.6", 4)) {
+         //57600
+         UCA1BR0 = 26;                          //24MHz 57600
+         UCA1BR1 = 0;                           //24MHz 57600
+         UCA1MCTL = UCBRS_0 + UCBRF_1 + UCOS16; //Modln UCBRSx=0, UCBRFx=1, over sampling
+      } else if (!strncmp(baudRate, "230K", 4)) {
+         //230400
+         UCA1BR0 = 6;                           //24MHz 230400
+         UCA1BR1 = 0;                           //24MHz 230400
+         UCA1MCTL = UCBRS_0 + UCBRF_8 + UCOS16; //Modln UCBRSx=0, UCBRFx=8, over sampling
+      } else if (!strncmp(baudRate, "460K", 4)) {
+         //460800
+         UCA1BR0 = 3;                           //24MHz 460800
+         UCA1BR1 = 0;                           //24MHz 460800
+         UCA1MCTL = UCBRS_0 + UCBRF_4 + UCOS16; //Modln UCBRSx=0, UCBRFx=4, over sampling
+      } else if (!strncmp(baudRate, "921K", 4)) {
+         //921600
+         UCA1BR0 = 26;                          //24MHz 921600
+         UCA1BR1 = 0;                           //24MHz 921600
+         UCA1MCTL = UCBRS_0 + UCBRF_0;          //Modln UCBRSx=0, UCBRFx=0, no over sampling
+                                                //(cannot use over sampling as max error would be > 50%)
+      }
+   } else {
+      //115200
+      //default
+      UCA1BR0 = 13;                          //24MHz 115200
+      UCA1BR1 = 0;                           //24MHz 115200
+      UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16; //Modln UCBRSx=0, UCBRFx=0, over sampling
+   }
+
+   UCA1CTL1 &= ~UCSWRST;                     //**Initialize USCI state machine**
+   UCA1IFG = 0;                              // reset interrupts
+   UCA1IE |= UCTXIE;                         // Enable USCI_A1 TX and RX interrupt
+}
+/*void setupUART() {
    P5SEL |= BIT6+BIT7;
 
    UCA1CTL1 |= UCSWRST;                      // **Put state machine in reset**
@@ -73,7 +145,7 @@ void setupUART() {
    UCA1MCTL = UCBRS_0 + UCBRF_0 + UCOS16;    // Modln UCBRSx=0, UCBRFx=0, over sampling
    UCA1CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
    UCA1IE |= UCTXIE;                         // Enable USCI_A1 TX and RX interrupt
-}
+}*/
 
 void disableUART() {
    UCA1CTL1 |= UCSWRST;                      //Put state machine in reset
@@ -377,6 +449,61 @@ uint8_t runMasterCommands() {
    return 0;
 }
 
+uint8_t runSetTempBaudRate() {
+   if(!bt_setbaudrate_start){
+      BT_rst_MessageProgress();
+      command_received = 1;
+      bt_setbaudrate_start = 1;
+      DMA2_disable();
+   }
+   if(command_received){
+      command_received = 0;
+      if(bt_setbaudrate_step == 0){
+         bt_setbaudrate_step++;
+         writeCommand("$$$", "CMD\r\n");
+         return 0; //wait until response is received
+      }
+      // Connect
+      if(bt_setbaudrate_step == 1){
+         bt_setbaudrate_step++;
+         sprintf(commandbuf, "U,%s,N\r", userBaudRate);
+         if(slowRate) {
+            //UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
+            writeCommandNoRsp(commandbuf);
+            DMA2_disable();
+            _delay_cycles(4800000);
+            DMA2SZ = 1;
+            DMA2_enable();
+         } else {
+            writeCommand(commandbuf, "AOK\r\n");
+            //__bis_SR_register(LPM3_bits + GIE); //wait until response is received
+         }
+         return 0;
+      }
+
+      if(bt_setbaudrate_step == 2){
+         bt_setbaudrate_step = 0;
+         bt_setbaudrate_start =0;
+         //change MSP430 UART to use new baud rate
+         setupUART(userBaudRate);
+         if(!strncmp(userBaudRate, "1200", 4) || !strncmp(userBaudRate, "2400", 4)) {
+            slowRate = 1;
+         } else {
+            slowRate = 0;
+         }
+      }
+   }
+   return 0;
+}
+void BT_setTempBaudRate(char * baudRate) {
+   if((strlen(baudRate)==4) && (!strncmp(baudRate, "1200", 4) || !strncmp(baudRate, "2400", 4) ||
+         !strncmp(baudRate, "4800", 4) || !strncmp(baudRate, "9600", 4) || !strncmp(baudRate, "19.2", 4) ||
+         !strncmp(baudRate, "38.4", 4) || !strncmp(baudRate, "57.6", 4) || !strncmp(baudRate, "115K", 4) ||
+         !strncmp(baudRate, "230K", 4) || !strncmp(baudRate, "460K", 4) || !strncmp(baudRate, "921K", 4))) {
+      strcpy(userBaudRate,baudRate);
+      runSetTempBaudRate();
+   }
+}
 
 void BT_setGoodCommand(){
    command_received=1;
@@ -385,11 +512,12 @@ void BT_setGoodCommand(){
       runSetCommands();
    if(bt_runmastercommands_start)
       runMasterCommands();
+   if(bt_setbaudrate_start)
+      runSetTempBaudRate();
 }
 void sendNextChar() {
-   uint16_t i=0;
    if(charsSent < messageLength) {
-      while ((UCA1IFG & UCTXIFG)&& ++i) ; //ensure no tx interrupt is pending
+      while (UCA1IFG & UCTXIFG) ; //ensure no tx interrupt is pending
       UCA1TXBUF = *(messageBuffer + charsSent++);
    } else {
       messageInProgress = 0;              //false
@@ -406,6 +534,8 @@ void BT_init() {
    txie_reg = 0;
    secondTry = 0;
    command_received = 0;
+   bt_setbaudrate_step = 0;
+   bt_setbaudrate_start = 0;
    bt_getmac_step = 0;
    bt_getmac_start = 0;
    bt_setcommands_start = 0;
@@ -430,6 +560,7 @@ void BT_init() {
    setCustomPagingTime = 0;
    setBaudrate = 0;
    memset(receiveBuffer,0,8);
+   slowRate = 0;
 
    // connect/disconnect commands
    deviceConn = btConnected = 0;
@@ -438,10 +569,11 @@ void BT_init() {
    charsReceived = 0;
 }
 
-void start3(){
+/*void start3(){
    if(starting){
       initRN3();
-      setupUART();
+      //setupUART();
+      setupUART("115K");
       msp430_register_timer_cb(runSetCommands, 15, 0);
       starting = 0;
    }
@@ -456,6 +588,19 @@ void BT_start(){
    starting = 1;
    initRN1();
    msp430_register_timer_cb(start2, 2000, 0);
+}*/
+
+void BT_startAll(){
+   starting = 1;
+   initRN1();
+   _delay_cycles(48000000);
+   initRN2();
+   _delay_cycles(120000);
+   initRN3();
+   setupUART("115K");
+   _delay_cycles(360000);
+   starting = 0;
+   runSetCommands();
 }
 
 void BT_disable() {
@@ -474,19 +619,24 @@ uint8_t BT_write(uint8_t *buf, uint8_t len) {
       return 0; //fail
    }
 
-   messageInProgress = 1;
+   //messageInProgress = 1;
    charsSent = 0;
    memcpy(messageBuffer, buf, len);
-   messageLength = len;
+   if(len<=128)
+      messageLength = len;
+   else
+      return 0;
+
 
    if(!transmissionOverflow) {
+      messageInProgress = 1;
       sendNextChar();
+      return 1;
    }
    else{
-      messageInProgress = 0;
+      //messageInProgress = 0;
+      return 0;
    }
-
-   return 1; //success
 }
 
 uint8_t BT_connect(uint8_t *addr) {
@@ -639,6 +789,8 @@ void BT_rst_MessageProgress() {
    *expectedCommandResponse = '\0';
 
    command_received = 0;
+   bt_setbaudrate_step = 0;
+   bt_setbaudrate_start = 0;
    bt_setcommands_step = 0;
    bt_setcommands_start = 0;
    bt_runmastercommands_step = 0;

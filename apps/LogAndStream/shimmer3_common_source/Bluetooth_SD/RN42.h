@@ -14,7 +14,9 @@ enum {
 extern void BT_init();
 
 // set up the BT/UART pins
-extern void BT_start();
+//extern void BT_start();
+extern void BT_startAll();
+
 
 // disable the BT/UART pins. if the start is in progress, stop it
 extern void BT_disable();
@@ -70,6 +72,13 @@ extern void BT_setInquiryTime(char *hexvalTime); // max 4 chars (hex word)
 
 extern void BT_resetDefaults();
 
+
+//set new baud rate. This change is effective immediately.
+//This change is only temporary. Reverts to previously configured rate after reset.
+//The string argument must be one of the following and EXACTLY 4 characters:
+//1200, 2400, 4800, 9600, 19.2(K), 38.4(K), 57.6(K), 115K, 230K, 460K or 921K
+//If any other value is used this function does nothing
+extern void BT_setTempBaudRate(char * baudRate);
 
 //pass in a pointer to the function that will get called when
 //data arrives

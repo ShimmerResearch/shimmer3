@@ -591,6 +591,6 @@ void ADS1292_dataReadyChip2();
 #define ADS1x9x_REG_RESP2      (0x00Au)
 
 
-void ADS1292_reg2Uca0();
-void ADS1292_activate();
+//void ADS1292_reg2Uca0();
+//void ADS1292_activate();
 #endif //ADS1292_H

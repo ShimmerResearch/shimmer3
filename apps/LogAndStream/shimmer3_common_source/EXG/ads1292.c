@@ -47,11 +47,14 @@
 
 //uint8_t exgOrUart;
 
+uint8_t ads1292Uca0RxIsr();
+uint8_t ads1292Uca0TxIsr();
+
 uint8_t *activeBuffer;
 uint8_t chip1Buffer1[9], chip1Buffer2[9], chip2Buffer1[9], chip2Buffer2[9];
 uint8_t chip1CurrentFullBuffer, chip2CurrentFullBuffer;
 uint8_t rxCount, chip1ReadPending, chip2ReadPending;
-uint8_t ads1292_isr_number;
+//uint8_t ads1292_isr_number;
 
 void ADS1292_init(void) {
    //exgOrUart = 0;
@@ -98,6 +101,7 @@ void ADS1292_init(void) {
    UCA0BR1 = 0;
    UCA0CTL1 &= ~UCSWRST;            // Clear SW reset, resume operation
 
+   UCA0_isrActivate(UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr));
 }
 
 void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata) {
@@ -438,7 +442,7 @@ void ADS1292_dataReadyChip2() {
    }
 }
 
-void ads1292Uca0RxIsr(){
+uint8_t ads1292Uca0RxIsr(){
    while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
 
    activeBuffer[rxCount++] = UCA0RXBUF;
@@ -468,14 +472,15 @@ void ads1292Uca0RxIsr(){
    } else {
       UCA0TXBUF = 0xFF;             //To get Next byte.
    }
+   return 0;
 }
 
-void ads1292Uca0TxIsr(){}  // to add if necessary
+uint8_t ads1292Uca0TxIsr(){ return 0;}  // to add if necessary
 
-void ADS1292_reg2Uca0(){
-   ads1292_isr_number = UCA0_isrRegister(ads1292Uca0RxIsr, 0, ads1292Uca0TxIsr, 0);
-}
+//void ADS1292_reg2Uca0(){
+//   ads1292_isr_number = UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr);
+//}
 
-void ADS1292_activate(){
-   UCA0_isrActivate(ads1292_isr_number);
-}
+//void ADS1292_activate(){
+//   UCA0_isrActivate(ads1292_isr_number);
+//}

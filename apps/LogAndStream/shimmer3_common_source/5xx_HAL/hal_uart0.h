@@ -31,18 +31,27 @@
 // must run only once before using the uart for the first time
 extern void UART_reg2Uca0();
 
-// initializes the pin settings
-// run this every time before using UART
+//initializes the uart_num_registered_cmds value
 extern void UART_init();
 
-// set expected values
-// usage: on receiving 'exp_buff' through rx,
-// return 'buf' through tx
-extern void UART_setStr(uint8_t *exp_buff, uint8_t exp_length, uint8_t *buf, uint8_t buf_length);
+// configures the pin settings
+// run this every time before using UART
+extern void UART_config();
 
+// register commands
+// usage: on receiving 'cmd_buff' through uart0_rx,
+// return 'response_buf' through uart0_tx
+// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
+//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
+extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
+      uint8_t* param_buf, uint8_t param_len, void (*uart_cb)(uint8_t val));
 // to switch between uart_isr and other isrs
 // the last activated one works
 extern void UART_activate();
+
+// reset p6.1 and p7.6 back to sel+input
+extern void UART_deactivate();
+
 //============================== above is the UART part ===============================
 
 

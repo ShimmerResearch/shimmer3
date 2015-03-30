@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Shimmer Research, Ltd.
+ * Copyright (c) 2013, Shimmer Research, Ltd.
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,22 +45,11 @@
 
 
 //these are defined in the Makefile for BtStream (TinyOS)
-#define DEVICE_VER         3      //0-3 for shimmer1 to shimmer3
-#define FW_IDENTIFIER      3      //Two byte firmware identifier number:  3 for LogAndStream, 2 for SDLog, 1 for BTStream,
-#define FW_VER_MAJOR       0      //Maor version number: 0-65535
-#define FW_VER_MINOR       2      //Minor version number: 0-255
-#define FW_VER_INTERNAL    0      //internal version number: 0-255
-
-typedef enum {
-   BTSD_DOCKED = 0,
-   BTSD_UNDOCKED_BT,
-   BTSD_UNDOCKED_SYNC,
-   BTSD_STREAMING,
-   BTSD_STREAMING_LOGGING,
-   BTSD_LOGGING,
-   BTSD_WAITING_USR
-} BTSD_STATE;
-
+#define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
+#define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
+#define FW_VER_MAJOR          0      //Maor version number: 0-65535
+#define FW_VER_MINOR          4      //Minor version number: 0-255
+#define FW_VER_REL            0     //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE 1
@@ -69,6 +58,81 @@ typedef uint8_t bool;
 typedef uint8_t error_t;
 #define SUCCESS 1
 #define FAIL 0
+
+// UART COMMANDS
+//================= WP uart 3.0: command names ==============
+#define UART_STEP_WAIT4_CMD   4
+#define UART_STEP_WAIT4_LEN   3
+#define UART_STEP_WAIT4_DATA  2
+#define UART_STEP_WAIT4_CRC   1
+#define UART_STEP_WAIT4_NONE  0
+
+#define UART_RXBUF_START      0
+#define UART_RXBUF_CMD        1
+#define UART_RXBUF_LEN        2
+#define UART_RXBUF_COMP       3
+#define UART_RXBUF_PROP       4  // data in rxbuf starts from byte 3
+#define UART_RXBUF_DATA       5  // data in rxbuf starts from byte 3
+#define UART_DATA_LEN_MAX     138// max case: '$' + get + length + comp_shimmer+ prop_infomem
+#define UART_RSP_PACKET_SIZE  138// + info_len + info_loc*2 + 128bytes data + crc*2 = 138
+
+
+#define UART_SET                    0x01
+#define UART_RESPONSE               0x02
+#define UART_GET                    0x03
+#define UART_BAD_CMD_RESPONSE       0xfc //252
+#define UART_BAD_ARG_RESPONSE       0xfd //253
+#define UART_BAD_CRC_RESPONSE       0xfe //254
+#define UART_ACK_RESPONSE           0xff //255
+//================= WP uart 3.0: components names ==============
+#define UART_COMP_SHIMMER           0x01
+#define UART_COMP_BAT               0x02 // this is seen as a sensor
+#define UART_COMP_DAUGHTER_CARD     0x03
+#define UART_COMP_D_ACCEL           0x04
+#define UART_COMP_GSR               0x05
+//================= WP uart 3.0: property names ==============
+// component == UART_COMP_SHIMMER:
+#define UART_PROP_ENABLE            0x00 // this is for all sensors
+#define UART_PROP_SAMPLE_RATE       0x01
+#define UART_PROP_MAC               0x02
+#define UART_PROP_VER               0x03
+#define UART_PROP_RWC_CFG_TIME      0x04
+#define UART_PROP_CURR_LOCAL_TIME   0x05
+#define UART_PROP_INFOMEM           0x06
+// component == UART_COMP_BAT:
+//#define UART_PROP_SAMPLE_RATE       0x01
+#define UART_PROP_VALUE             0x02
+//#define UART_PROP_DIVIDER           0x05
+// component == UART_COMP_DAUGHTER_CARD:
+#define UART_PROP_CARD_ID           0x02
+#define UART_PROP_CARD_MEM          0x03
+// component == UART_COMP_D_ACCEL:
+//#define UART_PROP_ENABLE            0x00
+//#define UART_PROP_SAMPLE_RATE       0x01
+#define UART_PROP_DATA_RATE         0x02
+#define UART_PROP_RANGE             0x03
+#define UART_PROP_LP_MODE           0x04
+#define UART_PROP_HR_MODE           0x05
+#define UART_PROP_FREQ_DIVIDER      0x06
+#define UART_PROP_CALIBRATION       0x07
+// component == UART_COMP_GSR:
+//#define UART_PROP_ENABLE            0x00
+//#define UART_PROP_SAMPLE_RATE       0x01
+//#define UART_PROP_RANGE             0x03
+//#define UART_PROP_DIVIDER           0x05
+//== new uart ends ==
+#define CBUF_SIZE             27
+#define CBUF_PARAM_LEN_MAX    CBUF_SIZE-6
+// UART OLD COMMANDS
+#define UART_CMD_MAC 1
+#define UART_CMD_VER 2
+#define UART_CMD_BAT 3
+#define UART_CMD_MEM 4
+#define UART_CMD_RTC 5
+#define UART_CMD_RCT 6
+#define UART_CMD_RDT 7
+#define UART_CMD_TIM 8
+
 
 // Packet Types// Packet Types
 #define DATA_PACKET                                   0x00
@@ -164,8 +228,14 @@ typedef uint8_t error_t;
 #define SET_DAUGHTER_CARD_MEM_COMMAND                 0x67
 #define DAUGHTER_CARD_MEM_RESPONSE                    0x68
 #define GET_DAUGHTER_CARD_MEM_COMMAND                 0x69
-#define ACK_COMMAND_PROCESSED                         0xFF
-#define ROUTINE_COMMUNICATION                         0xE0
+#define SET_BT_COMMS_BAUD_RATE                        0x6A     //11 allowable options: 0=115.2K(default), 1=1200, 2=2400, 3=4800,
+                                                               //4=9600, 5=19.2K, 6=38.4K, 7=57.6K, 8=230.4K, 9=460.8K, 10=921.6K
+                                                               //Need to disconnect BT connection before change is active
+#define BT_COMMS_BAUD_RATE_RESPONSE                   0x6B
+#define GET_BT_COMMS_BAUD_RATE                        0x6C
+#define SET_DERIVED_CHANNEL_BYTES                     0x6D
+#define DERIVED_CHANNEL_BYTES_RESPONSE                0x6E
+#define GET_DERIVED_CHANNEL_BYTES                     0x6F
 #define START_SDBT_COMMAND                            0x70
 #define STATUS_RESPONSE                               0x71
 #define GET_STATUS_COMMAND                            0x72
@@ -193,12 +263,15 @@ typedef uint8_t error_t;
 #define DIR_RESPONSE                                  0x88
 #define GET_DIR_COMMAND                               0x89
 #define INSTREAM_CMD_RESPONSE                         0x8A
+#define SET_CRC_COMMAND                               0x8B
+#define ROUTINE_COMMUNICATION                         0xE0
+#define ACK_COMMAND_PROCESSED                         0xFF
 
 
 
 
 //SENSORS0
-#define   SENSOR_A_ACCEL               0x80
+#define SENSOR_A_ACCEL                 0x80
 #define SENSOR_MPU9150_GYRO            0x40
 #define SENSOR_LSM303DLHC_MAG          0x20
 #define SENSOR_EXG1_24BIT              0x10
@@ -226,7 +299,7 @@ typedef uint8_t error_t;
 
 #define MAX_COMMAND_ARG_SIZE     131   //maximum number of arguments for any command sent
                                        //(daughter card mem write)
-#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
+//#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
 #define MAX_NUM_CHANNELS         28    //3xanalogAccel + 3xdigiGyro + 3xdigiMag +
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +
                                        //BMP180TEMP + BMP180PRESS + batteryVoltage +
@@ -283,46 +356,74 @@ typedef uint8_t error_t;
 // Infomem contents
 //#define NV_NUM_CONFIG_BYTES             100
 // Infomem contents
-#define NV_NUM_SETTINGS_BYTES             33
+#define NV_NUM_SETTINGS_BYTES             34
 #define NV_NUM_CALIBRATION_BYTES          84
-#define NV_TOTAL_NUM_CONFIG_BYTES         NV_NUM_SETTINGS_BYTES+NV_NUM_CALIBRATION_BYTES
+#define NV_NUM_SD_BYTES                   37
+#define NV_TOTAL_NUM_CONFIG_BYTES         384//NV_NUM_SETTINGS_BYTES + NV_NUM_CALIBRATION_BYTES + NV_NUM_SD_BYTES
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
 #define NV_SENSORS0                       3
 #define NV_SENSORS1                       4
 #define NV_SENSORS2                       5
-#define NV_CONFIG_SETUP_BYTE0             6  //sensors setting bytes
+#define NV_CONFIG_SETUP_BYTE0             6 //sensors setting bytes
 #define NV_CONFIG_SETUP_BYTE1             7
 #define NV_CONFIG_SETUP_BYTE2             8
 #define NV_CONFIG_SETUP_BYTE3             9
-#define NV_TRIAL_CONFIG0                  10
-#define NV_TRIAL_CONFIG1                  11 //debug
-#define NV_BT_INTERVAL                    12
-#define NV_EXG_ADS1292R_1_CONFIG1         13 // exg bytes, not implemented yet
-#define NV_EXG_ADS1292R_1_CONFIG2         14
-#define NV_EXG_ADS1292R_1_LOFF            15
-#define NV_EXG_ADS1292R_1_CH1SET          16
-#define NV_EXG_ADS1292R_1_CH2SET          17
-#define NV_EXG_ADS1292R_1_RLD_SENS        18
-#define NV_EXG_ADS1292R_1_LOFF_SENS       19
-#define NV_EXG_ADS1292R_1_LOFF_STAT       20
-#define NV_EXG_ADS1292R_1_RESP1           21
-#define NV_EXG_ADS1292R_1_RESP2           22
-#define NV_EXG_ADS1292R_2_CONFIG1         23
-#define NV_EXG_ADS1292R_2_CONFIG2         24
-#define NV_EXG_ADS1292R_2_LOFF            25
-#define NV_EXG_ADS1292R_2_CH1SET          26
-#define NV_EXG_ADS1292R_2_CH2SET          27
-#define NV_EXG_ADS1292R_2_RLD_SENS        28
-#define NV_EXG_ADS1292R_2_LOFF_SENS       29
-#define NV_EXG_ADS1292R_2_LOFF_STAT       30
-#define NV_EXG_ADS1292R_2_RESP1           31
-#define NV_EXG_ADS1292R_2_RESP2           32
-#define NV_A_ACCEL_CALIBRATION            33
-#define NV_MPU9150_GYRO_CALIBRATION       54
-#define NV_LSM303DLHC_MAG_CALIBRATION     75
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   96
+#define NV_EXG_ADS1292R_1_CONFIG1         10// exg bytes, not implemented yet
+#define NV_EXG_ADS1292R_1_CONFIG2         11
+#define NV_EXG_ADS1292R_1_LOFF            12
+#define NV_EXG_ADS1292R_1_CH1SET          13
+#define NV_EXG_ADS1292R_1_CH2SET          14
+#define NV_EXG_ADS1292R_1_RLD_SENS        15
+#define NV_EXG_ADS1292R_1_LOFF_SENS       16
+#define NV_EXG_ADS1292R_1_LOFF_STAT       17
+#define NV_EXG_ADS1292R_1_RESP1           18
+#define NV_EXG_ADS1292R_1_RESP2           19
+#define NV_EXG_ADS1292R_2_CONFIG1         20
+#define NV_EXG_ADS1292R_2_CONFIG2         21
+#define NV_EXG_ADS1292R_2_LOFF            22
+#define NV_EXG_ADS1292R_2_CH1SET          23
+#define NV_EXG_ADS1292R_2_CH2SET          24
+#define NV_EXG_ADS1292R_2_RLD_SENS        25
+#define NV_EXG_ADS1292R_2_LOFF_SENS       26
+#define NV_EXG_ADS1292R_2_LOFF_STAT       27
+#define NV_EXG_ADS1292R_2_RESP1           28
+#define NV_EXG_ADS1292R_2_RESP2           29
+#define NV_BT_COMMS_BAUD_RATE             30
+#define NV_DERIVED_CHANNELS_0             31
+#define NV_DERIVED_CHANNELS_1             32
+#define NV_DERIVED_CHANNELS_2             33
+#define NV_A_ACCEL_CALIBRATION            34
+#define NV_MPU9150_GYRO_CALIBRATION       55
+#define NV_LSM303DLHC_MAG_CALIBRATION     76
+#define NV_LSM303DLHC_ACCEL_CALIBRATION   97 //97->117
+
+#define NV_SENSORS3                       128+0
+#define NV_SENSORS4                       128+1
+#define NV_CONFIG_SETUP_BYTE4             128+2
+#define NV_CONFIG_SETUP_BYTE5             128+3
+#define NV_CONFIG_SETUP_BYTE6             128+4
+#define NV_MPL_ACCEL_CALIBRATION          128+5 //+21
+#define NV_MPL_MAG_CALIBRATION            128+26 //+21
+#define NV_MPL_GYRO_CALIBRATION           128+47 //+12
+#define NV_SD_SHIMMER_NAME                128+59   // +12 bytes
+#define NV_SD_EXP_ID_NAME                 128+71   // +12 bytes
+#define NV_SD_CONFIG_TIME                 128+83   // +4 bytes
+#define NV_SD_MYTRIAL_ID                  128+87   // 1 byte
+#define NV_SD_NSHIMMER                    128+88   // 1 byte
+#define NV_SD_TRIAL_CONFIG0               128+89
+#define NV_SD_TRIAL_CONFIG1               128+90
+#define NV_SD_BT_INTERVAL                 128+91
+#define NV_EST_EXP_LEN_MSB                128+92 // 2bytes
+#define NV_EST_EXP_LEN_LSB                128+93
+#define NV_MAX_EXP_LEN_MSB                128+94 // 2bytes
+#define NV_MAX_EXP_LEN_LSB                128+95
+#define NV_MAC_ADDRESS                    128+96 // 6bytes
+#define NV_SD_CONFIG_DELAY_FLAG           128+102
+
+#define NV_NODE0                          128+128+0
+
 
 //Config byte masks
 //Config Byte0
@@ -400,10 +501,10 @@ typedef uint8_t error_t;
 
 
 //calibration info
-#define S_ACCEL                     0
+#define S_ACCEL_A                   0
 #define S_GYRO                      1
 #define S_MAG                       2
-#define S_ACCEL_A                   3
+#define S_ACCEL_D                   3
 //#define S_ECG                     3
 //#define S_EMG                     4
 
@@ -431,42 +532,55 @@ typedef uint8_t error_t;
 
 
 //SD Log file header format
-#define SDHEAD_LEN                        256   // 0-255
+#define SDHEAD_LEN                  256// 0-255
 
-#define SDH_SAMPLE_RATE_0                 0
-#define SDH_SAMPLE_RATE_1                 1
-#define SDH_SENSORS0                      3
-#define SDH_SENSORS1                      4
-#define SDH_SENSORS2                      5
-#define SDH_CONFIG_SETUP_BYTE0            8     //sensors setting bytes
-#define SDH_CONFIG_SETUP_BYTE1            9
-#define SDH_CONFIG_SETUP_BYTE2            10
-#define SDH_CONFIG_SETUP_BYTE3            11
-#define SDH_TRIAL_CONFIG0                 16
-#define SDH_TRIAL_CONFIG1                 17
-#define SDH_BROADCAST_INTERVAL            18
-//#define SDH_ACCEL_RANGE                 22    //digital accel range
-//#define SDH_GSR_RANGE                   23
-//#define SDH_MAG_RANGE                   24
-//#define SDH_MAG_RATE                    25
-//#define SDH_ACCEL_RATE                  26    //digital accel rate
-//#define SDH_GYRO_RATE                   27
-//#define SDH_GYRO_RANGE                  28
-//#define SDH_PRESSURE_PREC               29
-#define SDH_SHIMMERVERSION_BYTE_0         30
-#define SDH_SHIMMERVERSION_BYTE_1         31
-#define SDH_MYTRIAL_ID                    32
-#define SDH_NSHIMMER                      33
-#define SDH_FW_VERSION_TYPE_0             34
-#define SDH_FW_VERSION_TYPE_1             35
-#define SDH_FW_VERSION_MAJOR_0            36
-#define SDH_FW_VERSION_MAJOR_1            37
-#define SDH_FW_VERSION_MINOR              38
-#define SDH_FW_VERSION_INTERNAL           39
-#define SDH_CONFIG_TIME_0                 52
-#define SDH_CONFIG_TIME_1                 53
-#define SDH_CONFIG_TIME_2                 54
-#define SDH_CONFIG_TIME_3                 55
+#define SDH_SAMPLE_RATE_0           0
+#define SDH_SAMPLE_RATE_1           1
+#define SDH_BUFFER_SIZE             2
+#define SDH_SENSORS0                3
+#define SDH_SENSORS1                4
+#define SDH_SENSORS2                5
+#define SDH_CONFIG_SETUP_BYTE0      8 //sensors setting bytes
+#define SDH_CONFIG_SETUP_BYTE1      9
+#define SDH_CONFIG_SETUP_BYTE2      10
+#define SDH_CONFIG_SETUP_BYTE3      11
+#define SDH_TRIAL_CONFIG0           16
+#define SDH_TRIAL_CONFIG1           17
+#define SDH_BROADCAST_INTERVAL      18
+#define SDH_BT_COMMS_BAUD_RATE      19
+//#define SDH_ACCEL_RANGE           22   //digital accel range
+//#define SDH_GSR_RANGE             23
+//#define SDH_MAG_RANGE             24
+//#define SDH_MAG_RATE              25
+//#define SDH_ACCEL_RATE            26   digital accel rate
+//#define SDH_GYRO_RATE             27
+//#define SDH_GYRO_RANGE            28
+//#define SDH_PRESSURE_PREC         29
+#define SDH_SHIMMERVERSION_BYTE_0   30
+#define SDH_SHIMMERVERSION_BYTE_1   31
+#define SDH_MYTRIAL_ID              32
+#define SDH_NSHIMMER                33
+#define SDH_FW_VERSION_TYPE_0       34
+#define SDH_FW_VERSION_TYPE_1       35
+#define SDH_FW_VERSION_MAJOR_0      36
+#define SDH_FW_VERSION_MAJOR_1      37
+#define SDH_FW_VERSION_MINOR        38
+#define SDH_FW_VERSION_INTERNAL     39
+#define SDH_DERIVED_CHANNELS_0      40
+#define SDH_DERIVED_CHANNELS_1      41
+#define SDH_DERIVED_CHANNELS_2      42
+#define SDH_RTC_DIFF_0              44
+#define SDH_RTC_DIFF_1              45
+#define SDH_RTC_DIFF_2              46
+#define SDH_RTC_DIFF_3              47
+#define SDH_RTC_DIFF_4              48
+#define SDH_RTC_DIFF_5              49
+#define SDH_RTC_DIFF_6              50
+#define SDH_RTC_DIFF_7              51
+#define SDH_CONFIG_TIME_0           52
+#define SDH_CONFIG_TIME_1           53
+#define SDH_CONFIG_TIME_2           54
+#define SDH_CONFIG_TIME_3           55
 #define SDH_EXG_ADS1292R_1_CONFIG1        56
 #define SDH_EXG_ADS1292R_1_CONFIG2        57
 #define SDH_EXG_ADS1292R_1_LOFF           58
@@ -487,11 +601,12 @@ typedef uint8_t error_t;
 #define SDH_EXG_ADS1292R_2_LOFF_STAT      73
 #define SDH_EXG_ADS1292R_2_RESP1          74
 #define SDH_EXG_ADS1292R_2_RESP2          75
-#define SDH_LSM303DLHC_ACCEL_CALIBRATION  76
-#define SDH_MPU9150_GYRO_CALIBRATION      97
-#define SDH_LSM303DLHC_MAG_CALIBRATION    118
-#define SDH_A_ACCEL_CALIBRATION           139
+#define SDH_LSM303DLHC_ACCEL_CALIBRATION  76 //0x4c
+#define SDH_MPU9150_GYRO_CALIBRATION      97 //0x61
+#define SDH_LSM303DLHC_MAG_CALIBRATION    118//0x76
+#define SDH_A_ACCEL_CALIBRATION           139//0x8b
 #define SDH_TEMP_PRES_CALIBRATION         160
+#define SDH_MY_LOCALTIME_5TH              251
 #define SDH_MY_LOCALTIME                  252   //252-255
 
 //SENSORS0
@@ -527,18 +642,18 @@ typedef uint8_t error_t;
 //SDH_TRIAL_CONFIG0
 #define SDH_IAMMASTER                  0x02
 #define SDH_TIME_SYNC                  0x04
-#define SDH_TIME_STAMP                 0x08  //not used now, reserved as 1
-#define SDH_GYRO_BUTTON_ENABLE         0x10
+#define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+//#define SDH_GYRO_BUTTON_ENABLE         0x10
 #define SDH_USER_BUTTON_ENABLE         0x20
-#define SDH_SET_PMUX                   0x40  //not used now, reserved as 0
-#define SDH_SET_5V_REG                 0x80  //not used now
+#define SDH_SET_PMUX                   0x40// not used now, reserved as 0
+//#define SDH_SET_5V_REG                 0x80// not used now
 //SDH_TRIAL_CONFIG1
 #define SDH_SINGLETOUCH                0x80
-#define SDH_ACCEL_LPM                  0x40  //config has this bit
-#define SDH_ACCEL_HRM                  0x20  //config has this bit
+//#define SDH_ACCEL_LPM                  0x40//config has this bit
+//#define SDH_ACCEL_HRM                  0x20//config has this bit
 #define SDH_TCXO                       0x10
-#define SDH_EXP_POWER                  0x08  //config has this bit
-#define SDH_MONITOR                    0x04
+//#define SDH_EXP_POWER                  0x08//config has this bit
+//#define SDH_MONITOR                    0x04
 
 //choice of clock
 #define TCXO_CLOCK      255765.625
@@ -551,12 +666,11 @@ typedef uint8_t error_t;
 #define RC_WINDOW_N     13
 #define RC_WINDOW_C     27
 #define RC_INT_N        27
-#define RC_INT_C        54                //240
-#define RC_CLK_N        16384             //16384=2hz;//32768=1hz;8192=4hz
-#define RC_CLK_C        8192              //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_N     32768/RC_CLK_N    //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_C     32768/RC_CLK_C    //16384=2hz;//32768=1hz;8192=4hz
-
+#define RC_INT_C        54//240
+#define RC_CLK_N        16384   //16384=2hz;//32768=1hz;8192=4hz
+#define RC_CLK_C        8192   //16384=2hz;//32768=1hz;8192=4hz
+#define RC_FACTOR_N     32768/RC_CLK_N   //16384=2hz;//32768=1hz;8192=4hz
+#define RC_FACTOR_C     32768/RC_CLK_C   //16384=2hz;//32768=1hz;8192=4hz
 
 //routine communication response text - ack:flag:time4:time3:time2:time1
 #define RCT_SIZE        6
@@ -565,18 +679,21 @@ typedef uint8_t error_t;
 #define RCT_TIME        2
 #define RCT_TIME_SIZE   4
 
-
 // sd card write buffer size
-#define SDBUFF_SIZE_MAX 4096  //4095  255
-#define SDBUFF_SIZE     512   //4095  512
+#define SDBUFF_SIZE_MAX 4096 //4095  255
+#define SDBUFF_SIZE     512 //4095  512
 
 // BATTERY
 #define BATT_HIGH       0
 #define BATT_MID        1
 #define BATT_LOW        2
-#define BATT_ITNERVAL   19660800
+#define BATT_INTERVAL   1966080
+#define BATT_INTERVAL_D 65536
 
-#define MAX_CHARS 13
+#define MAX_CHARS       13
+#define UINT32_LEN      11 // 10+1, where the last byte should be 0x00
+#define UINT64_LEN      21 // 20+1, where the last byte should be 0x00
+#define RESPONSE_PACKET_SIZE 133
 
 //BMP Pressure oversampling ratio
 #define BMP180_OSS_1                0x00

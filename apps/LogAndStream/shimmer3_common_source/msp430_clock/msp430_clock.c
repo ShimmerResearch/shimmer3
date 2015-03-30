@@ -24,7 +24,7 @@
 #include "msp430_clock.h"
 #include <math.h>
 
-#define MAX_CB 10
+#define MAX_CB 15
 
 struct msp430_clock_s {
    volatile uint32_t timestamp;

@@ -73,17 +73,16 @@ extern void I2C_Master_Init(uint8_t selectClockSource,
 extern void I2C_Set_Slave_Address(uint8_t slaveAddress);
 extern void I2C_Enable(void);
 extern void I2C_Disable(void);
-extern void I2C_PowerOff(void);
 extern uint16_t I2C_Bus_Busy(void);
 extern uint16_t I2C_Busy(void);
 extern void I2C_Interrupt_Enable(uint8_t interruptFlags);
 extern void I2C_Interrupt_Disable(uint8_t interruptFlags);
 extern void I2C_Interrupt_Clear(uint8_t interruptFlags);
 extern unsigned char I2C_Interrupt_Status(uint8_t mask);
-extern void I2C_Write_Packet_To_Sensor(uint8_t *writeData,
+extern uint8_t I2C_Write_Packet_To_Sensor(uint8_t *writeData,
                uint8_t dataLength);
 
-extern void I2C_Read_Packet_From_Sensor(uint8_t *readData,
+extern uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData,
                uint16_t dataLength);
 
 #endif /*HAL_I2C_H*/

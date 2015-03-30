@@ -119,7 +119,7 @@ void SDCard_fastMode(void)
 
 void SDCard_readFrame(uint8_t *pBuffer, uint16_t size)
 {
-   uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
+   //uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
 
    //__disable_interrupt();                                 // Make this operation atomic
 
@@ -145,7 +145,7 @@ void SDCard_readFrame(uint8_t *pBuffer, uint16_t size)
 
 void SDCard_sendFrame(uint8_t *pBuffer, uint16_t size)
 {
-   uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
+   //uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
 
    //__disable_interrupt();                                 // Make this operation atomic
 

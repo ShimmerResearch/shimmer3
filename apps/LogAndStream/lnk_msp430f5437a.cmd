@@ -1,5 +1,5 @@
 /* ============================================================================ */
-/* Copyright (c) 2013, Texas Instruments Incorporated                           */
+/* Copyright (c) 2014, Texas Instruments Incorporated                           */
 /*  All rights reserved.                                                        */
 /*                                                                              */
 /*  Redistribution and use in source and binary forms, with or without          */
@@ -44,7 +44,8 @@
 /* -heap   0x0100                                   HEAP AREA SIZE            */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
-
+/* Version: 1.127                                                             */
+/*----------------------------------------------------------------------------*/
 
 /****************************************************************************/
 /* SPECIFY THE SYSTEM MEMORY MAP                                            */
@@ -141,12 +142,8 @@ SECTIONS
 
     .text       : {}>> FLASH2 | FLASH     /* CODE                              */
     .text:_isr  : {} > FLASH              /* ISR CODE SPACE                    */
-    .cinit      : {} > FLASH              /* INITIALIZATION TABLES             */
-//#ifdef (__LARGE_DATA_MODEL__)
+    .cinit      : {} > FLASH | FLASH2     /* INITIALIZATION TABLES             */
     .const      : {} > FLASH | FLASH2     /* CONSTANT DATA                     */
-//#else
-//    .const      : {} > FLASH              /* CONSTANT DATA                     */
-//#endif
     .cio        : {} > RAM                /* C I/O BUFFER                      */
 
     .pinit      : {} > FLASH              /* C++ CONSTRUCTOR TABLES            */
