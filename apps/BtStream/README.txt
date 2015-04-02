@@ -219,7 +219,7 @@ example: to get shimmer mac address, send:
 
 ack/nack Packet Format:
        start_sign | cmd |      crc     |
-Byte:       0     |  1  | (5-6)+length |
+Byte:       0     |  1  | (2-3)+length |
 
 example: bad argument nack
 |  byte #   | 1  |   2     3     4   |
