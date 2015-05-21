@@ -220,8 +220,12 @@ void GSR_initSmoothing(uint8_t active_resistor) {
 uint8_t GSR_smoothTransition(uint8_t *dummy_active_resistor, uint32_t sampling_period) {
    // Number of 'transient' samples proportional to sampling rate.
    if(*dummy_active_resistor != last_active_resistor) {
-      transient_sample = ceil(SETTLING_TIME/sampling_period);
-      transient_active_resistor = last_active_resistor;
+      if(transient_sample && (transient_active_resistor == *dummy_active_resistor)){
+         transient_sample = 0;
+      } else{
+         transient_sample = ceil(SETTLING_TIME/sampling_period);
+         transient_active_resistor = last_active_resistor;
+      }
    }
    last_active_resistor = *dummy_active_resistor;
    if(transient_sample) {

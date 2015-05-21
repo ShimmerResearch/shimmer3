@@ -261,7 +261,7 @@
 
        
 ♦Changelog:
-   v0.4.0 (17 January 2014)
+   v0.4.0 (27 March 2015)
       button press disabled when configuring      
       UART command improvement
          - UART baudrate increased to 115200 (up from 9600)
