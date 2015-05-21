@@ -525,8 +525,11 @@ void BT_setGoodCommand(){
       runSetTempBaudRate();
 }
 void sendNextChar() {
+   uint8_t timeout = 255;
    if(charsSent < messageLength) {
-      while (UCA1IFG & UCTXIFG) ; //ensure no tx interrupt is pending
+      while ((UCA1IFG & UCTXIFG) && timeout--); //ensure no tx interrupt is pending
+      if(!timeout)
+         UCA1IFG &= ~UCTXIFG;
       UCA1TXBUF = *(messageBuffer + charsSent++);
    } else {
       messageInProgress = 0;              //false

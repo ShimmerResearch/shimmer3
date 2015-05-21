@@ -7,10 +7,11 @@ uint8_t (*reportTransferDoneFuncPtr_2)(void) = 0;
 
 void DMA0_init(uint16_t *srcAddr, uint16_t *destAddr, uint16_t size) {
    // Setup DMA0
+   DMA0CTL &= ~DMAEN;
    DMACTL0 |= DMA0TSEL_24;                                   //ADC12IFGx triggered
    DMACTL4 = DMARMWDIS;                                     //Read-modify-write disable
    DMA0CTL &= ~DMAIFG;
-   DMA0CTL = DMADT_1+DMADSTINCR_3+DMASRCINCR_3+DMAEN+DMAIE;    //block transfer, inc dst, inc src, Int enable
+   DMA0CTL = DMADT_1+DMADSTINCR_3+DMASRCINCR_3+DMAIE;    //block transfer, inc dst, inc src, Int enable//DMAEN+
    DMA0SZ = size;                                            //DMA0 size
 
    //Writes a value to a 20-bit SFR register located at the given 16-bit address

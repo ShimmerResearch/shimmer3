@@ -1,4 +1,4 @@
-♦This is a general purpose configurable application to be used with shimmer3 and any add-on 
+﻿♦This is a general purpose configurable application to be used with shimmer3 and any add-on 
  daughter-cards supplied by Shimmer.
 
 
@@ -20,7 +20,7 @@
    
 ♦Data Block Format:
           |TimeStamp|Achan1|Achan2| ... |AchanX | Dchan1  | Dchan2  | ... |    DchanY   |
-   Byte #:|   0-1   | 2~3  | 4~5  | ... |2x~2x+1|2x+2~2x+3|2x+4~2x+5| ... |2x+2y~2x+wy+1|
+   Byte #:|   0-1   | 2~3  | 4~5  | ... |2x~2x+1|2x+2~2x+3|2x+4~2x+5| ... |2x+2y~2x+2y+1|
    - some digital channels have more than 2 bytes data
    - refer to user manual for endianness of each specific channel
 
@@ -130,7 +130,7 @@
  
  
 ♦Changelog:
-   v0.9.0 (27 March 2014)
+   v0.9.0 (27 March 2015)
       UART command improvement
          - UART baudrate increased to 115200 (up from 9600)
          - more UART commands supported

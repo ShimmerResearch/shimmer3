@@ -51,8 +51,9 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Maor version number: 0-65535
-#define FW_VER_MINOR       9     //Minor version number: 0-255
-#define FW_VER_REL         0    //internal version number: 0-255
+#define FW_VER_MINOR       10     //Minor version number: 0-255
+#define FW_VER_REL         0
+//internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00
 #define ACK_COMMAND_PROCESSED             0xFF
@@ -588,7 +589,8 @@
 #define BATT_HIGH       0x01
 #define BATT_MID        0x02
 #define BATT_LOW        0x04
-#define BATT_INTERVAL   65535    //can use 19660800 for 10min interval
+#define BATT_INTERVAL   65535
+//#define BATT_INTERVAL   19660800    //can use 19660800 for 10min interval
 #define BATT_INTERVAL_D 65535
 
 #define MAX_NODES       20
@@ -600,5 +602,25 @@
 //BtStream specific extension to range values : should SDLog keep it?
 #define GSR_AUTORANGE   0x04
 
+// different from LogAndStream
+typedef enum {
+   TASK_NONE = 0,
+   TASK_BATT_READ = BIT0,
+   TASK_WR2SD = BIT1,
+   //TASK_BTCMD = BIT1,
+   TASK_CFGCH = BIT2,
+   TASK_RCCENTERR1 = BIT3,
+   TASK_RCNODER10 = BIT4,
+   TASK_UARTCMD = BIT5,
+   TASK_UARTRSP = BIT6,
+   TASK_STARTSENSING = BIT7,
+   TASK_STOPSENSING = BIT8,
+   TASK_SAMPLEMPU9150MAG = BIT9,
+   TASK_SAMPLEBMP180PRESS = BITA,
+   //TASK_WR2SD = BITA,
+   TASK_STREAMDATA = BITB,
+   TASK_SETUP_DOCK = BITC
+} TASK_FLAGS;
+#define TASK_SIZE    16
 
 #endif
