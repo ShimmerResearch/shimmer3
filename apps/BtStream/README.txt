@@ -227,6 +227,8 @@ example: bad argument nack
 
 
 Changelog:
+V0.7 (20 May 2015)
+   - GSR fix, hold range while value being held (for high speed sampling)
 V0.6 (27 March 2015)
    - changed format of serial/UART commands
    - added support for DERIVED_CHANNEL configuration bytes

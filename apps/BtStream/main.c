@@ -2149,9 +2149,10 @@ void GsrRange() {
    if(currentBuffer == 0) {
       ADC_val = *((uint16_t *)txBuff0 + (nbrAdcChans - 1) + 2);
       if(((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x0E)>>1) == GSR_AUTORANGE) {
-         gsr_active_resistor = GSR_controlRange(ADC_val, gsr_active_resistor);
          if(GSR_smoothTransition(&current_active_resistor, *(uint16_t *)(storedConfig+NV_SAMPLING_RATE))) {
             ADC_val = last_GSR_val;
+         } else {
+            gsr_active_resistor = GSR_controlRange(ADC_val, gsr_active_resistor);
          }
       }
       *((uint16_t *)txBuff0 + (nbrAdcChans - 1) + 2) =  ADC_val | (current_active_resistor << 14);
@@ -2159,9 +2160,10 @@ void GsrRange() {
    else {
       ADC_val = *((uint16_t *)txBuff1 + (nbrAdcChans - 1) + 2);
       if(((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x0E)>>1) == GSR_AUTORANGE) {
-         gsr_active_resistor = GSR_controlRange(ADC_val, gsr_active_resistor);
          if(GSR_smoothTransition(&current_active_resistor, *(uint16_t *)(storedConfig+NV_SAMPLING_RATE))) {
             ADC_val = last_GSR_val;
+         } else {
+            gsr_active_resistor = GSR_controlRange(ADC_val, gsr_active_resistor);
          }
       }
       *((uint16_t *)txBuff1 + (nbrAdcChans - 1) + 2) =  ADC_val | (current_active_resistor << 14);
