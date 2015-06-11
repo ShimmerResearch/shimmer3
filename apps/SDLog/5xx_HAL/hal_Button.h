@@ -43,7 +43,7 @@
 #include <stdint.h>
 
 extern void Button_init();
-extern void Button_interruptEnable();
+extern uint8_t Button_interruptEnable();
 extern void Button_interruptDisable();
 extern void Button_waitpress();
 extern void Button_waitrelease();

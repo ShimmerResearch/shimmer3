@@ -52,7 +52,7 @@ unsigned int MPU_RATE_HZ = 50;
 unsigned int MAG_RATE_MS = 20;
 
 #define FLASH_SIZE      (128) // was 512, conflict with BTstream so set to 128?
-#define FLASH_MEM_START ((void*)0x1880) // was 0x1800, conflict with BTstream - Info C 0x1880
+#define FLASH_MEM_START ((void*)0x1980) // was 0x1800, conflict with BTstream - Info C 0x1880
 
 // Default used to indicate data ready
 #define TOGGLE_RED_LED  (P7OUT ^=BIT2) // P7BIT2 RED LED

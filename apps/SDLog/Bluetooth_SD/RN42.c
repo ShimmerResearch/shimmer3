@@ -208,7 +208,7 @@ uint8_t writeCommandNoRsp(char * cmd) {
 //   processor executing while waiting for response. Also need to take out of low
 //   power mode to send commands and return to LPM afterwards
 
-void runSetCommands() {
+uint8_t runSetCommands() {
    if(!bt_setcommands_start){
       BT_rst_MessageProgress();
       bt_setcommands_start=1;
@@ -219,7 +219,7 @@ void runSetCommands() {
       if(bt_setcommands_step == 0){
          bt_setcommands_step++;
          writeCommand("$$$", "CMD\r\n");
-         return;
+         return 0;
       }
 
       // reset factory defaults
@@ -227,7 +227,7 @@ void runSetCommands() {
          bt_setcommands_step++;
          if(resetDefaultsRequest) {
             writeCommand("SF,1\r", "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -237,7 +237,7 @@ void runSetCommands() {
          if(newMode) {
             sprintf(commandbuf, "SM,%d\r", radioMode);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -249,7 +249,7 @@ void runSetCommands() {
             DMA2SZ = 14;
             DMA2_enable();
             writeCommandNoRsp(commandbuf);
-            return; //wait until response is received
+            return 0; //wait until response is received
          }
       }
 
@@ -258,7 +258,7 @@ void runSetCommands() {
          if(radioMode == AUTO_MASTER_MODE ) {
             sprintf(commandbuf, "SR,%s\r", newAutoMaster);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -268,7 +268,7 @@ void runSetCommands() {
          //default "time" is 0x0200 (units unspecified)
          if(!discoverable) {
             writeCommand("SI,0000\r", "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -277,7 +277,7 @@ void runSetCommands() {
          // device default is off
          if(authenticate) {
             writeCommand("SA,1\r", "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -286,7 +286,7 @@ void runSetCommands() {
          // device default is off
          if(encrypt) {
             writeCommand("SE,1\r", "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -296,7 +296,7 @@ void runSetCommands() {
          if(setNameRequest) {
             sprintf(commandbuf, "SN,%s\r", newName);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -306,7 +306,7 @@ void runSetCommands() {
          if(setPINRequest) {
             sprintf(commandbuf, "SP,%s\r", newPIN);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -315,7 +315,7 @@ void runSetCommands() {
          if(setSvcClassRequest) {
             sprintf(commandbuf, "SC,%s\r", newSvcClass);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -324,7 +324,7 @@ void runSetCommands() {
          if(setDevClassRequest) {
             sprintf(commandbuf, "SD,%s\r", newDevClass);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -333,7 +333,7 @@ void runSetCommands() {
          if(setSvcNameRequest) {
             sprintf(commandbuf, "SS,%s\r", newSvcName);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -343,7 +343,7 @@ void runSetCommands() {
             // set the baudrate to suit the MSP430 running at 8Mhz
             sprintf(commandbuf, "SZ,%s\r", newRawBaudrate);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -356,7 +356,7 @@ void runSetCommands() {
             // disable remote configuration to enhance throughput
             writeCommand("ST,255\r", "AOK\r\n");
          }
-         return;
+         return 0;
       }
 
       if(bt_setcommands_step == 15){
@@ -368,7 +368,7 @@ void runSetCommands() {
             // to save power only leave inquiry on for approx 40msec (every 1.28 secs)
             writeCommand("SI,0040\r", "AOK\r\n");
          }
-         return;
+         return 0;
       }
 
       if(bt_setcommands_step == 16){
@@ -380,7 +380,7 @@ void runSetCommands() {
             // to save power only leave paging on for approx 80msec (every 1.28 secs)
             writeCommand("SJ,0080\r", "AOK\r\n");
          }
-         return;
+         return 0;
       }
 
       if(bt_setcommands_step == 17){
@@ -389,7 +389,7 @@ void runSetCommands() {
             // set the baudrate to suit the MSP430
             sprintf(commandbuf, "SU,%s\r", newBaudrate);
             writeCommand(commandbuf, "AOK\r\n");
-            return;
+            return 0;
          }
       }
 
@@ -397,7 +397,7 @@ void runSetCommands() {
          bt_setcommands_step++;
          // exit command mode
          writeCommand("---\r", "END\r\n");
-         return;
+         return 0;
       }
 
       //arriving here =  all done perfectly
@@ -409,6 +409,7 @@ void runSetCommands() {
             runSetCommands_cb();
       }
    }
+   return 0;
 }
 
 uint8_t BT_exitCmd(){
@@ -580,25 +581,27 @@ void BT_init() {
    charsReceived = 0;
 }
 
-void start3(){
+uint8_t start3(){
    if(starting){
       initRN3();
       //setupUART();
       setupUART("115K");
-      msp430_register_timer_cb(runSetCommands, 15, 0);
+      msp430_register_timer_cb(runSetCommands, 15);//, 0);
       starting = 0;
    }
+   return 0;
 }
-void start2(){
+uint8_t start2(){
    if(starting){
       initRN2();
-      msp430_register_timer_cb(start3, 5, 0);
+      msp430_register_timer_cb(start3, 5);//, 0);
    }
+   return 0;
 }
 void BT_start(){
    starting = 1;
    initRN1();
-   msp430_register_timer_cb(start2, 2000, 0);
+   msp430_register_timer_cb(start2, 2000);//, 0);
 }
 
 void BT_disable() {

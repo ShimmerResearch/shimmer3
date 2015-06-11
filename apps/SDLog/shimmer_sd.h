@@ -37,7 +37,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * @author Weibo Pan
- * @date March, 2015
+ * @date June, 2015
  *
  * @modifed Mark Nolan
  * @date June, 2014
@@ -51,7 +51,7 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Maor version number: 0-65535
-#define FW_VER_MINOR       10     //Minor version number: 0-255
+#define FW_VER_MINOR       11     //Minor version number: 0-255
 #define FW_VER_REL         0
 //internal version number: 0-255
 // Packet Types
@@ -605,21 +605,22 @@
 // different from LogAndStream
 typedef enum {
    TASK_NONE = 0,
-   TASK_BATT_READ = BIT0,
-   TASK_WR2SD = BIT1,
+   TASK_MPL_CALIBRATE = BIT0,
+   TASK_BATT_READ = BIT1,
+   TASK_WR2SD = BIT2,
    //TASK_BTCMD = BIT1,
-   TASK_CFGCH = BIT2,
-   TASK_RCCENTERR1 = BIT3,
-   TASK_RCNODER10 = BIT4,
-   TASK_UARTCMD = BIT5,
-   TASK_UARTRSP = BIT6,
-   TASK_STARTSENSING = BIT7,
-   TASK_STOPSENSING = BIT8,
-   TASK_SAMPLEMPU9150MAG = BIT9,
-   TASK_SAMPLEBMP180PRESS = BITA,
+   TASK_CFGCH = BIT3,
+   TASK_RCCENTERR1 = BIT4,
+   TASK_RCNODER10 = BIT5,
+   TASK_UARTCMD = BIT6,
+   TASK_UARTRSP = BIT7,
+   TASK_STARTSENSING = BIT8,
+   TASK_STOPSENSING = BIT9,
+   TASK_SAMPLEMPU9150MAG = BITA,
+   TASK_SAMPLEBMP180PRESS = BITB,
    //TASK_WR2SD = BITA,
-   TASK_STREAMDATA = BITB,
-   TASK_SETUP_DOCK = BITC
+   TASK_STREAMDATA = BITC,
+   TASK_SETUP_DOCK = BITD
 } TASK_FLAGS;
 #define TASK_SIZE    16
 

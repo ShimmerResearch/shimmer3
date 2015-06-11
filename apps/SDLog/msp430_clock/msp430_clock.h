@@ -70,7 +70,7 @@ int msp430_delay_ms(unsigned long num_ms);
  *  @param[in]  exit_lpm    True if __bic_SR_register_on_exit(LPM3_bits) required after the cb.
  *  @return     0 if successful.
  */
-int msp430_register_timer_cb(void (*timer_cb)(void), unsigned long num_ms, uint8_t exit_lpm);
+int msp430_register_timer_cb(uint8_t (*timer_cb)(void), unsigned long num_ms);//, uint8_t exit_lpm);
 #endif  /* _MSP430_CLOCK_H_ */
 
 /**

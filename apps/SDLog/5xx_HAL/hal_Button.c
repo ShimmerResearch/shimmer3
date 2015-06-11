@@ -58,10 +58,11 @@ void Button_init() {
  * @param  none
  * @return none
  ******************************************************************************/
-void Button_interruptEnable() {
+uint8_t Button_interruptEnable() {
    P1IES |= BIT6;    //select fall edge trigger
    P1IFG &= ~BIT6;   //clear flags
    P1IE |= BIT6;     //enable interrupts
+   return 0;
 }
 
 /***************************************************************************//**
@@ -86,5 +87,5 @@ void Button_debounce() {
    Button_interruptDisable();
    //start timer to reenable switch after 250ms
    msp430_clock_init();
-   msp430_register_timer_cb(Button_interruptEnable, 500, 0);
+   msp430_register_timer_cb(Button_interruptEnable, 500);//, 0);
 }

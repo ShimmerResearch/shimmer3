@@ -45,6 +45,9 @@
 #include "../5xx_HAL/hal_I2C.h"
 #include "lsm303dlhc.h"
 
+uint8_t mag_spike_x, mag_spike_y, mag_spike_z;
+uint8_t lastMagVal[6];
+
 //configure I2C
 void LSM303DLHC_init(void) {
 
@@ -229,6 +232,8 @@ void LSM303DLHC_magInit(uint8_t samplingrate, uint8_t gain) {
    i2c_buffer[0] = MR_REG_M;
    i2c_buffer[1] = 0x00; //continuous-conversion mode
    I2C_Write_Packet_To_Sensor(i2c_buffer,2);
+
+   mag_spike_x = mag_spike_y = mag_spike_z =0;
 }
 
 
@@ -245,8 +250,46 @@ void LSM303DLHC_getMag(uint8_t *buf) {
    I2C_Set_Slave_Address(LSM303DHLC_MAG_ADDR);
    *buf = OUT_X_H_M;
    I2C_Read_Packet_From_Sensor(buf, 6);
+   LSM303DLHC_smoothMag(buf);
 }
 
+void LSM303DLHC_smoothMag(uint8_t *buf){
+   if((buf[0] == lastMagVal[0]) &&
+         (abs((int16_t)buf[1] - (int16_t)lastMagVal[1])>200) &&
+         !mag_spike_x){
+      buf[0] = lastMagVal[0];
+      buf[1] = lastMagVal[1];
+      mag_spike_x = 1;
+   }else{
+      mag_spike_x = 0;
+      lastMagVal[0] = buf[0];
+      lastMagVal[1] = buf[1];
+   }
+
+   if((buf[2] == lastMagVal[2]) &&
+         (abs((int16_t)buf[3] - (int16_t)lastMagVal[3])>200) &&
+         !mag_spike_y){
+      buf[2] = lastMagVal[2];
+      buf[3] = lastMagVal[3];
+      mag_spike_y = 1;
+   }else{
+      mag_spike_y = 0;
+      lastMagVal[2] = buf[2];
+      lastMagVal[3] = buf[3];
+   }
+
+   if((buf[4] == lastMagVal[4]) &&
+         (abs((int16_t)buf[5] - (int16_t)lastMagVal[5])>200) &&
+         !mag_spike_z){
+      buf[4] = lastMagVal[4];
+      buf[5] = lastMagVal[5];
+      mag_spike_z = 1;
+   }else{
+      mag_spike_z = 0;
+      lastMagVal[4] = buf[4];
+      lastMagVal[5] = buf[5];
+   }
+}
 
 void LSM303DLHC_sleep(void) {
    uint8_t i2c_buffer[2];

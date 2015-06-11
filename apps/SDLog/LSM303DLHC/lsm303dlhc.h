@@ -115,6 +115,7 @@ void LSM303DLHC_getAccel(uint8_t *buf);
 
 //put x, y and z mag values into buf
 void LSM303DLHC_getMag(uint8_t *buf);
+void LSM303DLHC_smoothMag(uint8_t *buf);
 
 //powers down the LSM303DLHC
 void LSM303DLHC_sleep(void);

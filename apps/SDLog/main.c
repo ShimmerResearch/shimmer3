@@ -37,7 +37,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * @author Weibo Pan
- * @date May, 2015
+ * @date June, 2015
  *
  * @modifed Mark Nolan
  * @date June, 2014
@@ -160,7 +160,8 @@ void UartSendRsp();
 uint8_t UartCallback(uint8_t data);
 void UartCbufPush(uint8_t elem);
 void UartCbufPickData(uint8_t * dst_buf, uint8_t offset, uint8_t len);
-void MPL_calibrateCB(void);
+uint8_t MPL_calibrateCB(void);
+void MPL_calibrateGo(void);
 uint8_t TaskSet(TASK_FLAGS task_id);
 void TaskClear(TASK_FLAGS task_id);
 uint8_t TaskGet(TASK_FLAGS task_id);
@@ -168,11 +169,10 @@ uint16_t TaskCurrentGet();
 void SetupDock();
 void RcStop();
 void RcStart();
-
 void SetBattVal();
 
 uint8_t mplCalibrating, mplCalibratingMag, mpuIntTriggered, triggerSampling, mplCalibrateInit;
-uint8_t currentBuffer, streamData, sensing, btIsConnected, streamDataInProc, vbattEn,
+uint8_t currentBuffer, streamData, sensing, btIsConnected, streamDataInProc, vbattEn, i2cEn,
         nbrAdcChans, nbrDigiChans;
 uint8_t sdbuff[SDBUFF_SIZE], newDirFlag, dirLen, fileNeedNew, fileNextNum;
 uint8_t myTimeDiff[9];
@@ -214,9 +214,8 @@ uint16_t dirCounter, blinkCnt20, blinkCnt50, sdBuffLen, blockLen, fileNum, rcomm
          rcommSpecialInt, uartDcMemLength, uartDcMemOffset, uartInfoMemOffset, lastGsrVal,
          syncCurrNodeExpire, syncNodeWinExpire;
 uint16_t *adcStartPtr;
-uint16_t clk_10,clk_50,clk_150,clk_45,clk_90,clk_135,clk_75,clk_90_45,clk_90_75,clk_135_90,
-         clk_250,clk_255, clk_255_90, clk_105, clk_120,clk_2500,clk_1000,clk_165,clk_285,
-         clk_60, clk_90_60, clk_100, clk_100_90, clk_180, clk_180_90, clk_340, clk_340_90, clk_130,clk_210,clk_370;
+uint16_t clk_45,clk_90,clk_135,clk_75,clk_90_45,clk_90_75,clk_135_90,
+         clk_255, clk_255_90, clk_105, clk_120,clk_2500,clk_1000,clk_165,clk_285;
 
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64, battLastTs64;
 uint32_t battInterval, firstOutlier, rcWindowC, rcNodeReboot;
@@ -241,9 +240,7 @@ float clockFreq;
 void main(void) {
    // first/second MPL library callback fails if system_pre_init.c is used
    WDTCTL = WDTPW | WDTHOLD;
-              // led flag, in initialisation period
    Init();
-
    taskList = 0;
    TaskSet(TASK_SETUP_DOCK);
    TaskSet(TASK_BATT_READ);
@@ -256,6 +253,9 @@ void main(void) {
       }
       TaskClear((TASK_FLAGS)taskCurrent);
 
+      if(taskCurrent == TASK_MPL_CALIBRATE){
+         MPL_calibrateGo();
+      }
       if(taskCurrent == TASK_SETUP_DOCK){
          SetupDock();
       }
@@ -317,7 +317,6 @@ void main(void) {
       if(taskCurrent == TASK_WR2SD){
          Write2SD();
       }
-   _NOP();
    }
 }
 
@@ -350,6 +349,7 @@ void Init(void) {
    realTimeClockText40[13]=0;
    // flag variables initialisation
 
+   i2cEn = 0;
    firstOutlier = 1;
    streamDataInProc = 0;
    buttonLastReleaseTs64 = 0;
@@ -564,7 +564,6 @@ void Init(void) {
 void SetupDock(){
    configuring = 1;
    if(docked){
-      //Board_ledOn(LED_ALL);
       onUserButton = 0;
       onSingleTouch = 0;
       onDefault = 0;
@@ -630,7 +629,6 @@ inline uint8_t PreStartStreaming(void){
 }
 
 void StartStreaming(void) {
-   uint8_t i2c_en = 0;
 
    if(!sensing) {
       if(storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL) {
@@ -670,7 +668,7 @@ void StartStreaming(void) {
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_ACCEL)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_MAG)) {
          MPU9150_init();
-         i2c_en = 1;
+         i2cEn = 1;
          MPU9150_wake(1);
          volatile uint8_t mpu_id = MPU9150_getId();
          volatile uint8_t mag_id = MPU9150_getMagId();
@@ -706,10 +704,10 @@ void StartStreaming(void) {
       }
 
       if((storedConfig[NV_SENSORS0] & SENSOR_LSM303DLHC_MAG) || (storedConfig[NV_SENSORS1] & SENSOR_LSM303DLHC_ACCEL)){
-         if(!i2c_en) {
+         if(!i2cEn) {
             //Initialise I2C
             LSM303DLHC_init();
-            i2c_en = 1;
+            i2cEn = 1;
          }
          if(storedConfig[NV_SENSORS1] & SENSOR_LSM303DLHC_ACCEL) {
             LSM303DLHC_accelInit(((storedConfig[NV_CONFIG_SETUP_BYTE0]&0xF0)>>4),   //sampling rate
@@ -723,7 +721,7 @@ void StartStreaming(void) {
       }
 
       if(storedConfig[NV_SENSORS2] & SENSOR_BMP180_PRESSURE) {
-         if(!i2c_en) {
+         if(!i2cEn) {
             BMP180_init();
          }
          if((((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4)==0)
@@ -881,6 +879,7 @@ inline void StopStreaming(void) {
 
    msp430_delay_ms(10);  //give plenty of time for I2C operations to finish before disabling I2C
    I2C_Disable();
+   i2cEn = 0;
    P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
    streamData = 0;
    TaskClear(TASK_WR2SD);
@@ -1100,7 +1099,7 @@ __interrupt void Port1_ISR(void)
                DMA2SZ = 10;
                DMA2_enable();
             }
-            Board_ledToggle(LED_BLUE);
+            //Board_ledToggle(LED_BLUE);
          } else {                //BT is disconnected
             P1IES &= ~BIT0;      //look for rising edge
             btIsConnected = 0;
@@ -1130,7 +1129,7 @@ __interrupt void Port1_ISR(void)
                // only allow calibration when not docked and not sensing
               if(!sensing && !docked && (storedConfig[NV_CONFIG_SETUP_BYTE4]&MPU9150_MPL_DMP) && !(taskList&TASK_STARTSENSING) && !mplCalibrating && !mplCalibrateInit){
                  mplCalibrateInit = 1;
-                 msp430_register_timer_cb(MPL_calibrateCB, 3000, 0);
+                 msp430_register_timer_cb(MPL_calibrateCB, 3300);//, 0);
               }
               else
                  mplCalibrateInit = 0;
@@ -1256,7 +1255,6 @@ void CommTimerStart(void) {
    TA0CTL = TASSEL_1 + MC_2 + TACLR;         //ACLK, continuous mode, clear TAR
    TA0CCTL1 = CCIE;
    TA0CCR1 = 16384;
-   //RstRcVariables();
 }
 
 inline uint16_t GetTA0(void) {
@@ -1283,10 +1281,7 @@ __interrupt void TIMER0_A1_ISR(void){
    {
    case  0: break;                           // No interrupt
    case  2:                                  // TA0CCR1
-
       TA0CCR1 += SYNC_PERIOD;
-
-
       if(sensing && maxLen){
          if(maxLenCnt < maxLen*SYNC_FACTOR)
             maxLenCnt++;
@@ -1376,7 +1371,6 @@ __interrupt void TIMER0_A1_ISR(void){
                         }
                      }
                      else{
-                        //syncRetryCnt++;
                         syncNodeCnt = 0;
                      }
                   }
@@ -1562,7 +1556,6 @@ void RcNodeR10(){
       myTimeDiffArr[rcNodeR10Cnt] = myTimeDiffLong;
       myTimeDiffFlagArr[rcNodeR10Cnt] = myTimeDiffLongFlag;
 
-      Board_ledToggle(LED_BLUE);
       memset(rcommResp,0,RCT_SIZE);
 
       if(rcNodeR10Cnt++<(SYNC_TRANS_IN_ONE_COMM-1)){
@@ -1612,10 +1605,8 @@ void RcCenterR1(void) {
          firstOutlier &= ~SyncNodeShift(syncNodeCnt);
       else
          nodeSucc |= SyncNodeShift(syncNodeCnt);
-      Board_ledToggle(LED_BLUE);
    }
 }
-
 
 // Blink Timer
 // USING TB0 with CCR1
@@ -1690,28 +1681,36 @@ __interrupt void TIMER0_B1_ISR(void)
             }
             else{
                // good file - green1:
-               if(!sensing){                       //standby or configuring
-                  if(initializing || configuring){ //configuring
-                     if(!(P1OUT & BIT1))
+               if(btIsConnected){
+                  Board_ledOff(LED_GREEN1);
+               }
+               else{
+                  if(!sensing){                       //standby or configuring
+                     if(initializing || configuring){ //configuring
+                        if(!(P1OUT & BIT1))
+                           Board_ledOn(LED_GREEN1);
+                        else
+                           Board_ledOff(LED_GREEN1);
+                     }
+                     else{                            //standby
+                        if(!blinkCnt20)
+                           Board_ledOn(LED_GREEN1);
+                        else
+                           Board_ledOff(LED_GREEN1);
+                     }
+                  }else{                              //sensing
+                     if(blinkCnt20<10)
                         Board_ledOn(LED_GREEN1);
                      else
                         Board_ledOff(LED_GREEN1);
                   }
-                  else{                            //standby
-                     if(!blinkCnt20)
-                        Board_ledOn(LED_GREEN1);
-                     else
-                        Board_ledOff(LED_GREEN1);
-                  }
-               }else{                              //sensing
-                  if(blinkCnt20<10)
-                     Board_ledOn(LED_GREEN1);
-                  else
-                     Board_ledOff(LED_GREEN1);
                }
                // good file - blue:
                if(btPowerOn){
-                  Board_ledOn(LED_BLUE);
+                  if(!btIsConnected)
+                     Board_ledOn(LED_BLUE);
+                  else
+                     Board_ledToggle(LED_BLUE);
                }
                else{
                   if(!docked){
@@ -1871,7 +1870,6 @@ __interrupt void TIMER0_B0_ISR(void)
       }
    }
    //start ADC conversion
-   //if(nbrAdcChans){
    DMA0_enable();
    ADC_startConversion();
 }
@@ -2193,7 +2191,6 @@ void UartProcessCmd(){
                switch(uartRxBuf[UART_RXBUF_PROP]){
                case UART_PROP_VALUE:
                   if((uartRxBuf[UART_RXBUF_LEN] == 2))
-                     //ReadBatt();
                      uartSendRspBat = 1; // already in the callback function
                   else
                      uartSendRspBadArg = 1;
@@ -2216,7 +2213,8 @@ void UartProcessCmd(){
                case UART_PROP_CARD_MEM:
                   uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)){
+                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && (uartDcMemOffset>=16) &&
+                        ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)){
                      uartSendRspGdm = 1;
                   }
                   else
@@ -2267,7 +2265,8 @@ void UartProcessCmd(){
                case UART_PROP_CARD_MEM:
                   uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
+                  if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && (uartDcMemOffset>=16) &&
+                        ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
                      CAT24C16_init();
                      CAT24C16_write(uartDcMemOffset, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
                      CAT24C16_powerOff();
@@ -2463,7 +2462,6 @@ void UartSendRsp(){
 }
 
 // =================================== circular buffer start ==================================
-
 void UartCbufPush(uint8_t elem){
    ucBuf.entry[ucBuf.idx++] = elem;
    if(ucBuf.idx >= CBUF_SIZE)
@@ -2786,7 +2784,6 @@ uint8_t CalibCheckInfoValid(uint8_t sensor){
 
 void CalibAll(){
    uint8_t cal_aaccel_done = 0, cal_gyro_done = 0, cal_mag_done = 0, cal_daccel_done = 0;
-
    uint8_t mpu9150_gyro_range = (sdHeadText[SDH_CONFIG_SETUP_BYTE2] & 0x03);
    uint8_t lsm303dlhc_mag_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE2]>>5)&0x07);
    uint8_t lsm303dlhc_accel_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE0]>>2)&0x03);
@@ -2837,6 +2834,16 @@ void CalibAll(){
       BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
       P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
    }
+
+   // DMP related - start
+   if(storedConfig[NV_CONFIG_SETUP_BYTE4]&MPU9150_MPL_DMP){
+      MPL_loadCalibrationBytes(); // load previously saved calibration values if the file exists
+      MPU_loadCalibration(&storedConfig[0]);
+      memcpy(&sdHeadText[SDH_MPL_ACCEL_CALIBRATION], &storedConfig[NV_MPL_ACCEL_CALIBRATION], 21);
+      memcpy(&sdHeadText[SDH_MPL_MAG_CALIBRATION], &storedConfig[NV_MPL_MAG_CALIBRATION], 21);
+      memcpy(&sdHeadText[SDH_MPL_GYRO_CALIBRATION], &storedConfig[NV_MPL_GYRO_CALIBRATION], 12);
+   }
+   // DMP related - end
 }
 
 void CalibFromInfo(uint8_t sensor){
@@ -4054,6 +4061,8 @@ uint8_t  ParseConfig(void) {
       storedConfig[NV_SENSORS1] &= ~SENSOR_INT_A13;
       storedConfig[NV_SENSORS2] &= ~SENSOR_INT_A14;
    }
+   if(((storedConfig[NV_CONFIG_SETUP_BYTE3]>>1)&0x07)>4)       // never larger than 4
+      storedConfig[NV_CONFIG_SETUP_BYTE3] |= (4 & 0x07) <<1;   //BIT3-1
 
    if(clockFreq == TCXO_CLOCK){
       P4OUT |= BIT6;
@@ -4520,7 +4529,7 @@ void StreamData(){
          digi_offset+=6;
       }
       if(storedConfig[NV_SENSORS0] & SENSOR_LSM303DLHC_MAG){
-         LSM303DLHC_getMag(txBuff1+digi_offset);;;
+         LSM303DLHC_getMag(txBuff1+digi_offset);
          digi_offset+=6;
       }
 
@@ -5144,7 +5153,6 @@ void TB0Start(){
    }
 }
 
-
 void TB0Stop(){
    if(!sampleTimerStatus && !blinkStatus)
       TB0CTL = MC_0;
@@ -5152,37 +5160,21 @@ void TB0Stop(){
 
 
 void ClkAssignment(){
-   clk_10 = FreqProd(10);
-   clk_50 = FreqProd(50);
-   clk_60 = FreqProd(60);
-   clk_100 = FreqProd(100);
-   clk_130 = FreqProd(130);
-   clk_150 = FreqProd(150);
-   clk_180 = FreqProd(180);
    clk_45 = FreqProd(45);
    clk_75 = FreqProd(75);
    clk_90 = FreqProd(90);
    clk_135 = FreqProd(135);
    clk_90_45 = clk_90-clk_45;
-   clk_90_60 = clk_90-clk_60;
    clk_90_75 = clk_90-clk_75;
    clk_135_90 = clk_135-clk_90;
-   clk_100_90 = clk_100-clk_90;
    clk_120 = FreqProd(120);
    clk_105 = FreqProd(105);
    clk_165 = FreqProd(165);
-   clk_210 = FreqProd(210);
-   clk_180_90 = clk_180-clk_90;
-   clk_250 = FreqProd(250);
    clk_255 = FreqProd(255);
    clk_255_90 = clk_255-clk_90;
    clk_285 = FreqProd(285);
-   clk_340 = FreqProd(340);
-   clk_340_90 = clk_340-clk_90;
-   clk_370 = FreqProd(370);
    clk_1000 = FreqProd(1000);
    clk_2500 = FreqProd(2500);
-
 }
 
 
@@ -5239,22 +5231,27 @@ void SetBtBaudRate(uint8_t rate) {
 }
 
 // DMP related - start
-void MPL_calibrateCB(void)
+uint8_t MPL_calibrateCB(void){
+   return TaskSet(TASK_MPL_CALIBRATE);
+}
+
+void MPL_calibrateGo(void)
 {
 //   if((!(P1IN & BIT6)) && !sensing && !stopSensing && !startSensing){
    if((!(P1IN & BIT6)) && !sensing && !(taskList&TASK_STOPSENSING) && !(taskList&TASK_STARTSENSING) && mplCalibrateInit){
       uint8_t cnt, test_fail = 0;
+      uint64_t button_ts_lcl, button_td_lcl;
       uint8_t sd_state;
-      uint32_t button_ts_lcl, button_td_lcl;
       uint8_t stored_config_buffer[7];
 
       mplCalibrateInit = 0;
 
       // if button still pressed after timer callback timeout
-      msp430_get_clock_ms(&button_ts_lcl);
-      button_td_lcl = (uint32_t)fmod(4294967296+(uint64_t)button_ts_lcl - (uint64_t)buttonPressTs64,4294967296);
+      //msp430_get_clock_ms(&button_ts_lcl);
+      button_ts_lcl = RTC_get64();
+      button_td_lcl = button_ts_lcl - buttonPressTs64;
 
-      if(button_td_lcl>=3000){
+      if(button_td_lcl>=90000){
 
          mplCalibrating = 1;
          configuring = 1;       // led flag, in configuration period

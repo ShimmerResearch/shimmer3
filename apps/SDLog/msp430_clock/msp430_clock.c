@@ -33,8 +33,8 @@ struct msp430_clock_s {
    unsigned char enabled;
    unsigned short ticks_per_interrupt;
    unsigned long timer_remaining_ms[MAX_CB];
-   uint8_t timer_exit_lpm[MAX_CB];
-   void (*timer_cb[MAX_CB])(void);
+   //uint8_t timer_exit_lpm[MAX_CB];
+   uint8_t (*timer_cb[MAX_CB])(void);
 };
 static struct msp430_clock_s clock;
 uint8_t cb_cnt, in_delay_ms;
@@ -60,24 +60,25 @@ __interrupt void TIMER1_A0_ISR (void)
             clock.timer_remaining_ms[i] = 0;
 
          if (!clock.timer_remaining_ms[i]){
-            clock.timer_cb[i]();
-            if(clock.timer_exit_lpm[i])
-               exit_lpm = 1;
+            if(clock.timer_cb[i]())
+               __bic_SR_register_on_exit(LPM3_bits);
+            //if(clock.timer_exit_lpm[i])
+            //   exit_lpm = 1;
             while(j<cb_cnt-1){//some cb has gone, every one after him move forward
                clock.timer_remaining_ms[j] = clock.timer_remaining_ms[j+1];
                clock.timer_cb[j] = clock.timer_cb[j+1];
-               clock.timer_exit_lpm[j] = clock.timer_exit_lpm[j+1];
+               //clock.timer_exit_lpm[j] = clock.timer_exit_lpm[j+1];
                j++;
             }
             cb_cnt--;
          }
       }
    }
-   if(exit_lpm)// must be in main loop
-      __bic_SR_register_on_exit(LPM3_bits);
-   else
-      if(in_delay_ms)// must NOT be in main loop
-         __bic_SR_register_on_exit(LPM0_bits);
+   //if(exit_lpm)// must be in main loop
+   //   __bic_SR_register_on_exit(LPM3_bits);
+   //else
+   if(in_delay_ms)// must NOT be in main loop
+      __bic_SR_register_on_exit(LPM0_bits);
 }
 
 int msp430_clock_enable(void)
@@ -175,12 +176,12 @@ inline uint16_t GetTA1(void) {
    return t1;
 }
 
-int msp430_register_timer_cb(void (*timer_cb)(void), unsigned long num_ms, uint8_t exit_lpm)
+int msp430_register_timer_cb(uint8_t (*timer_cb)(void), unsigned long num_ms)//, uint8_t exit_lpm)
 {
    if (!timer_cb || !num_ms) {
       clock.timer_cb[cb_cnt] = NULL;
       clock.timer_remaining_ms[cb_cnt] = 0;
-      clock.timer_exit_lpm[cb_cnt]=0;
+      //clock.timer_exit_lpm[cb_cnt]=0;
       return 0;
    }
 
@@ -189,7 +190,7 @@ int msp430_register_timer_cb(void (*timer_cb)(void), unsigned long num_ms, uint8
     */
    clock.timer_remaining_ms[cb_cnt] = num_ms;
    clock.timer_cb[cb_cnt] = timer_cb;
-   clock.timer_exit_lpm[cb_cnt] = exit_lpm;
+   //clock.timer_exit_lpm[cb_cnt] = exit_lpm;
    cb_cnt++;
    return 0;
 }
