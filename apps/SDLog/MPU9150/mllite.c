@@ -14,7 +14,7 @@
 
 #include "../FatFs/ff.h"
 #include "core/driver/msp430/msp430_interrupt.h"
-#include "MPU9150.h"
+#include "mpu9150.h"
 
 #include "core/driver/msp430/F5xx_F6xx_Core_Lib/HAL_FLASH.h"
 #include "msp430.h"
