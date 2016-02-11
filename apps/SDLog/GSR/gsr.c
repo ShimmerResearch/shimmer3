@@ -78,7 +78,7 @@
 //instead of having a large step when resistors change - have a smoother step
 #define NUM_SMOOTHING_SAMPLES    64
 //ignore these samples after a resistor switch - instead send special code
-#define NUM_SAMPLES_TO_IGNORE    6
+#define NUM_SAMPLES_TO_IGNORE    0
 #define STARTING_RESISTANCE      10000000
 //Settling time for a hardware resistor change (80 ms)
 #define SETTLING_TIME            2621 //32768*0.08=2621.44

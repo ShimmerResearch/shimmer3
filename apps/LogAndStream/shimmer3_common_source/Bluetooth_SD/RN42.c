@@ -13,7 +13,7 @@ uint16_t secondTry, starting;
 void (*runSetCommands_cb)(void);
 
 uint8_t messageInProgress, transmissionOverflow, messageLength, txie_reg;
-uint8_t messageBuffer[128];
+uint8_t messageBuffer[135];//131+4
 uint8_t receiveBuffer[8];
 char expectedCommandResponse[8], newName[17], newAutoMaster[13], newPIN[17], newSvcClass[5], newDevClass[5], newSvcName[17], newRawBaudrate[5],
       newBaudrate[5], newInquiryTime[5], newPagingTime[5];
@@ -621,12 +621,43 @@ uint8_t BT_write(uint8_t *buf, uint8_t len) {
 
    //messageInProgress = 1;
    charsSent = 0;
-   memcpy(messageBuffer, buf, len);
-   if(len<=128)
+   if(len<=135)
       messageLength = len;
    else
       return 0;
+   memcpy(messageBuffer, buf, len);
 
+
+   if(!transmissionOverflow) {
+      messageInProgress = 1;
+      sendNextChar();
+      return 1;
+   }
+   else{
+      //messageInProgress = 0;
+      return 0;
+   }
+}
+
+//append data to be transmitted to the Bluetooth module to the current tx buffer
+//returns 0 if fails, else 1
+//will only fail if the buffer length exceeds 128
+uint8_t BT_append(uint8_t *buf, uint8_t len) {
+   if(messageInProgress){
+      if(len+messageLength<=135)
+         messageLength += len;
+      else
+         return 0;
+      memcpy(messageBuffer+charsSent, buf, len);
+   }else{
+      //messageInProgress = 1;
+      charsSent = 0;
+      if(len<=128)
+         messageLength = len;
+      else
+         return 0;
+      memcpy(messageBuffer, buf, len);
+   }
 
    if(!transmissionOverflow) {
       messageInProgress = 1;

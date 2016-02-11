@@ -51,7 +51,7 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Maor version number: 0-65535
-#define FW_VER_MINOR       11     //Minor version number: 0-255
+#define FW_VER_MINOR       12     //Minor version number: 0-255
 #define FW_VER_REL         0
 //internal version number: 0-255
 // Packet Types
@@ -182,7 +182,7 @@
 
 
 // Infomem contents
-#define NV_NUM_SETTINGS_BYTES             39
+#define NV_NUM_SETTINGS_BYTES             34
 #define NV_NUM_CALIBRATION_BYTES          138+2 // 138 bytes plus buffer of 2 (just in case)
 #define NV_TOTAL_NUM_CONFIG_BYTES         384
 
@@ -533,7 +533,7 @@
 #define SDH_IAMMASTER                  0x02
 #define SDH_TIME_SYNC                  0x04
 #define SDH_TIME_STAMP                 0x08
-#define SDH_GYRO_BUTTON_ENABLE         0x10
+#define SDH_RWCERROR_EN                0x10
 #define SDH_USER_BUTTON_ENABLE         0x20
 #define SDH_SET_PMUX                   0x40
 #define SDH_SET_5V_REG                 0x80

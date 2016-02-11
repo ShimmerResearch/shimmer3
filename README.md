@@ -15,6 +15,7 @@ and MSP430 Compiler Version 4.1.7
 ============================================================================
 
 A (very) brief description of the contents follows:
+Note: firmware versions ending with non-zero, ex. v0.6.2, are not published versions
 
 * apps/BtStream  
    All purpose configurable Bluetooth sensing and streaming application
@@ -24,6 +25,6 @@ A (very) brief description of the contents follows:
 
 * apps/LogAndStream
    All purpose configurable sensing application that simultaneously logs to microSD card while streaming over Bluetooth
-
+      
 * apps/FirmwareIdentifireList.txt  
    List of identifiers used by applications to identify themselves

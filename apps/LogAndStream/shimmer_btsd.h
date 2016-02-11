@@ -48,7 +48,7 @@
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Maor version number: 0-65535
-#define FW_VER_MINOR          5      //Minor version number: 0-255
+#define FW_VER_MINOR          6      //Minor version number: 0-255
 #define FW_VER_REL            0     //internal version number: 0-255
 
 typedef uint8_t bool;
@@ -264,7 +264,19 @@ typedef uint8_t error_t;
 #define GET_DIR_COMMAND                               0x89
 #define INSTREAM_CMD_RESPONSE                         0x8A
 #define SET_CRC_COMMAND                               0x8B
-#define ROUTINE_COMMUNICATION                         0xE0
+#define SET_INFOMEM_COMMAND                           0x8C
+#define INFOMEM_RESPONSE                              0x8D
+#define GET_INFOMEM_COMMAND                           0x8E
+#define SET_RWC_COMMAND                               0x8F
+#define RWC_RESPONSE                                  0x90
+#define GET_RWC_COMMAND                               0x91
+#define START_LOGGING_COMMAND                         0x92
+#define STOP_LOGGING_COMMAND                          0x93
+#define VBATT_RESPONSE                                0x94
+#define GET_VBATT_COMMAND                             0x95
+#define DUMMY_COMMAND                                 0x96
+#define STOP_SDBT_COMMAND                             0x97
+//#define ROUTINE_COMMUNICATION                         0xE0
 #define ACK_COMMAND_PROCESSED                         0xFF
 
 
@@ -360,6 +372,7 @@ typedef uint8_t error_t;
 #define NV_NUM_CALIBRATION_BYTES          84
 #define NV_NUM_SD_BYTES                   37
 #define NV_TOTAL_NUM_CONFIG_BYTES         384//NV_NUM_SETTINGS_BYTES + NV_NUM_CALIBRATION_BYTES + NV_NUM_SD_BYTES
+#define NV_NUM_RWMEM_BYTES                512
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
@@ -397,7 +410,8 @@ typedef uint8_t error_t;
 #define NV_A_ACCEL_CALIBRATION            34
 #define NV_MPU9150_GYRO_CALIBRATION       55
 #define NV_LSM303DLHC_MAG_CALIBRATION     76
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   97 //97->117
+#define NV_LSM303DLHC_ACCEL_CALIBRATION   97  //97->117
+#define NV_CALIBRATION_END               117
 
 #define NV_SENSORS3                       128+0
 #define NV_SENSORS4                       128+1
@@ -540,22 +554,23 @@ typedef uint8_t error_t;
 #define SDH_SENSORS0                3
 #define SDH_SENSORS1                4
 #define SDH_SENSORS2                5
+#define SDH_SENSORS3                6
+#define SDH_SENSORS4                7
 #define SDH_CONFIG_SETUP_BYTE0      8 //sensors setting bytes
 #define SDH_CONFIG_SETUP_BYTE1      9
 #define SDH_CONFIG_SETUP_BYTE2      10
 #define SDH_CONFIG_SETUP_BYTE3      11
+#define SDH_CONFIG_SETUP_BYTE4      12
+#define SDH_CONFIG_SETUP_BYTE5      13
+#define SDH_CONFIG_SETUP_BYTE6      14
 #define SDH_TRIAL_CONFIG0           16
 #define SDH_TRIAL_CONFIG1           17
 #define SDH_BROADCAST_INTERVAL      18
 #define SDH_BT_COMMS_BAUD_RATE      19
-//#define SDH_ACCEL_RANGE           22   //digital accel range
-//#define SDH_GSR_RANGE             23
-//#define SDH_MAG_RANGE             24
-//#define SDH_MAG_RATE              25
-//#define SDH_ACCEL_RATE            26   digital accel rate
-//#define SDH_GYRO_RATE             27
-//#define SDH_GYRO_RANGE            28
-//#define SDH_PRESSURE_PREC         29
+#define SDH_EST_EXP_LEN_MSB         20
+#define SDH_EST_EXP_LEN_LSB         21
+#define SDH_MAX_EXP_LEN_MSB         22
+#define SDH_MAX_EXP_LEN_LSB         23
 #define SDH_MAC_ADDR                24
 #define SDH_SHIMMERVERSION_BYTE_0   30
 #define SDH_SHIMMERVERSION_BYTE_1   31
@@ -611,7 +626,7 @@ typedef uint8_t error_t;
 #define SDH_MY_LOCALTIME                  252   //252-255
 
 //SENSORS0
-#define   SDH_SENSOR_A_ACCEL           0x80
+#define SDH_SENSOR_A_ACCEL           0x80
 #define SDH_SENSOR_MPU9150_GYRO        0x40
 #define SDH_SENSOR_LSM303DLHC_MAG      0x20
 #define SDH_SENSOR_EXG1_24BIT          0x10
@@ -644,10 +659,11 @@ typedef uint8_t error_t;
 #define SDH_IAMMASTER                  0x02
 #define SDH_TIME_SYNC                  0x04
 #define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+#define SDH_RWCERROR_EN                0x10// when 0, won't flash error. when 1, will flash error if RTC isn't set (RTC_offset == 0)
 //#define SDH_GYRO_BUTTON_ENABLE         0x10
 #define SDH_USER_BUTTON_ENABLE         0x20
 #define SDH_SET_PMUX                   0x40// not used now, reserved as 0
-//#define SDH_SET_5V_REG                 0x80// not used now
+#define SDH_RTC_SET_BY_BT              0x80
 //SDH_TRIAL_CONFIG1
 #define SDH_SINGLETOUCH                0x80
 //#define SDH_ACCEL_LPM                  0x40//config has this bit

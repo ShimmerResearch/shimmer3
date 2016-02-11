@@ -69,8 +69,9 @@ void BlinkTimerStart(void);
 inline void BlinkTimerStop(void);
 void SampleTimerStart(void);
 inline void SampleTimerStop(void);
+void StartLogging(void);
 void StartStreaming(void);
-inline void StopStreaming(void);
+inline void StopSensing(void);
 inline uint16_t GetTA0(void);
 uint8_t Dma0ConversionDone(void);
 uint8_t Dma2ConversionDone(void);
@@ -84,6 +85,7 @@ void PrepareSDBuffHead(void);
 void SetName();
 void SetShimmerName();
 void SetExpIdName();
+void SetCfgTime();
 error_t SetBasedir();
 error_t MakeBasedir();
 void FindError(uint8_t err, uint8_t *name);
@@ -97,11 +99,10 @@ void SetUndocked(void);
 uint8_t SendStatusByte();
 void ReadSdConfiguration(void);
 void PostSdCfg(void);
-void NoOp(void);
 void SdPowerOff(void);
 void SdPowerOn(void);
 uint8_t CheckSdInslot();
-void SendRcommCommand();
+//void SendRcommCommand();
 void BtStop();
 void BtStart();
 void BtStartDone();
@@ -131,7 +132,9 @@ void ReadBatt(void);
 void ClkAssignment();
 uint16_t FreqProd(uint16_t num_in);
 uint16_t FreqDiv(float num_in);
-void IniReadInfoMem();
+uint8_t IniReadInfoMem();
+void RwcCheck();
+void Infomem2Names();
 uint8_t CheckOnDefault();
 void SetBtBaudRate(uint8_t rate);
 void BtsdSelfcmd();
@@ -141,22 +144,24 @@ uint8_t UartCheckCrc(uint8_t len);
 void UartProcessCmd();
 void UartSendRsp();
 uint8_t UartCallback(uint8_t data);
+inline uint8_t Skip50ms();
 
-uint8_t syncEnabled, btsdSelfCmd, lastLedGroup2;
+uint8_t syncEnabled, btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn;
 uint32_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 uint64_t realTimeClock64, rwcTimeDiff64;
 uint8_t realTimeClockText64[UINT64_LEN], realTimeDiffText64[UINT64_LEN], realTimeClockText40[14];
 // 8 more bits for the rtc counter
 uint64_t rwcConfigTime64, rwcCurrTime64;
 uint32_t rwcCurrTime32h, rwcCurrTime32l;
+uint32_t maxLen, maxLenCnt;
 
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
 
-uint8_t sdWrite, sdlogging, btstreaming, enableSdlog, enableBtstream;
+uint8_t sdWrite, sdlogReady, btstreamReady, enableSdlog, enableBtstream;
 uint8_t mac[14], macAddr[6], macAddrSet, fwInfo[7], ackStr[4],
-      storedConfig[NV_TOTAL_NUM_CONFIG_BYTES], channelContents[MAX_NUM_CHANNELS],
-      configuring, nbrAdcChans, nbrDigiChans;
-uint16_t *adcStartPtr;
+      storedConfig[NV_NUM_RWMEM_BYTES], channelContents[MAX_NUM_CHANNELS],
+      configuring, nbrAdcChans, nbrDigiChans, infomemLength;
+uint16_t *adcStartPtr, infomemOffset;
 
 uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateResponse, startSensing, stopSensing,
       aAccelCalibrationResponse, gyroCalibrationResponse, magCalibrationResponse, dAccelCalibrationResponse,
@@ -169,7 +174,8 @@ uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateRes
       bmp180OversamplingRatioResponse, blinkLedResponse, gsrRangeResponse, internalExpPowerEnableResponse,
       exgRegsResponse, dcIdResponse, dcMemResponse, dockedResponse, trialConfigResponse, centerResponse,
       shimmerNameResponse, expIDResponse, nshimmerResponse, myIDResponse, configTimeResponse, dirResponse,
-      btCommsBaudRateResponse, derivedChannelResponse;
+      btCommsBaudRateResponse, derivedChannelResponse, infomemResponse, rwcResponse, stopLogging, stopStreaming,
+      isStreaming, isLogging, btVbattResponse, skip50ms;
 uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE], waitingForArgs, waitingForArgsLength, argsSize;
 uint8_t resPacket[RESPONSE_PACKET_SIZE+2];//+2 for crc checksum bytes;
@@ -181,18 +187,18 @@ DIRS dir;               //Directory object
 FIL fil;
 // make dir for SDLog files
 uint8_t dirName[64], expDirName[32],sdHeadText[SDHEAD_LEN],fileBad, fileBadCnt, toggleLedRed,
-      expIdName[MAX_CHARS], shimmerName[MAX_CHARS], shNameLen, expNameLen,
+      expIdName[MAX_CHARS], shimmerName[MAX_CHARS],
       fileName[64],configTimeText[UINT32_LEN],//,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
       txBuff0[DATA_PACKET_SIZE+2], txBuff1[DATA_PACKET_SIZE+2], btRxBuff[MAX_COMMAND_ARG_SIZE], *btRxExp, sdBuff[SDBUFF_SIZE],// todo: btRxBuff too long
       newDirFlag, dirLen, setConfig, calibInFile, calibInInfo;
-uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt20, blinkCnt50;
+uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20, blinkCnt50;
 uint64_t fileLastHour, fileLastMin;
 
 // battery evaluation vars
 uint8_t battStat, battRead, battWait,  battVal[3];
 uint32_t battLastTs64, battInterval;
 // routine comm
-uint8_t myTimeDiff[5], getRcomm, rcommTimeout, rcommResp[RCT_SIZE], rcommCommand, rcommStatus,rcommCurrentTry,
+uint8_t myTimeDiff[5], getRcomm, rcommTimeout, rcommResp[RCT_SIZE], rcommCommand, rcommCurrentTry,//rcommStatus,
        rcommInterval, rcommSuccess, rcommWindowCenter, btPowerOn, sampleTimerStatus, blinkStatus;
 uint8_t docked, setUndock, onUserButton, onSingleTouch, onDefault,
       preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp, sampleBmpTempFreq, sampleBmp180Press,
@@ -206,6 +212,7 @@ uint8_t bmpTempCurrentVal[2], bmpPresCurrentVal[3], bmpVal[5];
 uint16_t bmpTempInterval, bmpPresInterval;
 uint64_t bmpTempStartTs, bmpPresStartTs;
 uint64_t bmpTempSampleTs, bmpPresSampleTs;
+uint64_t startSensingTs64;
 
 //GSR
 uint8_t gsrActiveResistor;
@@ -233,22 +240,67 @@ uint8_t  uartSendRspMac, uartSendRspVer, uartSendRspBat,
          uartSendRspBadArg, uartSendRspBadCrc;
 uint8_t uartRespBuf[UART_RSP_PACKET_SIZE];
 uint8_t streamDataInProc;
-
-#define TESTDOCK 0
-
 char *dierecord;
+
+//should be 0
+#define PRESS2UNDOCK 0
+#define TESTDOCK     0
+#define RTC_OFF      0
+
+//should be 1
+#define PRES_TS_EN   0
+#define TS_BYTE3     1
+#define SKIP50MS     1
+
 
 void main(void) {
    initializing = 1;                      // led flag, in initialisation period
+
+   /*uint8_t infoD[128]={
+         0x80, 0x00, 0x01, 0xff, 0xbf, 0x00, 0x5c, 0x9b, 0x39, 0x00, 0x02, 0x80, 0x10, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x02, 0x02, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xee,
+         0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd, 0xdd,
+         0xdd, 0xdd, 0xdd, 0xcc, 0xbb, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+         0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x99, 0x88, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77,
+         0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x66, 0x55, 0x44,
+         0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
+         0x44, 0x44, 0x33, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+   };
+   uint8_t infoC[128]={
+         0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 'a',  'b',  'c',  'd',  'e',
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, '1',  '2',  '3',  '4',  '5',  0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0x01, 0x23, 0x45, 0x67, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0x03, 'a',  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+   };
+   uint8_t infoB[128]={
+         0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+   };
+   //memset(ffs, 0xff, NV_NUM_RWMEM_BYTES);
+   InfoMem_write(0, infoD, 128);
+   InfoMem_write((uint8_t*)128, infoC, 128);
+   InfoMem_write((uint8_t*)256, infoB, 128);*/
+
 
    Init();
    dierecord = (char *)0x01A0A;
 
    if(!docked && CheckSdInslot()){  //sd card ready to access
       if(GetSdCfgFlag()){ // info > sdcard
-         IniReadInfoMem();
-         UpdateSdConfig();
-         SetSdCfgFlag(0);
+         if(!IniReadInfoMem()){
+            UpdateSdConfig();
+            SetSdCfgFlag(0);
+         }
       }
       else{
          ReadSdConfiguration();
@@ -259,21 +311,27 @@ void main(void) {
       CalibFromInfoAll();
    }
 
-   if(storedConfig[NV_BT_COMMS_BAUD_RATE]) {
+   if(storedConfig[NV_BT_COMMS_BAUD_RATE]!=9) {
       SetBtBaudRate(storedConfig[NV_BT_COMMS_BAUD_RATE]);
       _delay_cycles(2400000);
    }
 
    CheckOnDefault();
 
+   RwcCheck();
    RTC_init(0);
    ConfigureChannels();
+#if TS_BYTE3
+   txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
+#else
    txBuff0[1] = txBuff1[1] = DATA_PACKET; //packet type
+#endif
    initializing = 0;
    Board_ledOff(LED_ALL);
    BlinkTimerStart();
 
    while(1) {
+      if(!processCommand)
       __bis_SR_register(LPM3_bits + GIE); //ACLK remains active
 
       if(setConfig){
@@ -285,6 +343,7 @@ void main(void) {
          else{
             SetDocked();
          }
+         RwcCheck();
          configuring = 0;
       }
 
@@ -321,22 +380,32 @@ void main(void) {
       }
       if(sampleBmp180Press) {
          sampleBmp180Press = 0;
-         if(sampleBmpTemp == sampleBmpTempFreq)
+         if(sampleBmpTemp == sampleBmpTempFreq){
+#if PRES_TS_EN
+            bmpTempStartTs = RTC_get64();
+#endif
             BMP180_startTempMeasurement();
-         else
+         }else{
+#if PRES_TS_EN
+            bmpPresStartTs = RTC_get64();
+#endif
             BMP180_startPressMeasurement((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4);
+         }
       }
       if(streamData){
          if(streamDataInProc){
             streamData=0;
-            if((!(enableSdlog && sdlogging))&&(!(enableBtstream && btstreaming))){
+            if((!(enableSdlog && sdlogReady))&&(!(enableBtstream && btstreamReady))){
                btsdSelfCmd = 1;
                stopSensing = 1;
+            }
+            if(newDirFlag && enableSdlog && sdlogReady){
+               StartLogging();
             }
             StreamData();
             // if sensor date buffer is large enough (about 1024 bytes),
             // write it to SDcard and clear the buffer
-            if(enableSdlog && sdlogging){
+            if(enableSdlog && sdlogReady){
                if (sdBuffLen > SDBUFF_SIZE-blockLen){
                   sdWrite = 1;
                }
@@ -353,18 +422,14 @@ void main(void) {
          startSensing = 0;
          configuring = 1;
          if(!sensing) {
-            if(newDirFlag && enableSdlog && sdlogging){
-               newDirFlag = 0;
-               SdPowerOn();
-               SetBasedir();
-               MakeBasedir();
-               fileNum=0;
-               sdBuffLen = 0;
-               OpenFirstFile();
+            if(newDirFlag && enableSdlog && sdlogReady){
+               StartLogging();
+               //isLogging = 1;
             }
-            StartStreaming();
+            if((enableSdlog && sdlogReady) || (enableBtstream && btstreamReady))
+               StartStreaming();
             streamDataInProc = 0;
-            if(enableSdlog && sdlogging)
+            if(enableSdlog && sdlogReady)
                Timestamp0ToFirstFile();
             if(docked)
                enableSdlog = 0;
@@ -405,8 +470,11 @@ void Init(void) {
 
    memset(txBuff0,0,DATA_PACKET_SIZE);
    memset(txBuff1,0,DATA_PACKET_SIZE);
-   shNameLen = 0;
-   expNameLen = 0;
+
+   skip50ms = 0;
+   buttonLastReleaseTs64 = 0;
+   rwcErrorEn = 0;
+   rwcErrorFlash = 0;
    calibInInfo = 0;
    calibInFile = 0;
    crcChecksum = 0;
@@ -421,12 +489,12 @@ void Init(void) {
    battRead = 1;
    battWait = 0;
    battStat = 0;
-   blinkCnt20 = blinkCnt50 = 0;
+   blinkCnt10 = blinkCnt20 = blinkCnt50 = 0;
    fileBad = 0;
    fileBadCnt = 0;
    rcommSpecialInt = 0;
    rcommWindowCenter = RC_WINDOW_C;
-   rcommStatus = 0;
+   //rcommStatus = 0;
    onDefault = 0;
    onUserButton = 0;
    onSingleTouch = 0;
@@ -437,16 +505,18 @@ void Init(void) {
    processCommand = 0;
    startSensing = 0;
    stopSensing = 0;
+   stopLogging = 0;
+   stopStreaming = 0;
    enableSdlog = 0;
-   sdlogging = 0;
+   sdlogReady = 0;
    enableBtstream = 0;
-   btstreaming = 0;
+   btstreamReady = 0;
    streamDataInProc = 0;
 
    // sd file system initiate.
    newDirFlag = 1;
    memset(sdBuff,0,SDBUFF_SIZE);
-   memset(storedConfig,0xff,NV_TOTAL_NUM_CONFIG_BYTES);
+   memset(storedConfig,0xff,NV_NUM_RWMEM_BYTES);
    memset(sdHeadText,0xff,SDHEAD_LEN);
    sdBuffLen = 0;
 
@@ -456,10 +526,11 @@ void Init(void) {
    sampleTimerStatus = 0;
    blinkStatus = 0;
 
+   maxLenCnt = 0;
    sdWrite=0;
    rcommTimeout = 0;
    btPowerOn = 0;
-   rcommCommand=ROUTINE_COMMUNICATION;
+   //rcommCommand=ROUTINE_COMMUNICATION;
    lastGsrVal = 0;
    memset(mac,0,14);
 
@@ -501,12 +572,17 @@ void Init(void) {
    exgRegsResponse = 0;
    dcIdResponse = 0;
    dcMemResponse = 0;
+   infomemResponse = 0;
+   rwcResponse = 0;
+   btVbattResponse = 0;
    configureChannels = 0;
    sendResponse = 0;
    sampleMpu9150Mag = 0;
    sampleBmp180Press = 0;
    streamData = 0;
    sensing = 0;
+   isStreaming = 0;
+   isLogging = 0;
    btIsConnected = 0;
    waitingForArgs = 0;
    waitingForArgsLength = 0;
@@ -554,13 +630,16 @@ void Init(void) {
    P3DIR |= BIT3;       //set as output
    P3SEL &= ~BIT3;
 
-   //if(0){
+#if TESTDOCK
+   if(0){
+#else
    if(P2IN & BIT3) {
+#endif
       battInterval = BATT_INTERVAL_D;
       P2IES |= BIT3;       //look for falling edge
       docked = 1;
       UART_activate();
-      sdlogging = 0;
+      sdlogReady = 0;
       if(CheckSdInslot()){
          DockSdPowerCycle();
       }
@@ -571,9 +650,9 @@ void Init(void) {
       UART_deactivate();
       P6OUT |= BIT0;       //   DETECT_N set to high
       if(CheckSdInslot()){
-         sdlogging = 1;
+         sdlogReady = 1;
       }else {
-         sdlogging = 0;
+         sdlogReady = 0;
       }
    }
 
@@ -602,6 +681,8 @@ void Init(void) {
       if(!(reset_cnt--))
          PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);  // software POR reset
    }
+   BT_setTempBaudRate("460K");
+   _delay_cycles(2400000);
    // =========== above initialize bt for the first time and get its MAC address ==========
 
    // enable switch1 interrupt
@@ -611,11 +692,24 @@ void Init(void) {
    waitpress = 1;
 
 }
+
+void StartLogging(void){
+   newDirFlag = 0;
+   SdPowerOn();
+   SetBasedir();
+   MakeBasedir();
+   fileNum=0;
+   sdBuffLen = 0;
+   OpenFirstFile();
+}
+
 void StartStreaming(void) {
    uint8_t i2c_en = 0;
 
    if(!sensing) {
-      sensing = 1;
+#if SKIP50MS
+      skip50ms = 1;
+#endif
       if(docked)
          UART_deactivate();
       if(storedConfig[NV_CONFIG_SETUP_BYTE3]&EXP_POWER_ENABLE){ //EXT_RESET_N
@@ -727,6 +821,9 @@ void StartStreaming(void) {
             bmpPressFreq = 1;      //required for the calculation of sampleBmpTempFreq below
          } else {
             //sample, then check each sample period if ready to read. Start new sample immediately
+#if PRES_TS_EN
+            bmpTempStartTs = RTC_get64();
+#endif
             BMP180_startTempMeasurement();
             preSampleBmpPress = 0;
             if(((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4)==0) {
@@ -792,12 +889,15 @@ void StartStreaming(void) {
       SampleTimerStart();
       if(storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_TIME_SYNC)
          PrepareSDBuffHead();
+
+      sensing = 1;
    }
 }
-inline void StopStreaming(void) {
+inline void StopSensing(void) {
    //shut every thing down
    configuring = 1;
    sensing = 0;
+   isStreaming = 0;
    enableBtstream = 0;
    enableSdlog = 0;
    if(docked){           // if docked, cannot write to SD card any more
@@ -805,10 +905,14 @@ inline void StopStreaming(void) {
    }
    else{
       newDirFlag = 1;
-      f_close(&fil);
-      _delay_cycles(1200000);
-      SdPowerOff();
+      if(isLogging){
+         Write2SD();
+         f_close(&fil);
+         _delay_cycles(1200000);
+         SdPowerOff();
+      }
    }
+   isLogging = 0;
 
    SampleTimerStop();
    ADC_disable();
@@ -847,6 +951,10 @@ inline void StopStreaming(void) {
    streamData = 0;
    sdWrite = 0;
    sdBuffLen = 0;
+   maxLenCnt = 0;
+#if SKIP50MS
+   skip50ms = 0;
+#endif
    sampleBmp180Press = 0;
    sampleMpu9150Mag = 0;
    if(sdInfoSyncDelayed)
@@ -858,15 +966,20 @@ inline void StopStreaming(void) {
 
 void BtsdSelfcmd(){
    if(btIsConnected){
-      uint8_t i=0, selfcmd[4];
+      uint8_t selfcmd[4];//i=0,
       selfcmd[0] = ACK_COMMAND_PROCESSED;
       selfcmd[1] = INSTREAM_CMD_RESPONSE;
       selfcmd[2] = STATUS_RESPONSE;
-      selfcmd[3] = ((1  & 0x01)<<2) + ((sensing  & 0x01)<<1) + (docked & 0x01);
+      selfcmd[3] = ((isStreaming & 0x01)<<4) +
+                  ((isLogging & 0x01)<<3) +
+                  ((1 & 0x01)<<2) +
+                  ((sensing & 0x01)<<1) +
+                  (docked & 0x01);
 
-      while((!BT_write(selfcmd, 4)) && (i++<10)){
-         _delay_cycles(240000);
-      }
+      //while((!BT_write(selfcmd, 4)) && (i++<10)){
+      //   _delay_cycles(240000);
+      //}
+      BT_append(selfcmd, 4);
    }
 }
 
@@ -982,18 +1095,22 @@ void ConfigureChannels(void) {
    }
 
    uint8_t clk_offset;
-   if(clockFreq == TCXO_CLOCK)
-      clk_offset = 4;
-   else
-      clk_offset = 0;
+#if TS_BYTE3
+   clk_offset = (clockFreq == TCXO_CLOCK)? 6:3;
+   //if(clockFreq == TCXO_CLOCK)
+   //   clk_offset = 7;
+   //else
+   //   clk_offset = 3;
+#else
+   clk_offset = (clockFreq == TCXO_CLOCK)? 6:2;
+#endif
+   blockLen = (((nbrAdcChans+nbrDigiChans)*2)+clk_offset);
 
    if(storedConfig[NV_SENSORS2] & SENSOR_BMP180_PRESSURE) {
       *channel_contents_ptr++ = BMP180_TEMP;
       *channel_contents_ptr++ = BMP180_PRESSURE;
       nbrDigiChans+=2;//PRES & TEMP, ON/OFF together
-      blockLen = (((nbrAdcChans+nbrDigiChans)*2)+3+clk_offset);
-   }else {
-      blockLen = (((nbrAdcChans+nbrDigiChans)*2)+2+clk_offset);
+      blockLen += 5;
    }
 
    if(storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT) {
@@ -1044,7 +1161,7 @@ uint8_t CheckOnDefault(){
       onDefault = 1;
    }
 
-   if(onDefault && sdlogging && !sensing){//state == BTSD_IDLESD
+   if(onDefault && sdlogReady && !sensing){//state == BTSD_IDLESD
       startSensing = 1;
       enableSdlog = 1;
       sensing = 1;
@@ -1056,6 +1173,7 @@ uint8_t CheckOnDefault(){
 }
 
 // Switch SW1, BT_RTS and BT connect/disconnect
+uint64_t button_two_release_td64, button_press_release_td64;
 #pragma vector=PORT1_VECTOR
 __interrupt void Port1_ISR(void)
 {
@@ -1063,7 +1181,6 @@ __interrupt void Port1_ISR(void)
    // Reading interrupt vector generator will automatically clear IFG flag
    //buttonsPressed = PAIFG & BUTTON_ALL;
 
-   uint64_t button_two_press_td64, button_press_release_td64;
 
    switch (__even_in_range(P1IV, P1IV_P1IFG7))
    {
@@ -1075,24 +1192,24 @@ __interrupt void Port1_ISR(void)
             btIsConnected = 1;
             BT_rst_MessageProgress();
             if(syncEnabled){
-               btstreaming = 0;
+               btstreamReady = 0;
                if(storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_IAMMASTER){
                   // center is waiting for 1 byte ROUTINE_COMMUNICATION(0xE0) from DMA2
                   DMA2_disable();
                   DMA2SZ = 1;
                   DMA2_enable();
                }
-               else
+               /*else
                   // node sends (0xE0) and is waiting for 6 byte RC info from DMA2
                   if(rcommStatus){
-                     SendRcommCommand();
+                     //SendRcommCommand();
                      DMA2_disable();
                      DMA2SZ = 6;
                      DMA2_enable();
-                  }
+                  }*/
             }
             else{
-               btstreaming = 1;
+               btstreamReady = 1;
                waitingForArgs = 0;
                waitingForArgsLength = 0;
                DMA2_disable();
@@ -1100,7 +1217,7 @@ __interrupt void Port1_ISR(void)
                DMA2_enable();
             }
          } else {             //BT is disconnected
-            btstreaming = 0;
+            btstreamReady = 0;
             enableBtstream = 0;
             P1IES &= ~BIT0;   //look for rising edge
             btIsConnected = 0;
@@ -1138,12 +1255,20 @@ __interrupt void Port1_ISR(void)
             P1IES |= BIT6; //select fall edge trigger, wait for press
             buttonReleaseTs64 = RTC_get64();
             button_press_release_td64 = buttonReleaseTs64 - buttonPressTs64;
-            button_two_press_td64 = buttonReleaseTs64 - buttonLastReleaseTs64;
-            _NOP();
+            button_two_release_td64 = buttonReleaseTs64 - buttonLastReleaseTs64;
             if(button_press_release_td64>=163840){ // long button press: 5s
             }
-            else if((button_two_press_td64>6553) && !configuring){//(button_press_release_td>=327) &&
+            else if((button_two_release_td64>16384)&& !configuring && !btIsConnected){//  && (button_press_release_td64>327)
                buttonLastReleaseTs64 = buttonReleaseTs64;
+#if PRESS2UNDOCK
+               if(docked)
+                  docked = 0;
+               else
+                  docked = 1;
+               setConfig = 1;
+               if(!sensing)
+                  __bic_SR_register_on_exit(LPM3_bits);
+#else
                if(storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_USER_BUTTON_ENABLE){
                   // toggles sensing and refresh BT timers (for the centre)
                   if(sensing){
@@ -1151,7 +1276,7 @@ __interrupt void Port1_ISR(void)
                      btsdSelfCmd = 1;
                   }
                   else{
-                     if(sdlogging){
+                     if(sdlogReady){
                         startSensing = 1;
                         enableSdlog = 1;
                      }
@@ -1161,6 +1286,7 @@ __interrupt void Port1_ISR(void)
                      __bic_SR_register_on_exit(LPM3_bits);
                   }
                }
+#endif
              }
             else
                _NOP();
@@ -1207,14 +1333,14 @@ __interrupt void Port2_ISR(void)
          if(P2IN & BIT3) {// dock
             P2IES |= BIT3;   //look for falling edge
             docked = 1;
-            sdlogging = 0;
+            sdlogReady = 0;
          } else {// undock
             P2IES &= ~BIT3;   //look for rising edge
             docked = 0;
             if(CheckSdInslot())
-               sdlogging = 1;
+               sdlogReady = 1;
             else
-               sdlogging = 0;
+               sdlogReady = 0;
          }
          if(!sensing)
             __bic_SR_register_on_exit(LPM3_bits);
@@ -1224,7 +1350,6 @@ __interrupt void Port2_ISR(void)
          break;
    }
 }
-
 
 
 //Timer2:
@@ -1238,7 +1363,7 @@ void CommTimerStart(void) {
 
 inline void CommTimerStop(void) {
    StopTB0(); //TA0CTL = MC_0;
-   rcommStatus=0;
+   //rcommStatus=0;
    TA0CCTL1 &= ~CCIE;
 }
 
@@ -1271,11 +1396,11 @@ __interrupt void TIMER0_A1_ISR(void){
 }
 
 
-void SendRcommCommand(){
-   memset(rcommResp,0,RCT_SIZE);
-   getRcomm=1;
-   BT_write(&rcommCommand, 0x01);
-}
+//void SendRcommCommand(){
+//   memset(rcommResp,0,RCT_SIZE);
+//   getRcomm=1;
+//   BT_write(&rcommCommand, 0x01);
+//}
 
 // Blink Timer
 //USING TB0 with CCR1
@@ -1296,26 +1421,39 @@ __interrupt void TIMER0_B1_ISR(void)
    switch(__even_in_range(TB0IV,14))
    {
    case  0: break;                           // No interrupt
-    case  2:                                 // TB0CCR1
-       //MPU9150 mag
-       TB0CCR1 = GetTB0() + *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
-       sampleMpu9150Mag = 1;
-       __bic_SR_register_on_exit(LPM3_bits);
-       break;
-    case  4:                                 // TB0CCR2
-       //Bmp180 press
-       TB0CCR2 = GetTB0() + *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
-       sampleBmp180Press = 1;
-       __bic_SR_register_on_exit(LPM3_bits);
-       break;
-    case  6:                                 // TB0CCR3
+   case  2:                                 // TB0CCR1
+      //MPU9150 mag
+      TB0CCR1 = GetTB0() + *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
+      sampleMpu9150Mag = 1;
+      __bic_SR_register_on_exit(LPM3_bits);
+      break;
+   case  4:                                 // TB0CCR2
+      //Bmp180 press
+      TB0CCR2 = GetTB0() + *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
+      sampleBmp180Press = 1;
+      __bic_SR_register_on_exit(LPM3_bits);
+      break;
+   case  6:                                 // TB0CCR3
        // for LED blink usage details, please check shimmer user manual
       TB0CCR3 += clk_1000;
       if(blinkCnt50++==49)
          blinkCnt50 = 0;
 
-      if(blinkCnt20++==19)
+      if(blinkCnt20++==19){
          blinkCnt20 = 0;
+      }
+
+      if(blinkCnt20%10==0){
+         if(sensing && maxLen){
+            if(maxLenCnt < maxLen)
+               maxLenCnt++;
+            else{
+               stopSensing = 1;
+               btsdSelfCmd = 1;
+               maxLenCnt = 0;
+            }
+         }
+      }
 
       uint64_t batt_td, batt_my_local_time_64;
       batt_my_local_time_64 = RTC_get64();
@@ -1330,9 +1468,9 @@ __interrupt void TIMER0_B1_ISR(void)
          if(battRead)
             __bic_SR_register_on_exit(LPM3_bits);
 
-       if(blinkStatus){
-          // below are settings for green0, yellow and red leds, battery charge status
-          if(toggleLedRed){
+      if(blinkStatus){
+         // below are settings for green0, yellow and red leds, battery charge status
+         if(toggleLedRed){
             Board_ledOff(LED_GREEN0+LED_YELLOW);
             Board_ledOn(LED_RED);
             if(docked){
@@ -1341,8 +1479,8 @@ __interrupt void TIMER0_B1_ISR(void)
                if(!blinkCnt50)
                   BattBlinkOn();
             }
-          }
-          else{
+         }
+         else{
             Board_ledOff(LED_GREEN0+LED_YELLOW+LED_RED);
             if(docked){
                BattBlinkOn();
@@ -1350,10 +1488,11 @@ __interrupt void TIMER0_B1_ISR(void)
                if(!blinkCnt50)
                   BattBlinkOn();
             }
-          }
+         }
 
          // below are settings for green1 and blue leds
-         if(fileBad && !docked){// bad file = green1/blue alternating
+
+         if(fileBad  && !docked){   // bad file = green1/blue alternating
             if(++fileBadCnt > 30){
                enableSdlog = 0;
                fileBadCnt = 0;
@@ -1367,8 +1506,16 @@ __interrupt void TIMER0_B1_ISR(void)
                Board_ledOff(LED_GREEN1);
                Board_ledOn(LED_BLUE);
             }
-         }
-         else{
+         } else if ( rwcErrorFlash && (!sensing)){
+            if(!(P1OUT & BIT1)){
+               Board_ledOn(LED_GREEN1);
+               Board_ledOff(LED_BLUE);
+            }
+            else{
+               Board_ledOff(LED_GREEN1);
+               Board_ledOn(LED_BLUE);
+            }
+         }else{
             // good file - green1:
             if(syncEnabled){ // sync not implemented yet
                if(!sensing){//standby or configuring
@@ -1417,9 +1564,9 @@ __interrupt void TIMER0_B1_ISR(void)
                   }
                   Board_ledOff(LED_GREEN1);// nothing to show
                }else {//sensing
-                  // sdlogging, btstreaming, enableSdlog, enableBtstream
+                  // sdlogReady, btstreamReady, enableSdlog, enableBtstream
                   // btstream only
-                  if((enableBtstream && btstreaming) && !(sdlogging && enableSdlog)){
+                  if((enableBtstream && btstreamReady) && !(sdlogReady && enableSdlog)){
                      if(!(blinkCnt20%10)){
                         if(!(P1OUT & BIT2))
                            Board_ledOn(LED_BLUE);
@@ -1429,7 +1576,7 @@ __interrupt void TIMER0_B1_ISR(void)
                      Board_ledOff(LED_GREEN1);// nothing to show
                   }
                   // sdlog only
-                  else if(!(enableBtstream && btstreaming) && (sdlogging && enableSdlog)){
+                  else if(!(enableBtstream && btstreamReady) && (sdlogReady && enableSdlog)){
                      if(!(blinkCnt20%10)){
                         if(!(P1OUT & BIT1))
                            Board_ledOn(LED_GREEN1);
@@ -1438,7 +1585,7 @@ __interrupt void TIMER0_B1_ISR(void)
                      }
                      Board_ledOff(LED_BLUE);// nothing to show
                   }
-                  else if((enableBtstream && btstreaming) && (sdlogging && enableSdlog)){
+                  else if((enableBtstream && btstreamReady) && (sdlogReady && enableSdlog)){
                      if(!(blinkCnt20%10)){
                         if((P1OUT & BIT2) || (P1OUT & BIT1))
                            Board_ledOff(LED_BLUE+LED_GREEN1);
@@ -1563,20 +1710,37 @@ inline void SampleTimerStop(void) {
    TB0CCTL2 &= ~CCIE;
 }
 
-
+uint8_t timeStampLen;
 #pragma vector=TIMER0_B0_VECTOR
 __interrupt void TIMER0_B0_ISR(void)
 {
    uint16_t timer_b0 = GetTB0();
+   uint8_t rtc_temp[4];
    TB0CCR0 = timer_b0 + *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
    if(!streamDataInProc){
       streamDataInProc = 1;
+#if TS_BYTE3
+      *(uint32_t *)rtc_temp = RTC_get32();
+      if(currentBuffer){
+         //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
+         txBuff1[1] = rtc_temp[0];
+         txBuff1[2] = rtc_temp[1];
+         txBuff1[3] = rtc_temp[2];
+      }
+      else {
+         //*((uint16_t *)(txBuff0+2)) = timer_b0;
+         txBuff0[1] = rtc_temp[0];
+         txBuff0[2] = rtc_temp[1];
+         txBuff0[3] = rtc_temp[2];
+      }
+#else
       if(currentBuffer){
          *((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
       }
       else {
          *((uint16_t *)(txBuff0+2)) = timer_b0;
       }
+#endif
    }
    //start ADC conversion
    if(nbrAdcChans) {
@@ -1652,12 +1816,12 @@ uint8_t Dma2ConversionDone(void) {
             memset(btRxBuff,0,14);
             getRcomm = 0;
             return 1;
-         }else if(btRxBuff[0] == ROUTINE_COMMUNICATION){
+         }/*else if(btRxBuff[0] == ROUTINE_COMMUNICATION){
             // 1 byte of RC command
             memset(btRxBuff,0,14);
             processCommand = 1;
             return 1;
-         }
+         }*/
       }else if(bt_getmac){
          // 14 bytes of BT mac address
          memcpy(mac, btRxBuff, 14);
@@ -1676,13 +1840,23 @@ uint8_t Dma2ConversionDone(void) {
       }else {
          if(waitingForArgs) {
             if((!waitingForArgsLength) &&
-               ((gAction == SET_EXG_REGS_COMMAND) && (waitingForArgs == 3)) ){
+               ((gAction == SET_EXG_REGS_COMMAND) && (waitingForArgs == 3))){
                args[0]=btRxBuff[0];
                args[1]=btRxBuff[1];
                args[2]=btRxBuff[2];
                DMA2SZ = args[2];
                DMA2_enable();
                waitingForArgsLength = args[2];
+               return 0;
+            }
+            else if((!waitingForArgsLength) &&
+               ((gAction == SET_INFOMEM_COMMAND) && (waitingForArgs == 3))){
+               args[0]=btRxBuff[0];
+               args[1]=btRxBuff[1];
+               args[2]=btRxBuff[2];
+               DMA2SZ = args[0];
+               DMA2_enable();
+               waitingForArgsLength = args[0];
                return 0;
             }
             else if((!waitingForArgsLength) &&
@@ -1715,14 +1889,19 @@ uint8_t Dma2ConversionDone(void) {
             uint8_t data = btRxBuff[0];
             switch(data) {
             case INQUIRY_COMMAND:
+            case DUMMY_COMMAND:
             case GET_SAMPLING_RATE_COMMAND:
             case TOGGLE_LED_COMMAND:
             case START_STREAMING_COMMAND:
             case GET_STATUS_COMMAND:
+            case GET_VBATT_COMMAND:
             case GET_TRIAL_CONFIG_COMMAND:
             case START_SDBT_COMMAND:
             case GET_CONFIG_SETUP_BYTES_COMMAND:
             case STOP_STREAMING_COMMAND:
+            case STOP_SDBT_COMMAND:
+            case START_LOGGING_COMMAND:
+            case STOP_LOGGING_COMMAND:
             case GET_A_ACCEL_CALIBRATION_COMMAND:
             case GET_MPU9150_GYRO_CALIBRATION_COMMAND:
             case GET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
@@ -1759,6 +1938,7 @@ uint8_t Dma2ConversionDone(void) {
             case GET_CONFIGTIME_COMMAND:
             case GET_DIR_COMMAND:
             case GET_DERIVED_CHANNEL_BYTES:
+            case GET_RWC_COMMAND:
                gAction = data;
                processCommand = 1;
                DMA2SZ = 1;
@@ -1805,6 +1985,8 @@ uint8_t Dma2ConversionDone(void) {
             case SET_DAUGHTER_CARD_MEM_COMMAND:
             case SET_TRIAL_CONFIG_COMMAND:
             case SET_DERIVED_CHANNEL_BYTES:
+            case GET_INFOMEM_COMMAND:
+            case SET_INFOMEM_COMMAND:
                waitingForArgs = 3;
                DMA2SZ = 3;
                DMA2_enable();
@@ -1813,6 +1995,12 @@ uint8_t Dma2ConversionDone(void) {
             case SET_CONFIG_SETUP_BYTES_COMMAND:
                waitingForArgs = 4;
                DMA2SZ = 4;
+               DMA2_enable();
+               gAction = data;
+               return 0;
+            case SET_RWC_COMMAND:
+               waitingForArgs = 8;
+               DMA2SZ = 8;
                DMA2_enable();
                gAction = data;
                return 0;
@@ -1853,6 +2041,8 @@ void ProcessCommand(void) {
    case INQUIRY_COMMAND:
       inquiryResponse = 1;
       break;
+   case DUMMY_COMMAND:
+      break;
    case GET_SAMPLING_RATE_COMMAND:
       samplingRateResponse = 1;
       break;
@@ -1860,27 +2050,53 @@ void ProcessCommand(void) {
       toggleLedRed ^= 1;
       break;
    case START_STREAMING_COMMAND:
-      configureChannels = 1;
       enableBtstream = 1;
-      enableSdlog = 0;
-      newDirFlag = 1;
-      CheckSdInslot();
-      startSensing = 1;
+      if(!sensing){
+         configureChannels = 1;
+         startSensing = 1;
+      }
+      //enableSdlog = 0;
+      //newDirFlag = 1;
+      //CheckSdInslot();
       break;
    case START_SDBT_COMMAND:
-      configureChannels = 1;
+      if(!sensing){
+         configureChannels = 1;
+         startSensing = 1;
+      }
       enableBtstream = 1;
-      startSensing = 1;
-      if(sdlogging)
+      if(sdlogReady)
          enableSdlog = 1;
+      break;
+   case START_LOGGING_COMMAND:
+      if(sdlogReady){
+         enableSdlog = 1;
+         if(!sensing){
+            startSensing = 1;
+            configureChannels = 1;
+         }
+      }
       break;
    case SET_CRC_COMMAND:
       crcChecksum = args[0];
       break;
+
    case STOP_STREAMING_COMMAND:
+      if(isStreaming) {
+         stopStreaming = 1;
+      }
+      break;
+   case STOP_SDBT_COMMAND:
       if(sensing) {
          stopSensing = 1;
-         return;
+         //return;
+      }
+      break;
+   case STOP_LOGGING_COMMAND:
+      if(isLogging) {
+         stopLogging = 1;
+         //if(!isStreaming);
+         //return;
       }
       break;
    case SET_SENSORS_COMMAND:
@@ -1896,8 +2112,8 @@ void ProcessCommand(void) {
       update_sdconfig = 1;
       configureChannels = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case GET_LSM303DLHC_ACCEL_RANGE_COMMAND:
@@ -1912,8 +2128,11 @@ void ProcessCommand(void) {
    case GET_STATUS_COMMAND:
       dockedResponse = 1;
       break;
+   case GET_VBATT_COMMAND:
+      btVbattResponse = 1;
+      break;
    case GET_TRIAL_CONFIG_COMMAND:
-     trialConfigResponse = 1;
+      trialConfigResponse = 1;
       break;
    case SET_TRIAL_CONFIG_COMMAND:
       storedConfig[NV_SD_TRIAL_CONFIG0] = args[0];
@@ -1945,8 +2164,8 @@ void ProcessCommand(void) {
       name_len = args[0]<(MAX_CHARS-1)?args[0]:(MAX_CHARS-1);
       memset((uint8_t*)(storedConfig+NV_SD_SHIMMER_NAME), 0, MAX_CHARS-1);
       memcpy((uint8_t*)(storedConfig+NV_SD_SHIMMER_NAME), &args[1], name_len);
-      SetShimmerName();
       InfoMem_write((uint8_t*)NV_SD_SHIMMER_NAME, storedConfig+NV_SD_SHIMMER_NAME, MAX_CHARS-1);
+      SetShimmerName();
       update_sdconfig = 1;
       break;
    case GET_EXPID_COMMAND:
@@ -1956,8 +2175,8 @@ void ProcessCommand(void) {
       name_len = args[0]<(MAX_CHARS-1)?args[0]:(MAX_CHARS-1);
       memset((uint8_t*)(storedConfig+NV_SD_EXP_ID_NAME), 0, MAX_CHARS-1);
       memcpy((uint8_t*)(storedConfig+NV_SD_EXP_ID_NAME), &args[1], name_len);
-      SetExpIdName();
       InfoMem_write((uint8_t*)NV_SD_EXP_ID_NAME, storedConfig+NV_SD_EXP_ID_NAME, MAX_CHARS-1);
+      SetExpIdName();
       update_sdconfig = 1;
       break;
    case GET_CONFIGTIME_COMMAND:
@@ -2008,8 +2227,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE0] = storedConfig[NV_CONFIG_SETUP_BYTE0];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
@@ -2058,10 +2277,10 @@ void ProcessCommand(void) {
          storedConfig[NV_CONFIG_SETUP_BYTE0] = (storedConfig[NV_CONFIG_SETUP_BYTE0]&0x0F) + (LSM303DLHC_ACCEL_100HZ<<4);
       InfoMem_write((void*)NV_CONFIG_SETUP_BYTE0, &storedConfig[NV_CONFIG_SETUP_BYTE0], 1);
       sdHeadText[SDH_CONFIG_SETUP_BYTE0] = storedConfig[NV_CONFIG_SETUP_BYTE0];
-       update_sdconfig = 1;
+      update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_LSM303DLHC_MAG_GAIN_COMMAND:
@@ -2073,8 +2292,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE2] = storedConfig[NV_CONFIG_SETUP_BYTE2];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
@@ -2086,8 +2305,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE2] = storedConfig[NV_CONFIG_SETUP_BYTE2];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
@@ -2100,8 +2319,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE0] = storedConfig[NV_CONFIG_SETUP_BYTE0];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
@@ -2114,8 +2333,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE0] = storedConfig[NV_CONFIG_SETUP_BYTE0];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_MPU9150_GYRO_RANGE_COMMAND:
@@ -2127,8 +2346,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE2] = storedConfig[NV_CONFIG_SETUP_BYTE2];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_MPU9150_SAMPLING_RATE_COMMAND:
@@ -2137,8 +2356,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE1] = storedConfig[NV_CONFIG_SETUP_BYTE1];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_MPU9150_ACCEL_RANGE_COMMAND:
@@ -2150,8 +2369,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE3] = storedConfig[NV_CONFIG_SETUP_BYTE3];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_BMP180_PRES_OVERSAMPLING_RATIO_COMMAND:
@@ -2172,8 +2391,8 @@ void ProcessCommand(void) {
       sdHeadText[SDH_CONFIG_SETUP_BYTE3] = storedConfig[NV_CONFIG_SETUP_BYTE3];
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case GET_CONFIG_SETUP_BYTES_COMMAND:
@@ -2189,8 +2408,8 @@ void ProcessCommand(void) {
       Config2SdHead();
       update_sdconfig = 1;
       if(sensing) {
-         stopSensing = 1;     //stops streaming before configuring channels
-         startSensing = 1;    //starts streaming after configuring channels
+         stopSensing = 1;
+         startSensing = 1;
       }
       break;
    case SET_SAMPLING_RATE_COMMAND:
@@ -2249,7 +2468,7 @@ void ProcessCommand(void) {
       if(args[0] <= 4)
          storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + ((args[0]&0x07)<<1);
       else
-         storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + (HW_RES_40K<<1);
+         storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + (GSR_AUTORANGE<<1);
       InfoMem_write((void*)NV_CONFIG_SETUP_BYTE3, &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
       sdHeadText[SDH_CONFIG_SETUP_BYTE3] = storedConfig[NV_CONFIG_SETUP_BYTE3];
       update_sdconfig = 1;
@@ -2263,11 +2482,11 @@ void ProcessCommand(void) {
          if(args[0]) {
             memcpy((storedConfig+NV_EXG_ADS1292R_2_CONFIG1+args[1]), (args+3), args[2]);
             InfoMem_write((void*)(NV_EXG_ADS1292R_2_CONFIG1+args[1]), (storedConfig+NV_EXG_ADS1292R_2_CONFIG1+args[1]), args[2]);
-            memcpy(sdHeadText+SDH_EXG_ADS1292R_1_CONFIG1, storedConfig+NV_EXG_ADS1292R_2_CONFIG1,args[2]);
+            memcpy(sdHeadText+SDH_EXG_ADS1292R_2_CONFIG1, storedConfig+NV_EXG_ADS1292R_2_CONFIG1,args[2]);
          } else {
             memcpy((storedConfig+NV_EXG_ADS1292R_1_CONFIG1+args[1]), (args+3), args[2]);
             InfoMem_write((void*)(NV_EXG_ADS1292R_1_CONFIG1+args[1]), (storedConfig+NV_EXG_ADS1292R_1_CONFIG1+args[1]), args[2]);
-            memcpy(sdHeadText+SDH_EXG_ADS1292R_2_CONFIG1, storedConfig+NV_EXG_ADS1292R_1_CONFIG1,args[2]);
+            memcpy(sdHeadText+SDH_EXG_ADS1292R_1_CONFIG1, storedConfig+NV_EXG_ADS1292R_1_CONFIG1,args[2]);
          }
       update_sdconfig = 1;
       }
@@ -2351,10 +2570,10 @@ void ProcessCommand(void) {
       break;
    case SET_BT_COMMS_BAUD_RATE:
       if(args[0] != storedConfig[NV_BT_COMMS_BAUD_RATE]) {
-         if(args[0]>0 && args[0]<11) {
+         if(args[0]<11) {
             changeBtBaudRate = args[0];
          } else {
-            changeBtBaudRate = 0;
+            changeBtBaudRate = 9;
          }
       }
       break;
@@ -2366,6 +2585,51 @@ void ProcessCommand(void) {
       InfoMem_write((void*)NV_DERIVED_CHANNELS_0, &storedConfig[NV_DERIVED_CHANNELS_0], 3);
       memcpy(&sdHeadText[SDH_DERIVED_CHANNELS_0], &storedConfig[NV_DERIVED_CHANNELS_0], 3);
       update_sdconfig = 1;
+      break;
+   case GET_INFOMEM_COMMAND:
+      infomemLength = args[0];
+      infomemOffset = args[1] + (args[2]<<8);
+      if((infomemLength<=128) && (infomemOffset<=(NV_NUM_RWMEM_BYTES-1)) && (infomemLength+infomemOffset<=NV_NUM_RWMEM_BYTES))
+         infomemResponse = 1;
+      break;
+   case SET_INFOMEM_COMMAND:
+      infomemLength = args[0];
+      infomemOffset = args[1] + (args[2]<<8);
+      if((infomemLength<=128) && (infomemOffset<=(NV_NUM_RWMEM_BYTES-1)) && (infomemLength+infomemOffset<=NV_NUM_RWMEM_BYTES)){
+         //memcpy(storedConfig+infomemOffset, args+3, infomemLength);
+         //InfoMem_write((void*)(infomemOffset), (storedConfig+infomemOffset), infomemLength);
+         InfoMem_read((uint8_t *)NV_MAC_ADDRESS, macAddr, 6);
+         InfoMem_write((void*)infomemOffset, args+3, infomemLength);
+         InfoMem_write((uint8_t*)NV_MAC_ADDRESS, macAddr, 6);
+         InfoMem_read((uint8_t *)infomemOffset, storedConfig+infomemOffset, infomemLength);
+         Infomem2Names();
+         update_sdconfig = 1;
+         if(((infomemOffset>=NV_A_ACCEL_CALIBRATION) && (infomemOffset<=NV_CALIBRATION_END)) ||
+            (((infomemLength+infomemOffset)>=NV_A_ACCEL_CALIBRATION) && ((infomemLength+infomemOffset)<=NV_CALIBRATION_END)) ||
+            ((infomemOffset<=NV_A_ACCEL_CALIBRATION) && ((infomemLength+infomemOffset)>=NV_CALIBRATION_END)))
+            calib_update = 1;
+      }
+      else
+         return;
+      break;
+   case GET_RWC_COMMAND:
+      rwcResponse = 1;
+      break;
+   case SET_RWC_COMMAND:
+      memcpy((uint8_t*)(&rwcConfigTime64), args, 8);// 64bits = 8bytes
+      rwcTimeDiff64 = rwcConfigTime64 - RTC_get64(); // this is the offset to be stored int the sd header
+      RwcCheck();
+      storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_RTC_SET_BY_BT;
+      InfoMem_write((uint8_t*)NV_SD_TRIAL_CONFIG0, &storedConfig[NV_SD_TRIAL_CONFIG0], 1);
+      sdHeadText[SDH_TRIAL_CONFIG0] = storedConfig[NV_SD_TRIAL_CONFIG0];
+      sdHeadText[SDH_RTC_DIFF_7] = *((uint8_t*)&rwcTimeDiff64);
+      sdHeadText[SDH_RTC_DIFF_6] = *(((uint8_t*)&rwcTimeDiff64)+1);
+      sdHeadText[SDH_RTC_DIFF_5] = *(((uint8_t*)&rwcTimeDiff64)+2);
+      sdHeadText[SDH_RTC_DIFF_4] = *(((uint8_t*)&rwcTimeDiff64)+3);
+      sdHeadText[SDH_RTC_DIFF_3] = *(((uint8_t*)&rwcTimeDiff64)+4);
+      sdHeadText[SDH_RTC_DIFF_2] = *(((uint8_t*)&rwcTimeDiff64)+5);
+      sdHeadText[SDH_RTC_DIFF_1] = *(((uint8_t*)&rwcTimeDiff64)+6);
+      sdHeadText[SDH_RTC_DIFF_0] = *(((uint8_t*)&rwcTimeDiff64)+7);
       break;
    default:;
    }
@@ -2426,8 +2690,20 @@ void SendResponse(void) {
       } else if(dockedResponse) {
          *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
          *(resPacket + packet_length++) = STATUS_RESPONSE;
-         *(resPacket + packet_length++) = (docked & 0x01) + ((sensing  & 0x01)<<1);   //2 valid bits: sensing+docked
+         //*(resPacket + packet_length++) = (docked & 0x01) + ((sensing  & 0x01)<<1);   //2 valid bits: sensing+docked
+         *(resPacket + packet_length++) = ((isStreaming & 0x01)<<4) +
+                     ((isLogging & 0x01)<<3) +
+                     ((0 & 0x01)<<2) +
+                     ((sensing & 0x01)<<1) +
+                     (docked & 0x01);
          dockedResponse = 0;
+      } else if(btVbattResponse) {
+         ReadBatt();
+         *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
+         *(resPacket + packet_length++) = VBATT_RESPONSE;
+         memcpy((resPacket + packet_length), battVal, 3);
+         packet_length+=3;
+         btVbattResponse = 0;
       } else if(trialConfigResponse) {
          *(resPacket + packet_length++) = TRIAL_CONFIG_RESPONSE;
          memcpy((resPacket + packet_length), (storedConfig+NV_SD_TRIAL_CONFIG0), 3);  //2 trial config bytes + 1 interval byte
@@ -2436,20 +2712,23 @@ void SendResponse(void) {
       } else if(centerResponse) {
          centerResponse = 0;
       } else if(shimmerNameResponse) {
+         SetShimmerName();
          uint8_t shimmer_name_len = strlen((char*)shimmerName);
          *(resPacket + packet_length++) = SHIMMERNAME_RESPONSE;
          *(resPacket + packet_length++) = shimmer_name_len;
          memcpy((resPacket + packet_length), shimmerName, shimmer_name_len);
-         packet_length+=shNameLen;
+         packet_length+=shimmer_name_len;
          shimmerNameResponse = 0;
       } else if(expIDResponse) {
+         SetExpIdName();
          uint8_t exp_id_name_len = strlen((char*)expIdName);
          *(resPacket + packet_length++) = EXPID_RESPONSE;
          *(resPacket + packet_length++) = exp_id_name_len;
          memcpy((resPacket + packet_length), expIdName, exp_id_name_len);
-         packet_length+=expNameLen;
+         packet_length+=exp_id_name_len;
          expIDResponse = 0;
       } else if(configTimeResponse) {
+         SetCfgTime();
          uint8_t cfgtime_name_len = strlen((char*)configTimeText);
          *(resPacket + packet_length++) = CONFIGTIME_RESPONSE;
          *(resPacket + packet_length++) = cfgtime_name_len;
@@ -2609,12 +2888,25 @@ void SendResponse(void) {
          *(resPacket + packet_length++) = BT_COMMS_BAUD_RATE_RESPONSE;
          *(resPacket + packet_length++) = storedConfig[NV_BT_COMMS_BAUD_RATE];
          btCommsBaudRateResponse = 0;
+      } else if(infomemResponse) {
+         *(resPacket + packet_length++) = INFOMEM_RESPONSE;
+         *(resPacket + packet_length++) = infomemLength;
+         memcpy((resPacket+packet_length), &storedConfig[infomemOffset], infomemLength);
+         packet_length += infomemLength;
+         infomemResponse = 0;
       } else if (derivedChannelResponse) {
          *(resPacket + packet_length++) = DERIVED_CHANNEL_BYTES_RESPONSE;
          *(resPacket + packet_length++) = storedConfig[NV_DERIVED_CHANNELS_0];
          *(resPacket + packet_length++) = storedConfig[NV_DERIVED_CHANNELS_1];
          *(resPacket + packet_length++) = storedConfig[NV_DERIVED_CHANNELS_2];
          derivedChannelResponse = 0;
+      } else if(rwcResponse){
+         uint64_t rwc_curr_time_64;
+         rwc_curr_time_64 = rwcTimeDiff64 + RTC_get64();
+         *(resPacket + packet_length++) = RWC_RESPONSE;
+         memcpy(resPacket + packet_length, (uint8_t*)(&rwc_curr_time_64), 8);
+         packet_length += 8;
+         rwcResponse = 0;
       }
    }
 
@@ -2712,19 +3004,26 @@ void ParseConfig(void) {
    uint32_t config_time = 0;
    bool iAmMaster = FALSE, time_sync = FALSE, singletouch = FALSE,
       tcxo=FALSE, user_button_enable = FALSE;
+#if !RTC_OFF
+   bool rwc_error_enable = TRUE;
+#endif
+   uint32_t est_exp_len = 0;
+   uint32_t max_exp_len = 0;
 
    CheckSdInslot();
    char cfgname[]="sdlog.cfg";
    fileBad = f_open(&fil, cfgname, FA_READ | FA_OPEN_EXISTING);
    if(fileBad == FR_NO_FILE) {
-      IniReadInfoMem();
-      UpdateSdConfig();
-      fileBad = 0;
+      if(!IniReadInfoMem()){
+         UpdateSdConfig();
+         fileBad = 0;
+      }else
+         return;
    } else if(fileBad){
-      fileBad = 0;
+      //fileBad = 0;
       return;
    } else{
-      uint8_t stored_config_temp[NV_TOTAL_NUM_CONFIG_BYTES];
+      uint8_t stored_config_temp[NV_NUM_RWMEM_BYTES];
 
       broadcast_interval = RC_INT_C;
 
@@ -2739,16 +3038,14 @@ void ParseConfig(void) {
 
       stored_config_temp[NV_SD_TRIAL_CONFIG0] &= ~SDH_SET_PMUX;// PMUX reserved as 0
       stored_config_temp[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_STAMP;// TIME_STAMP always = 1
-      stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= (4 & 0x07) <<1;      //BIT3-1
+      stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= (GSR_AUTORANGE & 0x07) <<1;      //BIT3-1
       stored_config_temp[NV_BUFFER_SIZE] = 1;
-      stored_config_temp[NV_BT_COMMS_BAUD_RATE] = 0x00;
+      stored_config_temp[NV_BT_COMMS_BAUD_RATE] = 0x09;
       changeBtBaudRate = 0xff;   // set this flag to no_event as every sdlog.cfg read is followed by a baudrate setting
 
       memset(shimmerName, 0, MAX_CHARS);
       memset(expIdName, 0, MAX_CHARS);
       memset(configTimeText, 0, MAX_CHARS);
-      shNameLen = 0;
-      expNameLen = 0;
       *(stored_config_temp+NV_SD_SHIMMER_NAME)='\0';
       *(stored_config_temp+NV_SD_EXP_ID_NAME)='\0';
       *configTimeText = '\0';
@@ -2848,6 +3145,11 @@ void ParseConfig(void) {
             pres_bmp180_prec = atoi(equals);
             stored_config_temp[NV_CONFIG_SETUP_BYTE3]|= (pres_bmp180_prec& 0x03) <<4;   //BIT5-4
          }
+#if !RTC_OFF
+         else if(strstr(buffer, "rtc_error_enable=")){
+            rwc_error_enable = (atoi(equals)==0)?FALSE:TRUE;
+         }
+#endif
          else if(strstr(buffer, "user_button_enable=")){
             user_button_enable = (atoi(equals)==0)?FALSE:TRUE;
             stored_config_temp[NV_SD_TRIAL_CONFIG0] |= user_button_enable*SDH_USER_BUTTON_ENABLE;
@@ -2868,6 +3170,11 @@ void ParseConfig(void) {
             stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= exp_power& 0x01;
          }
          else if(strstr(buffer, "center=")){
+         }
+         else if(strstr(buffer, "max_exp_len=")){
+            max_exp_len = atoi(equals);
+            stored_config_temp[NV_MAX_EXP_LEN_MSB] = (max_exp_len & 0xff00)>>8;
+            stored_config_temp[NV_MAX_EXP_LEN_LSB] = max_exp_len & 0xff;
          }
          else if(strstr(buffer, "myid=")){
             my_trial_id = atoi(equals);
@@ -2957,11 +3264,11 @@ void ParseConfig(void) {
          else if(strstr(buffer, "baud_rate=")){
             config_baudrate = atoi(equals);
             if(config_baudrate != storedConfig[NV_BT_COMMS_BAUD_RATE]){
-               if(config_baudrate>0 && config_baudrate<11){
+               if(config_baudrate<11){
                   changeBtBaudRate = config_baudrate;
                }
                else{
-                  changeBtBaudRate = 0;
+                  changeBtBaudRate = 9;
                }
             }
             stored_config_temp[NV_BT_COMMS_BAUD_RATE] = storedConfig[NV_BT_COMMS_BAUD_RATE];
@@ -2976,6 +3283,7 @@ void ParseConfig(void) {
       fileBad = f_close(&fil);
       _delay_cycles(1200000);
 
+      maxLen = max_exp_len*60;
       if(tcxo)
          clockFreq = TCXO_CLOCK;
       else
@@ -3017,8 +3325,13 @@ void ParseConfig(void) {
          stored_config_temp[NV_SENSORS2] &= ~SENSOR_INT_A14;
       }
 
-      if(((stored_config_temp[NV_CONFIG_SETUP_BYTE3]>>1)&0x07)>4)// never larger than 4
-         stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= (4 & 0x07) <<1;      //BIT3-1
+      if(((stored_config_temp[NV_CONFIG_SETUP_BYTE3]>>1)&0x07)>4){// never larger than 4
+         stored_config_temp[NV_CONFIG_SETUP_BYTE3] &= 0xf1;
+         stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= (GSR_AUTORANGE & 0x07) <<1;      //BIT3-1
+      }
+#if !RTC_OFF
+      stored_config_temp[NV_SD_TRIAL_CONFIG0] |= rwc_error_enable*SDH_RWCERROR_EN;
+#endif
 
 
 
@@ -3039,6 +3352,7 @@ void ParseConfig(void) {
       stored_config_temp[NV_SD_TRIAL_CONFIG1] = 0;
 
       memcpy(storedConfig,stored_config_temp,NV_NUM_SETTINGS_BYTES);
+      memcpy((uint8_t*)(storedConfig+NV_SENSORS3),(uint8_t*)(stored_config_temp+NV_SENSORS3),5);
       memcpy((uint8_t*)(storedConfig+NV_SD_SHIMMER_NAME),(uint8_t*)(stored_config_temp+NV_SD_SHIMMER_NAME),37);
 
       Config2SdHead();
@@ -3062,6 +3376,13 @@ void Config2SdHead(void){
    sdHeadText[SDH_CONFIG_SETUP_BYTE1] = storedConfig[NV_CONFIG_SETUP_BYTE1];
    sdHeadText[SDH_CONFIG_SETUP_BYTE2] = storedConfig[NV_CONFIG_SETUP_BYTE2];
    sdHeadText[SDH_CONFIG_SETUP_BYTE3] = storedConfig[NV_CONFIG_SETUP_BYTE3];
+   // DMP related - start
+   sdHeadText[SDH_SENSORS3] = storedConfig[NV_SENSORS3];
+   sdHeadText[SDH_SENSORS4] = storedConfig[NV_SENSORS4];
+   sdHeadText[SDH_CONFIG_SETUP_BYTE4] = storedConfig[NV_CONFIG_SETUP_BYTE4];
+   sdHeadText[SDH_CONFIG_SETUP_BYTE5] = storedConfig[NV_CONFIG_SETUP_BYTE5];
+   sdHeadText[SDH_CONFIG_SETUP_BYTE6] = storedConfig[NV_CONFIG_SETUP_BYTE6];
+   // DMP related - end
    // little endian in fw, but they want big endian in sw
    // trivial
    sdHeadText[SDH_SHIMMERVERSION_BYTE_0] = DEVICE_VER>>8;
@@ -3101,6 +3422,10 @@ void Config2SdHead(void){
    // sd config
    sdHeadText[SDH_MYTRIAL_ID] = storedConfig[NV_SD_MYTRIAL_ID];
    sdHeadText[SDH_NSHIMMER] = storedConfig[NV_SD_NSHIMMER];
+   sdHeadText[SDH_EST_EXP_LEN_MSB] = storedConfig[NV_EST_EXP_LEN_MSB];
+   sdHeadText[SDH_EST_EXP_LEN_LSB] = storedConfig[NV_EST_EXP_LEN_LSB];
+   sdHeadText[SDH_MAX_EXP_LEN_MSB] = storedConfig[NV_MAX_EXP_LEN_MSB];
+   sdHeadText[SDH_MAX_EXP_LEN_LSB] = storedConfig[NV_MAX_EXP_LEN_LSB];
    sdHeadText[SDH_TRIAL_CONFIG0] = storedConfig[NV_SD_TRIAL_CONFIG0];
    sdHeadText[SDH_TRIAL_CONFIG1] = storedConfig[NV_SD_TRIAL_CONFIG1] = 0;
    sdHeadText[SDH_BROADCAST_INTERVAL] = storedConfig[NV_SD_BT_INTERVAL];
@@ -3137,9 +3462,9 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_CONFIG_SETUP_BYTE1] = 0x9B;
    //LSM303DLHC Mag 75Hz, +/-1.3 Gauss, MPU9150 Gyro +/-500 degrees per second
    storedConfig[NV_CONFIG_SETUP_BYTE2] = (LSM303DLHC_MAG_1_3G<<5) + (LSM303DLHC_MAG_75HZ<<2) + MPU9150_GYRO_500DPS;
-   //MPU9150 Accel +/-2G, BMP pressure oversampling ratio 1, GSR range resistor 40k, EXP_RESET_N pin set low
+   //MPU9150 Accel +/-2G, BMP pressure oversampling ratio 1, GSR auto range, EXP_RESET_N pin set low
    // todo: *** *** *** warning! *** *** ***  btStream for this here is not correct, this is mpu9150_accrange, not lsm303 acc range
-   storedConfig[NV_CONFIG_SETUP_BYTE3] = (ACCEL_2G<<6) + (BMP180_OSS_1<<4) + (HW_RES_40K<<1);
+   storedConfig[NV_CONFIG_SETUP_BYTE3] = (ACCEL_2G<<6) + (BMP180_OSS_1<<4) + (GSR_AUTORANGE<<1);//HW_RES_40K
    //set all ExG registers to their reset values
    storedConfig[NV_EXG_ADS1292R_1_CONFIG1] = 0x02;
    storedConfig[NV_EXG_ADS1292R_1_CONFIG2] = 0x80;
@@ -3162,7 +3487,7 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_EXG_ADS1292R_2_RESP1] = 0x00;
    storedConfig[NV_EXG_ADS1292R_2_RESP2] = 0x02;
    if(storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF)
-      storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;
+      storedConfig[NV_BT_COMMS_BAUD_RATE] = 9;
    InfoMem_write((void*)0, storedConfig, NV_NUM_SETTINGS_BYTES);
 
    // sd config
@@ -3179,7 +3504,7 @@ void SetDefaultConfiguration(void) {
    memset(&storedConfig[NV_SD_CONFIG_TIME], 0x00, 4);
    storedConfig[NV_SD_MYTRIAL_ID] = 0x00;
    storedConfig[NV_SD_NSHIMMER] = 0x00;
-   storedConfig[NV_SD_TRIAL_CONFIG0] = SDH_USER_BUTTON_ENABLE;
+   storedConfig[NV_SD_TRIAL_CONFIG0] = SDH_USER_BUTTON_ENABLE + SDH_RWCERROR_EN;
    storedConfig[NV_SD_TRIAL_CONFIG1] = 0;
    storedConfig[NV_SD_BT_INTERVAL] = 54;
 
@@ -3209,6 +3534,26 @@ void SetExpIdName(){
       strcpy((char*)expIdName, (char*)(storedConfig+NV_SD_EXP_ID_NAME));
    }
 }
+void SetCfgTime(){
+   uint32_t cfg_time_temp = 0;
+   uint8_t i;
+   for(i=0;i<4;i++){
+      cfg_time_temp<<=8;
+      cfg_time_temp +=storedConfig[NV_SD_CONFIG_TIME+i];
+   }
+   if(cfg_time_temp){
+      ItoaNo0((uint64_t)cfg_time_temp, configTimeText, UINT32_LEN);
+   }else{
+      strcpy((char*)configTimeText,"0");
+   }
+}
+
+void Infomem2Names(){
+   SetShimmerName();
+   SetExpIdName();
+   SetCfgTime();
+}
+
 void SetName(){
    if(strlen((char*)configTimeText)==0){
       strcpy((char*)configTimeText,"0");
@@ -3224,7 +3569,8 @@ error_t SetBasedir() {
    uint16_t tmp_counter = 0;
    char lfn[_MAX_LFN + 1], * fname, * scout, * dash, dirnum[8];
 
-   SetName();
+   Infomem2Names();
+   //SetName();
 
    fno.lfname = lfn;
    fno.lfsize = sizeof(lfn);
@@ -4153,7 +4499,7 @@ void SetDocked(void){
    docked = 1;
    battInterval = BATT_INTERVAL_D;
    enableSdlog = 0;
-   sdlogging = 0;
+   sdlogReady = 0;
    newDirFlag = 1;
    if(CheckSdInslot()){
       DockSdPowerCycle();
@@ -4161,7 +4507,8 @@ void SetDocked(void){
    if(!sensing){
       UART_activate();
    }
-   SendStatusByte();
+   //SendStatusByte();
+   BtsdSelfcmd();
    configuring = 0;
 }
 void SetUndocked(void){
@@ -4170,7 +4517,8 @@ void SetUndocked(void){
       UART_deactivate();
    }
    P6OUT |= BIT0;
-   SendStatusByte();
+   //SendStatusByte();
+   BtsdSelfcmd();
    SdPowerOff();
    if(CheckSdInslot() && !sensing){
       _delay_cycles(2880000);
@@ -4183,9 +4531,10 @@ void SetUndocked(void){
 void SdInfoSync(){
    sdInfoSyncDelayed = 0;
    if(GetSdCfgFlag()){ // info > sdcard
-      IniReadInfoMem();
-      UpdateSdConfig();
-      SetSdCfgFlag(0);
+      if(!IniReadInfoMem()){
+         UpdateSdConfig();
+         SetSdCfgFlag(0);
+      }
    }
    else
       ReadSdConfiguration();
@@ -4217,8 +4566,6 @@ uint8_t SendStatusByte(){
    }
    return 0;
 }
-void NoOp(void){   ;}
-
 
 void PostSdCfg(void){
    if(!sensing)
@@ -4248,21 +4595,34 @@ uint8_t CheckSdInslot(){
    }
 }
 
-void IniReadInfoMem(){
-   InfoMem_read((uint8_t *)0, storedConfig, NV_TOTAL_NUM_CONFIG_BYTES);
+uint8_t IniReadInfoMem(){
+   InfoMem_read((uint8_t *)0, storedConfig, NV_NUM_RWMEM_BYTES);
    if(storedConfig[NV_SENSORS1] == 0xFF){
       //if config was never written to Infomem, write default
       //assuming some other app didn't make use of InfoMem, or else InfoMem was erased
       SetDefaultConfiguration();
+      //fileBad = 1;
+      //return 1;
    }
    Config2SdHead();
-   SetName();
+   Infomem2Names();
+   return 0;
 }
 
+void RwcCheck(){
+#if RTC_OFF
+   rwcErrorEn = 0;
+   rwcErrorFlash = 0;
+#else
+   rwcErrorEn = (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_RWCERROR_EN)?1:0;
+   rwcErrorFlash = ((!rwcTimeDiff64) && rwcErrorEn)?1:0;
+#endif
+}
 
 void StreamData(){
    uint16_t crc_value;
    uint8_t adc_offset;
+   uint8_t* current_buffer_ptr;
    if(clockFreq == TCXO_CLOCK)
       adc_offset = 8;
    else
@@ -4273,6 +4633,7 @@ void StreamData(){
       GsrRange();
    }
    if(currentBuffer){
+      current_buffer_ptr = txBuff1;
       if(storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO) {
          MPU9150_getGyro(txBuff1+digi_offset);
          digi_offset+=6;
@@ -4305,6 +4666,7 @@ void StreamData(){
          if(preSampleBmpPress) {
             if(sampleBmpTemp == sampleBmpTempFreq) {
                sampleBmpTemp = 0;
+#if PRES_TS_EN
                bmpTempSampleTs = RTC_get64();
                if((bmpTempSampleTs-bmpTempStartTs > bmpTempInterval) && (bmpTempStartTs > bmpPresStartTs)){
                   BMP180_getTemp(bmpTempCurrentVal);
@@ -4313,7 +4675,11 @@ void StreamData(){
                   else
                      memcpy(bmpVal, bmpTempCurrentVal, 2);
                }
+#else
+               BMP180_getTemp(bmpVal);
+#endif
             } else {
+#if PRES_TS_EN
                bmpPresSampleTs = RTC_get64();
                if((bmpPresSampleTs-bmpPresStartTs > bmpPresInterval) && (bmpPresStartTs > bmpTempStartTs)){
                   BMP180_getPress(bmpPresCurrentVal);
@@ -4322,11 +4688,15 @@ void StreamData(){
                   else
                      memcpy(bmpVal+2, bmpPresCurrentVal, 3);
                }
+#else
+               BMP180_getPress(bmpVal+2);
+#endif
                sampleBmpTemp++;
             }
          } else if(!bmpPressCount--) {
             if(sampleBmpTemp == sampleBmpTempFreq) {
                sampleBmpTemp = 0;
+#if PRES_TS_EN
                bmpTempSampleTs = RTC_get64();
                if((bmpTempSampleTs-bmpTempStartTs > bmpTempInterval) && (bmpTempStartTs > bmpPresStartTs)){
                   BMP180_getTemp(bmpTempCurrentVal);
@@ -4336,8 +4706,12 @@ void StreamData(){
                      memcpy(bmpVal, bmpTempCurrentVal, 2);
                }
                bmpPresStartTs = RTC_get64();
+#else
+               BMP180_getTemp(bmpVal);
+#endif
                BMP180_startPressMeasurement((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4);
             } else {
+#if PRES_TS_EN
                bmpPresSampleTs = RTC_get64();
                if((bmpPresSampleTs-bmpPresStartTs > bmpPresInterval) && (bmpPresStartTs > bmpTempStartTs)){
                   BMP180_getPress(bmpPresCurrentVal);
@@ -4346,11 +4720,19 @@ void StreamData(){
                   else
                      memcpy(bmpVal+2, bmpPresCurrentVal, 3);
                }
+
+#else
+               BMP180_getPress(bmpVal+2);
+#endif
                if(++sampleBmpTemp == sampleBmpTempFreq){
+#if PRES_TS_EN
                   bmpTempStartTs = RTC_get64();
+#endif
                   BMP180_startTempMeasurement();
                }else{
+#if PRES_TS_EN
                   bmpPresStartTs = RTC_get64();
+#endif
                   BMP180_startPressMeasurement((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4);
                }
             }
@@ -4377,37 +4759,9 @@ void StreamData(){
          digi_offset+=5;
       }
 
-      if(stopSensing) {
-         stopSensing = 0;
-         *(txBuff1+digi_offset++) = ACK_COMMAND_PROCESSED;
-         if(enableBtstream && btstreaming && btIsConnected && !syncEnabled){
-            if(crcChecksum){
-               crc_value = CRC_data(txBuff1+1, digi_offset-1);
-               *(txBuff1+digi_offset++) = crc_value & 0xFF;
-               *(txBuff1+digi_offset++) = (crc_value & 0xFF00) >> 8;
-            }
-            BT_write((txBuff1+1), digi_offset-1);
-         }
-         StopStreaming();
-      }
-      else{
-         if(enableSdlog && sdlogging){
-            memcpy(sdBuff+sdBuffLen, txBuff1+2, blockLen);
-            sdBuffLen+=blockLen;
-         }
-
-         if(enableBtstream && btstreaming && btIsConnected && !syncEnabled){
-            if(crcChecksum){
-               crc_value = CRC_data(txBuff1+1, digi_offset-1);
-               *(txBuff1+digi_offset++) = crc_value & 0xFF;
-               *(txBuff1+digi_offset++) = (crc_value & 0xFF00) >> 8;
-            }
-            BT_write((txBuff1+1), digi_offset-1);
-         }
-      }
-
       currentBuffer = 0;
    } else {
+      current_buffer_ptr = txBuff0;
       if(storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO) {
          MPU9150_getGyro(txBuff0+digi_offset);
          digi_offset+=6;
@@ -4440,6 +4794,7 @@ void StreamData(){
          if(preSampleBmpPress) {
             if(sampleBmpTemp == sampleBmpTempFreq) {
                sampleBmpTemp = 0;
+#if PRES_TS_EN
                bmpTempSampleTs = RTC_get64();
                if((bmpTempSampleTs-bmpTempStartTs > bmpTempInterval) && (bmpTempStartTs > bmpPresStartTs)){
                   BMP180_getTemp(bmpTempCurrentVal);
@@ -4448,7 +4803,11 @@ void StreamData(){
                   else
                      memcpy(bmpVal, bmpTempCurrentVal, 2);
                }
+#else
+               BMP180_getTemp(bmpVal);
+#endif
             } else {
+#if PRES_TS_EN
                bmpPresSampleTs = RTC_get64();
                if((bmpPresSampleTs-bmpPresStartTs > bmpPresInterval) && (bmpPresStartTs > bmpTempStartTs)){
                   BMP180_getPress(bmpPresCurrentVal);
@@ -4457,11 +4816,15 @@ void StreamData(){
                   else
                      memcpy(bmpVal+2, bmpPresCurrentVal, 3);
                }
+#else
+               BMP180_getPress(bmpVal+2);
+#endif
                sampleBmpTemp++;
             }
          } else if(!bmpPressCount--) {
             if(sampleBmpTemp == sampleBmpTempFreq) {
                sampleBmpTemp = 0;
+#if PRES_TS_EN
                bmpTempSampleTs = RTC_get64();
                if((bmpTempSampleTs-bmpTempStartTs > bmpTempInterval) && (bmpTempStartTs > bmpPresStartTs)){
                   BMP180_getTemp(bmpTempCurrentVal);
@@ -4471,8 +4834,12 @@ void StreamData(){
                      memcpy(bmpVal, bmpTempCurrentVal, 2);
                }
                bmpPresStartTs = RTC_get64();
+#else
+               BMP180_getTemp(bmpVal);
+#endif
                BMP180_startPressMeasurement((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4);
             } else {
+#if PRES_TS_EN
                bmpPresSampleTs = RTC_get64();
                if((bmpPresSampleTs-bmpPresStartTs > bmpPresInterval) && (bmpPresStartTs > bmpTempStartTs)){
                   BMP180_getPress(bmpPresCurrentVal);
@@ -4481,11 +4848,18 @@ void StreamData(){
                   else
                      memcpy(bmpVal+2, bmpPresCurrentVal, 3);
                }
+#else
+               BMP180_getPress(bmpVal+2);
+#endif
                if(++sampleBmpTemp == sampleBmpTempFreq){
+#if PRES_TS_EN
                   bmpTempStartTs = RTC_get64();
+#endif
                   BMP180_startTempMeasurement();
                }else{
+#if PRES_TS_EN
                   bmpPresStartTs = RTC_get64();
+#endif
                   BMP180_startPressMeasurement((storedConfig[NV_CONFIG_SETUP_BYTE3]&0x30)>>4);
                }
             }
@@ -4510,37 +4884,120 @@ void StreamData(){
          digi_offset+=5;
       }
 
-      if(stopSensing) {
+      /*if(stopSensing) {
          stopSensing = 0;
          *(txBuff0+digi_offset++) = ACK_COMMAND_PROCESSED;
-         if(enableBtstream && btstreaming && btIsConnected && !syncEnabled){
+         if(enableBtstream && btstreamReady && btIsConnected && !syncEnabled){
             if(crcChecksum){
-               crc_value = CRC_data(txBuff1+1, digi_offset-1);
-               *(txBuff1+digi_offset++) = crc_value & 0xFF;
-               *(txBuff1+digi_offset++) = (crc_value & 0xFF00) >> 8;
+               crc_value = CRC_data(txBuff0+1, digi_offset-1);
+               *(txBuff0+digi_offset++) = crc_value & 0xFF;
+               *(txBuff0+digi_offset++) = (crc_value & 0xFF00) >> 8;
             }
             BT_write((txBuff0+1), digi_offset-1);
          }
-         StopStreaming();
+         StopSensing();
       }
       else{
-         if(enableSdlog && sdlogging){
-            memcpy(sdBuff+sdBuffLen, txBuff0+2, digi_offset-2);
-            sdBuffLen+=digi_offset-2;
+         if(enableSdlog && sdlogReady){
+            memcpy(sdBuff+sdBuffLen, txBuff0+1, digi_offset-1);
+            sdBuffLen+=digi_offset-1;
          }
 
-         if(enableBtstream && btstreaming && btIsConnected && !syncEnabled){
+         if(enableBtstream && btstreamReady && btIsConnected && !syncEnabled){
             if(crcChecksum){
-               crc_value = CRC_data(txBuff1+1, digi_offset-1);
-               *(txBuff1+digi_offset++) = crc_value & 0xFF;
-               *(txBuff1+digi_offset++) = (crc_value & 0xFF00) >> 8;
+               crc_value = CRC_data(txBuff0+1, digi_offset-1);
+               *(txBuff0+digi_offset++) = crc_value & 0xFF;
+               *(txBuff0+digi_offset++) = (crc_value & 0xFF00) >> 8;
             }
-            BT_write((txBuff0+1), digi_offset-1);
+            BT_write(txBuff0, digi_offset);
          }
-      }
+      }*/
       currentBuffer = 1;
    }
+
+   isStreaming = enableBtstream && btstreamReady;
+   isLogging = enableSdlog && sdlogReady;
+
+   //uint8_t self_stop_sensing = 0;
+   if(stopLogging){
+      stopLogging = 0;
+      if(isLogging){
+         if(!isStreaming){
+            stopSensing = 1;
+         }else{
+            isLogging = 0;
+            newDirFlag = 1;
+            f_close(&fil);
+            _delay_cycles(1200000);
+            SdPowerOff();
+            enableSdlog = 0;
+         }
+      }
+   }
+
+   if(stopStreaming){
+      stopStreaming = 0;
+      if(isStreaming){
+         enableBtstream = 0;
+         isStreaming = 0;
+         if(!isLogging){
+            stopSensing = 1;
+         }
+      }
+   }
+
+   if(stopSensing){
+      stopSensing = 0;
+      StopSensing();
+   }
+   else{//here does the log and stream job
+#if SKIP50MS
+      if(Skip50ms())
+         return;
+#endif
+      if(enableSdlog && sdlogReady){
+#if TS_BYTE3
+         memcpy(sdBuff+sdBuffLen, current_buffer_ptr+1, digi_offset-1);
+         sdBuffLen+=digi_offset-1;
+#else
+         memcpy(sdBuff+sdBuffLen, current_buffer_ptr+2, digi_offset-2);
+         sdBuffLen+=digi_offset-2;
+#endif
+      }
+
+      if(enableBtstream && btstreamReady && btIsConnected && !syncEnabled){
+         if(crcChecksum){
+            crc_value = CRC_data(current_buffer_ptr+1, digi_offset-1);
+            *(current_buffer_ptr+digi_offset++) = crc_value & 0xFF;
+            *(current_buffer_ptr+digi_offset++) = (crc_value & 0xFF00) >> 8;
+         }
+#if TS_BYTE3
+         BT_write(current_buffer_ptr, digi_offset);
+#else
+         BT_write(current_buffer_ptr+1, digi_offset-1);
+#endif
+      }
+   }
 }
+
+uint8_t Skip50ms(){
+   if(!skip50ms){
+      return 0;
+   }
+   if(skip50ms == 1){
+      startSensingTs64 = RTC_get64();
+      skip50ms = 2;
+   }
+   else{
+      uint64_t ts_64 = RTC_get64();
+      if((ts_64 - startSensingTs64) > 1638){
+         skip50ms = 0;
+         return 0;
+      }
+   }
+   return 1;
+}
+
 
 void RstRcommVariables(){
    rcommCnt = 0;
@@ -4551,7 +5008,8 @@ void RstRcommVariables(){
    rcommSuccess = 0;
 }
 void Write2SD(){
-   WriteFile(sdBuff, sdBuffLen);
+   if(sdBuffLen)
+      WriteFile(sdBuff, sdBuffLen);
    sdBuffLen = 0;
    if(storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_TIME_SYNC)
       PrepareSDBuffHead();
@@ -4613,6 +5071,7 @@ void SetCalibFlag(uint8_t flag){
    }
 }
 
+char buffer[66], val_char[20];
 void UpdateSdConfig(){
    if(!docked && CheckSdInslot()){
       uint8_t sd_power_state;
@@ -4623,11 +5082,10 @@ void UpdateSdConfig(){
       else
          sd_power_state = 1;
 
-      uint8_t i;
+      //uint8_t i;
       float val_num;
-      uint16_t val_int, val_f;
+      uint16_t temp16, val_int, val_f;
       uint32_t temp32;
-      char buffer[66], val_char[20];
       UINT bw;
 
       char cfgname[]="sdlog.cfg";
@@ -4724,6 +5182,8 @@ void UpdateSdConfig(){
       // trial config
       sprintf(buffer, "user_button_enable=%d\r\n", storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_USER_BUTTON_ENABLE?1:0);
       f_write(&fil, buffer, strlen(buffer), &bw);
+      sprintf(buffer, "rtc_error_enable=%d\r\n", storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_RWCERROR_EN?1:0);
+      f_write(&fil, buffer, strlen(buffer), &bw);
       sprintf(buffer, "iammaster=%d\r\n", storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_IAMMASTER?1:0);
       f_write(&fil, buffer, strlen(buffer), &bw);
       sprintf(buffer, "sync=%d\r\n", storedConfig[NV_SD_TRIAL_CONFIG0]&SDH_TIME_SYNC?1:0);
@@ -4739,26 +5199,27 @@ void UpdateSdConfig(){
       sprintf(buffer, "Nshimmer=%d\r\n", storedConfig[NV_SD_NSHIMMER]);
       f_write(&fil, buffer, strlen(buffer), &bw);
       //SetName();
-      for(i=0; (i<MAX_CHARS-1)&&isprint(storedConfig[NV_SD_SHIMMER_NAME+i]) ; i++);
+      /*for(i=0; (i<MAX_CHARS-1)&&isprint(storedConfig[NV_SD_SHIMMER_NAME+i]) ; i++);
       if(i){
          memcpy((char*)shimmerName, (char*)(storedConfig+NV_SD_SHIMMER_NAME), i);
          shimmerName[i] = 0;
-         sprintf(buffer, "shimmername=%s\r\n", shimmerName);
-         f_write(&fil, buffer, strlen(buffer), &bw);
       }
       for(i=0; (i<MAX_CHARS-1)&&isprint(storedConfig[NV_SD_EXP_ID_NAME+i]) ; i++);
       if(i){
          memcpy((char*)expIdName, (char*)(storedConfig+NV_SD_EXP_ID_NAME), i);
          expIdName[i] = 0;
-         sprintf(buffer, "experimentid=%s\r\n", expIdName);
-         f_write(&fil, buffer, strlen(buffer), &bw);
       }
       uint32_t cfg_time_temp = 0;
       for(i=0;i<4;i++){
          cfg_time_temp<<=8;
          cfg_time_temp +=storedConfig[NV_SD_CONFIG_TIME+i];
       }
-      ItoaWith0((uint64_t)cfg_time_temp, configTimeText, UINT32_LEN);
+      ItoaWith0((uint64_t)cfg_time_temp, configTimeText, UINT32_LEN);*/
+      Infomem2Names();
+      sprintf(buffer, "shimmername=%s\r\n", shimmerName);
+      f_write(&fil, buffer, strlen(buffer), &bw);
+      sprintf(buffer, "experimentid=%s\r\n", expIdName);
+      f_write(&fil, buffer, strlen(buffer), &bw);
       sprintf(buffer, "configtime=%s\r\n", configTimeText);
       f_write(&fil, buffer, strlen(buffer), &bw);
       sprintf(buffer, "baud_rate=%d\r\n", storedConfig[NV_BT_COMMS_BAUD_RATE]);
@@ -4768,6 +5229,12 @@ void UpdateSdConfig(){
              + (((uint32_t)storedConfig[NV_DERIVED_CHANNELS_2])<<16);
       ItoaNo0((uint64_t)temp32, (uint8_t*)val_char, 9);
       sprintf(buffer, "derived_channels=%s\r\n", val_char);
+      f_write(&fil, buffer, strlen(buffer), &bw);
+      temp32 = (uint32_t)storedConfig[NV_MAX_EXP_LEN_LSB];
+      temp32 += ((uint32_t)storedConfig[NV_MAX_EXP_LEN_MSB])<<8;
+      maxLen = temp32*60;
+      temp16 = (uint16_t)(temp32&0xffff);
+      sprintf(buffer, "max_exp_len=%d\r\n", temp32);
       f_write(&fil, buffer, strlen(buffer), &bw);
       sprintf(buffer, "EXG_ADS1292R_1_CONFIG1=%d\r\n", storedConfig[NV_EXG_ADS1292R_1_CONFIG1]);
       f_write(&fil, buffer, strlen(buffer), &bw);
@@ -5065,7 +5532,7 @@ uint8_t UartCallback(uint8_t data){
    }
    else{
       if(data == '$'){
-         uint8_t uart_cmd_str[4];
+         //uint8_t uart_cmd_str[4];
          uartAction = 0;
          uartArgSize = UART_RXBUF_START;
          uartRxBuf[UART_RXBUF_START] = '$';
@@ -5110,9 +5577,10 @@ void UartProcessCmd(){
                case UART_PROP_INFOMEM:
                   uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff)  && (uartInfoMemOffset>=0x1800)
-                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)){
-                     uartInfoMemOffset -= 0x1800;
+                  //if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff)  && (uartInfoMemOffset>=0x1800)
+                  //      && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)){
+                  //   uartInfoMemOffset -= 0x1800;
+                  if((uartInfoMemLength<=0x80) && (uartInfoMemOffset<=0x01ff) && (uartInfoMemLength+uartInfoMemOffset<=0x0200)){
                      uartSendRspGim = 1;
                   }
                   else
@@ -5170,6 +5638,10 @@ void UartProcessCmd(){
                   if((uartRxBuf[UART_RXBUF_LEN] == 10)){
                      memcpy((uint8_t*)(&rwcConfigTime64), uartRxBuf+UART_RXBUF_DATA, 8);// 64bits = 8bytes
                      rwcTimeDiff64 = rwcConfigTime64 - RTC_get64(); // this is the offset to be stored int the sd header
+                     RwcCheck();
+                     storedConfig[NV_SD_TRIAL_CONFIG0] &= ~SDH_RTC_SET_BY_BT;
+                     InfoMem_write((void*)NV_SD_TRIAL_CONFIG0, &storedConfig[NV_SD_TRIAL_CONFIG0], 1);
+                     sdHeadText[SDH_TRIAL_CONFIG0] = storedConfig[NV_SD_TRIAL_CONFIG0];
                      uartSendRspAck = 1;
                   }
                   else
@@ -5178,12 +5650,15 @@ void UartProcessCmd(){
                case UART_PROP_INFOMEM:
                   uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff) && (uartInfoMemOffset>=0x1800)
-                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)) {
-                     uartInfoMemOffset -= 0x1800;
+                  //if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff) && (uartInfoMemOffset>=0x1800)
+                  //      && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)) {
+                  //   uartInfoMemOffset -= 0x1800;
+                  if((uartInfoMemLength<=0x80) && (uartInfoMemOffset<=0x01ff) && (uartInfoMemLength+uartInfoMemOffset<=0x0200)) {
                      InfoMem_read((uint8_t *)NV_MAC_ADDRESS, macAddr, 6);
                      InfoMem_write((void*)uartInfoMemOffset, uartRxBuf+UART_RXBUF_DATA+3, uartInfoMemLength);
                      InfoMem_write((uint8_t*)NV_MAC_ADDRESS, macAddr, 6);
+                     InfoMem_read((uint8_t *)uartInfoMemOffset, storedConfig+uartInfoMemOffset, uartInfoMemLength);
+                     Infomem2Names();
                      uartSendRspAck = 1;
                   }
                   else
