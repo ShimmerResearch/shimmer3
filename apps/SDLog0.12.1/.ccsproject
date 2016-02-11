@@ -11,4 +11,5 @@
 	<templateProperties value="id=com.ti.common.project.core.emptyProjectTemplate,"/>
 	<deviceFamily value="MSP430"/>
 	<isTargetManual value="true"/>
+	<origin value="C:/Users/WeiboP/workspace_v6_0/SDLog0.12.1"/>
 </projectOptions>

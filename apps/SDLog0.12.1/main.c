@@ -858,13 +858,13 @@ void StartStreaming(void) {
 
 inline void StopStreaming(void) {
    configuring = 1;
+   sensing = 0;
    if(storedConfig[NV_CONFIG_SETUP_BYTE4] & MPU9150_MPL_DMP) {
       MPU_saveCalibration();
       MPL_saveCalibrationBytes();
    }
 
    //shut every thing down
-   sensing = 0;
 
    if(docked)   // if docked, cannot write to SD card any more
       DockSdPowerCycle();
@@ -1180,11 +1180,8 @@ __interrupt void Port1_ISR(void)
               buttonReleaseTs64 = RTC_get64();
               buttonP2RTs64 = buttonReleaseTs64 - buttonPressTs64;
               buttonTwoPressTd64 = buttonReleaseTs64 - buttonLastReleaseTs64;
-              //buttonLastReleaseTs64 = 0;
-              buttonLastReleaseTs64 = buttonReleaseTs64;
-              //buttonReleaseTs64 = buttonReleaseTs64;
-              if((buttonTwoPressTd64>6554) && (buttonP2RTs64>327) && !configuring){
-                 //buttonLastReleaseTs64 = buttonReleaseTs64;
+              if((buttonTwoPressTd64>16384) && !configuring){// && (buttonP2RTs64>327)
+                 buttonLastReleaseTs64 = buttonReleaseTs64;
                  mplCalibrateInit = 0;
 #if !PRESS2UNDOCK
                  if(!mplCalibrating) {
@@ -2343,7 +2340,7 @@ void UartProcessCmd(){
                   if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && (uartDcMemOffset>=16) &&
                         ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
                      CAT24C16_init();
-                     CAT24C16_write(uartDcMemOffset, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
+                     CAT24C16_write(uartDcMemOffset+16, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
                      CAT24C16_powerOff();
                      uartSendRspAck = 1;
                   }
@@ -2508,7 +2505,7 @@ void UartSendRsp(){
       *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
       if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
          CAT24C16_init();
-         CAT24C16_read(uartDcMemOffset, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
+         CAT24C16_read(uartDcMemOffset+16, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
          CAT24C16_powerOff();
       }
       uart_resp_len += uartDcMemLength;

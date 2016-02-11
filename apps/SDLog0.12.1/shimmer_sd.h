@@ -51,9 +51,8 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Maor version number: 0-65535
-#define FW_VER_MINOR       12     //Minor version number: 0-255
-#define FW_VER_REL         0
-//internal version number: 0-255
+#define FW_VER_MINOR       12    //Minor version number: 0-255
+#define FW_VER_REL         2     //internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00
 #define ACK_COMMAND_PROCESSED             0xFF

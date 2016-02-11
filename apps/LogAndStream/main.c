@@ -1860,7 +1860,8 @@ uint8_t Dma2ConversionDone(void) {
                return 0;
             }
             else if((!waitingForArgsLength) &&
-               (((gAction == SET_DAUGHTER_CARD_ID_COMMAND) && (waitingForArgs == 1)) ||
+               (
+               //((gAction == SET_DAUGHTER_CARD_ID_COMMAND) && (waitingForArgs == 1)) ||
                ((gAction == SET_DAUGHTER_CARD_MEM_COMMAND) && (waitingForArgs == 1))||
                ((gAction == SET_CENTER_COMMAND) && (waitingForArgs == 1))||
                ((gAction == SET_CONFIGTIME_COMMAND) && (waitingForArgs == 1))||
@@ -1972,7 +1973,7 @@ uint8_t Dma2ConversionDone(void) {
                return 0;
             case SET_SAMPLING_RATE_COMMAND:
             case GET_DAUGHTER_CARD_ID_COMMAND:
-            case SET_DAUGHTER_CARD_ID_COMMAND:
+            //case SET_DAUGHTER_CARD_ID_COMMAND:
                waitingForArgs = 2;
                DMA2SZ = 2;
                DMA2_enable();
@@ -2541,15 +2542,15 @@ void ProcessCommand(void) {
       if((dcMemLength<=16) && (dcMemOffset<=15) && (dcMemLength+dcMemOffset<=16))
          dcIdResponse = 1;
       break;
-   case SET_DAUGHTER_CARD_ID_COMMAND:
-      dcMemLength = args[0];
-      dcMemOffset = args[1];
-      if((dcMemLength<=16) && (dcMemOffset<=15) && (dcMemLength+dcMemOffset<=16)) {
-         CAT24C16_init();
-         CAT24C16_write(dcMemOffset, dcMemLength, args+2);
-         CAT24C16_powerOff();
-      }
-      break;
+//   case SET_DAUGHTER_CARD_ID_COMMAND:
+//      dcMemLength = args[0];
+//      dcMemOffset = args[1];
+//      if((dcMemLength<=16) && (dcMemOffset<=15) && (dcMemLength+dcMemOffset<=16)) {
+//         CAT24C16_init();
+//         CAT24C16_write(dcMemOffset, dcMemLength, args+2);
+//         CAT24C16_powerOff();
+//      }
+//      break;
    case GET_DAUGHTER_CARD_MEM_COMMAND:
       dcMemLength = args[0];
       dcMemOffset = args[1] + (args[2] << 8);
@@ -3275,9 +3276,9 @@ void ParseConfig(void) {
          }
          else if(strstr(buffer, "derived_channels=")){
             derived_channels_val = atol(equals);
-            storedConfig[NV_DERIVED_CHANNELS_0] = derived_channels_val & 0xff;
-            storedConfig[NV_DERIVED_CHANNELS_1] = (derived_channels_val >> 8) & 0xff;
-            storedConfig[NV_DERIVED_CHANNELS_2] = (derived_channels_val >> 16) & 0xff;
+            stored_config_temp[NV_DERIVED_CHANNELS_0] = derived_channels_val & 0xff;
+            stored_config_temp[NV_DERIVED_CHANNELS_1] = (derived_channels_val >> 8) & 0xff;
+            stored_config_temp[NV_DERIVED_CHANNELS_2] = (derived_channels_val >> 16) & 0xff;
          }
       }
       fileBad = f_close(&fil);
@@ -5228,7 +5229,7 @@ void UpdateSdConfig(){
              + (((uint32_t)storedConfig[NV_DERIVED_CHANNELS_1])<<8)
              + (((uint32_t)storedConfig[NV_DERIVED_CHANNELS_2])<<16);
       ItoaNo0((uint64_t)temp32, (uint8_t*)val_char, 9);
-      sprintf(buffer, "derived_channels=%s\r\n", val_char);
+      sprintf(buffer, "derived_channels=%s\r\n", val_char);// todo: got value 0?
       f_write(&fil, buffer, strlen(buffer), &bw);
       temp32 = (uint32_t)storedConfig[NV_MAX_EXP_LEN_LSB];
       temp32 += ((uint32_t)storedConfig[NV_MAX_EXP_LEN_MSB])<<8;
@@ -5676,7 +5677,7 @@ void UartProcessCmd(){
                   uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
                   if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
                      CAT24C16_init();
-                     CAT24C16_write(uartDcMemOffset, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
+                     CAT24C16_write(uartDcMemOffset+16, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
                      CAT24C16_powerOff();
                      uartSendRspAck = 1;
                   }
@@ -5793,7 +5794,7 @@ void UartSendRsp(){
       *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
       if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
          CAT24C16_init();
-         CAT24C16_read(uartDcMemOffset, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
+         CAT24C16_read(uartDcMemOffset+16, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
          CAT24C16_powerOff();
       }
       uart_resp_len += uartDcMemLength;
