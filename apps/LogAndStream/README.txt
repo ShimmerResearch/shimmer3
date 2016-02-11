@@ -261,7 +261,7 @@
 
        
 ♦Changelog:
-   v0.6.0 (27 March 2015)
+   v0.6.0 (06 October 2015)
       skip50ms added before logging
       bug fixes
       uart infomem range 0-1ff now
