@@ -130,6 +130,15 @@
  
  
 ♦Changelog:
+   v0.12.0 (27 September 2015)
+      bug fix
+      skip50ms before logging
+      50ms anti-shake on user button
+      uart set/get_infomem uses address 0x0000-0x01ff rather than 0x1800-0x19ff
+   v0.11.0 (11 June 2015)
+      mpl fix
+   v0.10.0 (20 May 2015)
+      gsr improvements
    v0.9.0 (27 March 2015)
       UART command improvement
          - UART baudrate increased to 115200 (up from 9600)

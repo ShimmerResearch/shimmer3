@@ -261,6 +261,13 @@
 
        
 ♦Changelog:
+   v0.6.0 (06 October 2015)
+      skip50ms added before logging
+      bug fixes
+      uart infomem range 0-1ff now
+      default param values
+   v0.5.0 (20 May 2015)
+      gsr performance improved
    v0.4.0 (27 March 2015)
       button press disabled when configuring      
       UART command improvement
