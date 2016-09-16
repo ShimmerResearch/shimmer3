@@ -27,5 +27,6 @@
 #include "LSM303DLHC/lsm303dlhc.h"
 #include "MPU9150/mpu9150.h"
 #include "msp430_clock/msp430_clock.h"
+#include "shimmer_calibration/shimmer_calibration.h"
 
 #endif

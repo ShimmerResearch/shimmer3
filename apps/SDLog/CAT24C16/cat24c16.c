@@ -11,25 +11,27 @@
 #include "msp430.h"
 #include "string.h"
 
+#ifndef min
 #define min(a,b) ((a<b)?a:b)
+#endif
 
 void CAT24C16_init(void){
    CAT24C16_powerOn();                       //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-	I2C_Master_Init(S_MCLK,24000000,400000);	//Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
+   I2C_Master_Init(S_MCLK,24000000,400000);	//Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
 }
 
 
 void CAT24C16_powerOn(void) {
    P8OUT |= BIT4;          //enable I2C pull-ups by turning on SW_I2C
-	P3OUT |= BIT3;
-	__delay_cycles(48000);  //2ms
+   P3OUT |= BIT3;
+   __delay_cycles(48000);  //2ms
 }
 
 
 void CAT24C16_powerOff(void) {
    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-	P3OUT &= ~BIT3;
+   P3OUT &= ~BIT3;
 }
 
 

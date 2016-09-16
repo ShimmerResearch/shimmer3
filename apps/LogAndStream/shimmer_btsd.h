@@ -48,7 +48,7 @@
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Maor version number: 0-65535
-#define FW_VER_MINOR          6      //Minor version number: 0-255
+#define FW_VER_MINOR          7      //Minor version number: 0-255
 #define FW_VER_REL            0     //internal version number: 0-255
 
 typedef uint8_t bool;
@@ -276,6 +276,11 @@ typedef uint8_t error_t;
 #define GET_VBATT_COMMAND                             0x95
 #define DUMMY_COMMAND                                 0x96
 #define STOP_SDBT_COMMAND                             0x97
+#define SET_CALIB_DUMP_COMMAND                          0x98
+#define RSP_CALIB_DUMP_COMMAND                          0x99
+#define GET_CALIB_DUMP_COMMAND                          0x9A
+#define UPD_CALIB_DUMP_COMMAND                          0x9B
+#define UPD_SDLOG_CFG_COMMAND                           0x9C
 //#define ROUTINE_COMMUNICATION                         0xE0
 #define ACK_COMMAND_PROCESSED                         0xFF
 
@@ -435,6 +440,7 @@ typedef uint8_t error_t;
 #define NV_MAX_EXP_LEN_LSB                128+95
 #define NV_MAC_ADDRESS                    128+96 // 6bytes
 #define NV_SD_CONFIG_DELAY_FLAG           128+102
+#define NV_TEMP_PRES_CALIBRATION          128+103// +22 bytes, till 128+124
 
 #define NV_NODE0                          128+128+0
 
@@ -622,8 +628,14 @@ typedef uint8_t error_t;
 #define SDH_LSM303DLHC_MAG_CALIBRATION    118//0x76
 #define SDH_A_ACCEL_CALIBRATION           139//0x8b
 #define SDH_TEMP_PRES_CALIBRATION         160
+#define SDH_LSM303DLHC_ACCEL_CALIB_TS     182 //+8
+#define SDH_MPU9150_GYRO_CALIB_TS         190 //+8
+#define SDH_LSM303DLHC_MAG_CALIB_TS       198 //+8
+#define SDH_A_ACCEL_CALIB_TS              206 //+8
+#define SDH_DAUGHTER_CARD_ID_BYTE0        214 //+3
 #define SDH_MY_LOCALTIME_5TH              251
 #define SDH_MY_LOCALTIME                  252   //252-255
+
 
 //SENSORS0
 #define SDH_SENSOR_A_ACCEL           0x80
@@ -720,5 +732,10 @@ typedef uint8_t error_t;
 
 //BtStream specific extension to range values : should SDLog keep it?
 #define GSR_AUTORANGE               0x04
+
+#define CALIB_SYNC_SOURCE_STORECCONFIG       1
+#define CALIB_SYNC_SOURCE_INFOMEM            2
+#define CALIB_SYNC_SOURCE_SD_FILE            3
+#define CALIB_SYNC_SOURCE_CALIBRAM           4
 
 #endif

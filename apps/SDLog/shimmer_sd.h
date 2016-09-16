@@ -51,9 +51,8 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Maor version number: 0-65535
-#define FW_VER_MINOR       12     //Minor version number: 0-255
-#define FW_VER_REL         0
-//internal version number: 0-255
+#define FW_VER_MINOR       13    //Minor version number: 0-255
+#define FW_VER_REL         0     //internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00
 #define ACK_COMMAND_PROCESSED             0xFF
@@ -479,12 +478,20 @@
 #define SDH_LSM303DLHC_MAG_CALIBRATION    118//0x76
 #define SDH_A_ACCEL_CALIBRATION           139//0x8b
 #define SDH_TEMP_PRES_CALIBRATION         160
+#define SDH_LSM303DLHC_ACCEL_CALIB_TS     182 //+8
+#define SDH_MPU9150_GYRO_CALIB_TS         190 //+8
+#define SDH_LSM303DLHC_MAG_CALIB_TS       198 //+8
+#define SDH_A_ACCEL_CALIB_TS              206 //+8
+#define SDH_DAUGHTER_CARD_ID_BYTE0        214 //+3
 #define SDH_MY_LOCALTIME_5TH              251   //252-255
 #define SDH_MY_LOCALTIME_L                252   //252-255
 
-#define SDH_MPL_ACCEL_CALIBRATION         182
-#define SDH_MPL_MAG_CALIBRATION           203
-#define SDH_MPL_GYRO_CALIBRATION          224
+
+
+//#define SDH_MPL_ACCEL_CALIBRATION         182
+//#define SDH_MPL_MAG_CALIBRATION           203
+//#define SDH_MPL_GYRO_CALIBRATION          224
+
 
 //SENSORS0
 #define SDH_SENSOR_A_ACCEL             0x80

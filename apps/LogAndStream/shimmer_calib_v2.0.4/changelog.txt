@@ -1,0 +1,74 @@
+folder contents:
+calibration           : example calibration file 
+parse_calib_dump.m    : main file
+sc_find_size.m        : returns the size of calib_data according to sensor.id
+shimmer_calibration.h : header file, look-up table of parameters
+shimmer_calibration.m : header file, .m
+
+
+
+current calibration file format: all data in unsigned integer, LSB
+-----------------------------------------
+byte    |contents
+-----------------------------------------
+0       |Total_Length (2 bytes)
+1       |
+2       |Version Info (8 bytes)
+3       |
+4       |
+5       |
+6       |
+7       |
+8       |
+9       |
+10      |Sensor ID (2 bytes)
+11      |
+12      |Range (1 byte)
+13      |Length (1 byte)
+14      |Timestamp (8 bytes)
+15      |
+16      |
+17      |
+18      |
+19      |
+20      |
+21      |
+22      |Kinematic calibration (21 bytes)
+...	|...
+42	|
+43      |Sensor ID (2 bytes)
+44      |
+45      |Range (1 byte)
+46      |Length (1 byte)
+47      |Timestamp (8 bytes)
+48      |
+49      |
+50      |
+51      |
+52      |
+53      |
+55      |Kinematic calibration (21 bytes)
+...	|...
+75      |
+76      |Sensor ID (2 bytes)
+Etc.    |etc.
+
+
+change log: 
+
+v2.0.4 20/July/2016
+	added 8 bytes of version info following the length bytes
+	calibration file name changed to calib_XXXX where XXXX is the last 4 digits (in capital) of the device
+
+v2.0.3 12/July/2016
+	added 2 bytes Length of the whole dump. Not including the two bytes themselves
+	this is for sw BT dump consideration
+
+v2.0.2 11/July/2016
+	added a Length byte after Range byte	
+
+v2.0.1 8/July/2016
+	Shimmer version info (X bytes) removed	
+
+v2.0.0 7/July/2016
+	initial ver
