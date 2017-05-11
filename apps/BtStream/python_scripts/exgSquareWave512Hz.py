@@ -39,7 +39,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 17 # 1byte packet type + 2byte timestamp + 14byte ExG data
+   framesize = 18 # 1byte packet type + 3byte timestamp + 14byte ExG data
 
    print "Packet Type,Timestamp,Chip1 Status,Chip1 Channel1,Chip1 Channel2,Chip2 Status,Chip2 Channel1,Chip2 Channel2"
    try:

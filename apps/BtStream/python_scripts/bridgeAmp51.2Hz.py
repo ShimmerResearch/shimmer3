@@ -31,7 +31,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 7 # 1byte packet type + 2byte timestamp + 2x2byte bridge amplifier
+   framesize = 8 # 1byte packet type + 3byte timestamp + 2x2byte bridge amplifier
 
    print "Packet Type,Timestamp,Bridge Amp High,Bridge Amp Low,"
    try:

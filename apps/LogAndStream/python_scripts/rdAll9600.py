@@ -105,7 +105,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 9 # 1byte packet type + 2byte timestamp + 3x2byte Analog Accel
+   framesize = 10 # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel
    
    ser = serial.Serial(sys.argv[1], 9600)
    ser.flushInput()

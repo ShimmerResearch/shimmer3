@@ -31,7 +31,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 17 # 1byte packet type + 2byte timestamp + 3x2byte Analog Accel + 2byte GSR + 3x2byte MPU9150 gyro
+   framesize = 18 # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel + 2byte GSR + 3x2byte MPU9150 gyro
 
    print "Packet Type,Timestamp,Analog AccelX,Analog AccelY,Analog AccelZ,GSR Range,GSR,GyroX,GyroY,GyroZ"
    try:
