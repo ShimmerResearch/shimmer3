@@ -78,7 +78,7 @@
 #include "5xx_HAL/hal_SDCard.h"
 #include "5xx_HAL/hal_UCS.h"
 #include "Bluetooth_SD/RN42.h"
-#include "bmp180/bmp180.h"
+#include "BMP180/bmp180.h"
 #include "CAT24C16/cat24c16.h"
 #include "EXG/exg.h"
 #include "EXG/ads1292.h"

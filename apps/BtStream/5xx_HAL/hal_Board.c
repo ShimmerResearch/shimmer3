@@ -36,7 +36,7 @@
  ******************************************************************************/
 
 #include "msp430.h"
-#include "HAL_Board.h"
+#include "hal_Board.h"
 
 #define XT1_PORT_DIR             P7DIR
 #define XT1_PORT_OUT             P7OUT
