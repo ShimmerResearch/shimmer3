@@ -45,7 +45,12 @@ else:
          numbytes = len(ddata)
 
          (packettype) = struct.unpack('B', data[0:1])
-         (timestamp, bridgeamphigh, bridgeamplow) = struct.unpack('HHH', data[1:framesize])
+
+         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
+
+         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
+
+         (bridgeamphigh, bridgeamplow) = struct.unpack('HH', data[4:framesize])
          print "0x%02x,%5d,\t%4d,%4d" % (packettype[0], timestamp, bridgeamphigh, bridgeamplow)
 
    except KeyboardInterrupt:

@@ -54,12 +54,16 @@ else:
 
          (packettype,) = struct.unpack('B', data[0:1])
 
-         (timestamp, c1status) = struct.unpack('HB', data[1:4])
-         (c1ch1,) = struct.unpack('>h', data[4:6])
-         (c1ch2,) = struct.unpack('>h', data[6:8])
-         (c2status,) = struct.unpack('B', data[8])
-         (c2ch1,) = struct.unpack('>h', data[9:11])
-         (c2ch2,) = struct.unpack('>h', data[11:13])
+         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
+
+         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
+
+         (c1status,) = struct.unpack('B', data[4:5])
+         (c1ch1,) = struct.unpack('>h', data[5:7])
+         (c1ch2,) = struct.unpack('>h', data[7:9])
+         (c2status,) = struct.unpack('B', data[9])
+         (c2ch1,) = struct.unpack('>h', data[10:12])
+         (c2ch2,) = struct.unpack('>h', data[12:framesize])
          print "0x%02x,%5d,\t0x%02x,%8d,%8d,\t0x%02x,%8d,%8d" % (packettype, timestamp, c1status, c1ch1, c1ch2, c2status, c2ch1, c2ch2)
 
    except KeyboardInterrupt:

@@ -103,14 +103,9 @@ if len(sys.argv) < 2:
    print "   *.py /dev/rfcomm0"
 else:
 # read incoming data
-   ddata = ""
-   numbytes = 0
-   framesize = 10 # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel
-   
    ser = serial.Serial(sys.argv[1], 115200)
    ser.flushInput()
    print "port opening, done."
-
 
    print "---------------------------------------- mac: " 
    inArg = [0x24, 0x03, 0x02, 0x01, UART_PROP_MAC]  

@@ -54,14 +54,19 @@ else:
 
          (packettype,) = struct.unpack('B', data[0:1])
 
-         (timestamp, c1status) = struct.unpack('HB', data[1:4])
+
+         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
+         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
+
+         (c1status,) = struct.unpack('B', data[4:5])
+
 # 24-bit signed values MSB values are tricky, as struct only supports 16-bit or 32-bit
 # pad with zeroes at LSB end and then shift the result
-         c1ch1 = struct.unpack('>i', (data[4:7] + '\0'))[0] >> 8
-         c1ch2 = struct.unpack('>i', (data[7:10] + '\0'))[0] >> 8
-         (c2status,) = struct.unpack('B', data[10])
-         c2ch1 = struct.unpack('>i', (data[11:14] + '\0'))[0] >> 8
-         c2ch2 = struct.unpack('>i', (data[14:17] + '\0'))[0] >> 8
+         c1ch1 = struct.unpack('>i', (data[5:8] + '\0'))[0] >> 8
+         c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
+         (c2status,) = struct.unpack('B', data[11])
+         c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
+         c2ch2 = struct.unpack('>i', (data[15:framesize] + '\0'))[0] >> 8
          print "0x%02x,%5d,\t0x%02x,%8d,%8d,\t0x%02x,%8d,%8d" % (packettype, timestamp, c1status, c1ch1, c1ch2, c2status, c2ch1, c2ch2)
 
    except KeyboardInterrupt:

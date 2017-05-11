@@ -59,7 +59,6 @@ else:
 
          (packettype,) = struct.unpack('B', data[0:1])
 
-         # (timestamp, c1status) = struct.unpack('HB', data[1:4])
          (ts0, ts1, ts2, c1status) = struct.unpack('BBBB', data[1:5])
          timestamp = ts0 + ts1*256 + ts2*65536
 # 24-bit signed values MSB values are tricky, as struct only supports 16-bit or 32-bit

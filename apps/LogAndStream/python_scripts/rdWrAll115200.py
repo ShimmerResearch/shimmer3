@@ -107,10 +107,7 @@ else:
    ser.flushInput()
    print "port opening, done."
 
-   #raw_nb = raw_input('Enter a command:')
-   #nb = int(raw_nb, 0)
    framesize = 4
-      
    ddata = ""
     
    print "---------------------------------------- mac: " 
