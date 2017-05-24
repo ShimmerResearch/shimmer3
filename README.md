@@ -9,8 +9,8 @@ For more information about shimmer wireless sensor motes see http://www.shimmers
 
 Unless otherwise stated all applications have been created and tested using  
 Texas Instrument's [Code Composer Studio](http://www.ti.com/tool/ccstudio)  
-Particularly: Code Composer Studio Version 5.4.0.00091  
-and MSP430 Compiler Version 4.1.7
+Particularly: Code Composer Studio Version 7.1.0.00016  
+and MSP430 Compiler Version 4.4.8
 
 ============================================================================
 
