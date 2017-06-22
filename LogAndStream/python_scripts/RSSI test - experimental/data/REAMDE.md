@@ -7,6 +7,7 @@ sudo pip install --upgrade pip
 sudo pip install --upgrade virtualenv 
 ```
 
+# Bluetooth libraries
 ```
 sudo apt-get install bluetooth libbluetooth-dev
 sudo python3 -m pip install pybluez
@@ -18,10 +19,6 @@ sudo pip install pybluez
 ```
 sudo apt-get install libfreetype6-dev libpng12-dev
 sudo pip install matplotlib
-
-git clone git://github.com/matplotlib/matplotlib.git
-cd matplotlib
-python setup.py install
 ```
 
 ## Numpy
