@@ -6,7 +6,7 @@ To use this script, you will need to install the following:
 
 ## Pip
 ```
-sudo apt-get install python-pip python-dev build-essential ll
+sudo apt-get install python-pip python-dev build-essential
 sudo pip install --upgrade pip 
 sudo pip install --upgrade virtualenv 
 ```
