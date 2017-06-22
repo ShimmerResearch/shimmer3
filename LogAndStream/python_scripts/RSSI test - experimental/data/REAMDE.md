@@ -21,8 +21,7 @@ sudo pip install pybluez
 ## Matplotlib
 
 ```
-sudo apt-get install libfreetype6-dev libpng12-dev
-sudo pip install matplotlib
+sudo apt-get install python-matplotlib
 ```
 
 ## Numpy
@@ -48,3 +47,11 @@ RSSI_B676_04-05-2017_15.59.txt
 ```
 
 These files will be stored in the ```/data``` folder.
+
+The script will need to be run with super user permissions, run as follows:
+
+```
+sudo python shimmeRSSI.py
+```
+
+Operation via a virtual machine is not guaranteed and initial tests have shown some conflicts - we recommend users to use this script on a native Linux machine.
