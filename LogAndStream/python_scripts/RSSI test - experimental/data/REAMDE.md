@@ -32,7 +32,7 @@ sudo pip install numpy
 ```
 
 # Operation
-Once the required packages are installed, you should alter the shimmeRSSI.py file at to only search for the mac ids of interest. The line in question is:
+Once the required packages are installed, you should alter the shimmeRSSI.py file to only search for the mac ids of interest. Simply change the following line:
 ```
 macIDs = ['00:06:66:72:2C:16', '00:06:66:72:3A:09', '00:06:66:46:B6:76', '00:06:66:D1:0F:96']
 ```
