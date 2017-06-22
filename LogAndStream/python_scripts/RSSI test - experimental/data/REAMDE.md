@@ -1,6 +1,6 @@
 To use this script, you will need to install the following:
 
-## Pip7
+## Pip
 ```
 sudo apt-get install python-pip python-dev build-essential ll
 sudo pip install --upgrade pip 
