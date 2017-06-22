@@ -14,7 +14,6 @@ sudo pip install --upgrade virtualenv
 ## Bluetooth libraries
 ```
 sudo apt-get install bluetooth libbluetooth-dev
-sudo python3 -m pip install pybluez
 sudo pip install pybluez
 ```
 
