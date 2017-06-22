@@ -132,12 +132,15 @@ def device_inquiry_with_with_rssi(sock):
 
 dev_id = 0
 mac = []
-# macIDs = ['00:06:66:72:2C:16', '00:06:66:72:3A:09', '00:06:66:80:DC:98']
-macIDs = ['00:06:66:74:50:9F']
+macIDs = ['00:06:66:72:2C:16', '00:06:66:72:3A:09', '00:06:66:46:B6:76', '00:06:66:D1:0F:96']
 numDev = len(macIDs)
-data = [[[],[],[],0]]*numDev
 
-# Just grab the last 4 alphanumeric digits from the macIDs as identifiers
+print("Number of devices: %d", numDev)
+
+timeStamp = [[] for _ in range(numDev)]
+rssi 	  = [[] for _ in range(numDev)]
+data 	  = [[] for _ in range(numDev)]
+
 for MAC in macIDs:    
 	mac.append(MAC.replace(":", "")[-4:])
 	
@@ -172,11 +175,18 @@ if mode != 1:
 def handle_close(evt):
 	print("Testing done!")
 
+	if not os.path.exists("./data"):
+		try:
+			os.makedirs("./data")
+			os.chmod("./data", 0777)
+		except OSError:
+			if not os.path.isdir("./data"):
+				raise
+
 	for i in range(0, numDev):
-		print("".join(['data/RSSI_', mac[i], '.txt']))
-		f = open("".join(['data/RSSI_', mac[i], '.txt']), 'w')
-		for d in data[i][2]:
-			print(d)
+		print("".join(['data/RSSI_', mac[i], '_', time.strftime("%d-%m-%Y_%H.%M"), '.txt']))
+		f = open("".join(['data/RSSI_', mac[i], '_', time.strftime("%d-%m-%Y_%H.%M"), '.txt']), 'w')
+		for d in data[i]:
 			f.write(", ".join(map(str,d)) + "\n")
 
 		f.close()
@@ -201,18 +211,18 @@ def animate(i):
 	for i in range(0, len(results)):
 		for j in range(0,numDev):
 			if(macIDs[j] == results[i][0]):
-				data[j][3] += 1
-				data[j][0].append(results[i][1])
-				data[j][1].append(time.strftime("%H:%M:%S"))
-				data[j][2].append([data[j][1][-1], data[j][0][-1]])
+				rssi[j].append(results[i][1])
+				timeStamp[j].append(time.strftime("%H:%M:%S"))
+				data[j].append([timeStamp[j][-1], rssi[j][-1]])
+
 
 	for k in range(0, numDev):
-		if ((data[k][3] > 0) and (len(data[k][0]) > 1)):
-			print(data[k][1][-1], data[k][0][-1])
+		if (len(rssi[k]) > 1):
+			print(data[k][-1])
 			ax[k].clear()
 			ax[k].set_title(mac[k])
 			ax[k].set_ylabel('RSSI in dBm')
-			ax[k].plot(range(len(data[k][0])), data[k][0])
+			ax[k].plot(range(len(rssi[k])), rssi[k])
 
 
 try:
