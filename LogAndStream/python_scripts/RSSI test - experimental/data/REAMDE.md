@@ -1,4 +1,4 @@
-# Desciption
+# Description
 This python script polls the available bluetooth device for the RSSI value of nearby Shimmer devices. Currently, this script is only compatible with Linux and has only been tested on the Ubuntu platform - hence it is experimental. 
 
 # Setting up
