@@ -1,3 +1,4 @@
+# README
 To use this script, you will need to install the following:
 
 ## Pip
@@ -7,7 +8,7 @@ sudo pip install --upgrade pip
 sudo pip install --upgrade virtualenv 
 ```
 
-# Bluetooth libraries
+## Bluetooth libraries
 ```
 sudo apt-get install bluetooth libbluetooth-dev
 sudo python3 -m pip install pybluez
