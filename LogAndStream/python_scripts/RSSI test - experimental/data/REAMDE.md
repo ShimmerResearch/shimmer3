@@ -1,8 +1,8 @@
 To use this script, you will need to install the following:
 
-## Pip
+## Pip7
 ```
-sudo apt-get install python-pip python-dev build-essential 
+sudo apt-get install python-pip python-dev build-essential ll
 sudo pip install --upgrade pip 
 sudo pip install --upgrade virtualenv 
 ```
