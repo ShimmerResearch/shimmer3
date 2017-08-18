@@ -1,30 +1,7 @@
-Shimmer3
-========
-
-This is the Shimmer repository for Shimmer3 applications.
-
-For more information about shimmer wireless sensor motes see http://www.shimmersensing.com.
-
-============================================================================
-
-Unless otherwise stated all applications have been created and tested using  
-Texas Instrument's [Code Composer Studio](http://www.ti.com/tool/ccstudio)  
-Particularly: Code Composer Studio Version 7.1.0.00016  
-and MSP430 Compiler Version 4.4.8
-
-============================================================================
-
-A (very) brief description of the contents follows:
-Note: firmware versions ending with non-zero, ex. v0.6.2, are not published versions
-
-* apps/BtStream  
-   All purpose configurable Bluetooth sensing and streaming application
-
-* apps/SDLog 
-   All purpose configurable sensing application that saves data to microSD card
-
-* apps/LogAndStream
-   All purpose configurable sensing application that simultaneously logs to microSD card while streaming over Bluetooth
-      
-* apps/FirmwareIdentifireList.txt  
-   List of identifiers used by applications to identify themselves
+# FW_Shimmer3
+compiler information:
+ - workbench: TI CCS v7.2.0.00013
+ - compiler version: TI v4.4.8
+ - output format:
+   - eabi (ELF) for most fw images
+   - legacy COFF for SDLog

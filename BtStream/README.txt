@@ -5,7 +5,7 @@ By default this application samples the 3-axis analog accelerometer, MPU9150 gyr
 
 Data Packet Format:
           Packet Type | TimeStamp | chan1 | chan2 | ... | chanX
-   Byte:       0      |    1-2    |  3-4  |  5-6  | ... | chanX
+   Byte:       0      |    1-3    |  4-5  |  6-7  | ... | chanX
 
 
 When the application receives an Inquiry command it responds with the following packet. The value in the channel fields indicate exactly what data from which sensor is contained in this field of the data packet:
@@ -104,6 +104,14 @@ The following commands are available:
    - GET_DAUGHTER_CARD_MEM_COMMAND
    - SET_BT_COMMS_BAUD_RATE
    - GET_BT_COMMS_BAUD_RATE
+   - SET_DERIVED_CHANNEL_BYTES
+   - GET_DERIVED_CHANNEL_BYTES
+   - SET_INFOMEM_COMMAND
+   - GET_INFOMEM_COMMAND
+   - GET_VBATT_COMMAND
+   - DUMMY_COMMAND
+   - SET_VBATT_FREQ_COMMAND
+   - GET_VBATT_FREQ_COMMAND
 
 
 
@@ -219,7 +227,7 @@ example: to get shimmer mac address, send:
 
 ack/nack Packet Format:
        start_sign | cmd |      crc     |
-Byte:       0     |  1  | (2-3)+length |
+Byte:       0     |  1  | (5-6)+length |
 
 example: bad argument nack
 |  byte #   | 1  |   2     3     4   |
@@ -227,8 +235,32 @@ example: bad argument nack
 
 
 Changelog:
+V0.7.8 - 16/12/2015
+   - wp: bug fix: LSM303dlhc mag fix
+V0.7.7 - 16/12/2015
+   - gsr special version for DCU stretch sensor
+   - gsr using different resistors so autorange threshold changed
+V0.7.6 - 13/11/2015
+   - Daughter card ID protection - BT and UART
+V0.7.5 - 09/11/2015
+   - infomem address for UART CMDs: 19ff -> 01ff
+   - BT_write improvement
+V0.7.4 - 06/11/2015
+   - vbatt change: 0xff added in periodic response
+V0.7.3 (02 October 2015)
+   - timestamp to 3 bytes
+   - default MSP430-to-RN42 baud rate changed to 460800
+   - default GSR range set to autorange
+   - first 50ms of sample data dropped every time streaming started
+   - added battery status BT command
+   - added commands to enable periodic sampling of battery while streaming
+   - dummy command which responds with just an ACK
+V0.7.2 (27 July 2015)
+   - changed infomem command values
+V0.7.1 (24 July 2015)
+   - add commands to access all infomem
 V0.7 (20 May 2015)
-   - GSR fix, hold range while value being held (for high speed sampling)
+   - Fix for high speed GSR sampling
 V0.6 (27 March 2015)
    - changed format of serial/UART commands
    - added support for DERIVED_CHANNEL configuration bytes

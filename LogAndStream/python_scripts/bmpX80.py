@@ -141,18 +141,6 @@ else:
    srNumber = struct.unpack('BBB', ser.read(3))[2] # get third byte (0,1,2..)
    print("Daughter card ID: 0x%02x" % srNumber)
 
-# read the calibration coefficients
-   ser.write(struct.pack('B', 0x59))
-   wait_for_ack()
-
-   ddata = ""
-   calibcoeffsresponse = struct.pack('B', 0x58)
-   while ddata != calibcoeffsresponse:
-      ddata = ser.read(1)
-
-
-   ddata = ""
-   numbytes = 0
    bmp280 = True
    if(srNumber >= 59 and srNumber != 255):
       bmp280 = True
@@ -161,8 +149,22 @@ else:
       bmp280 = False
       framesize = 22
    
+   bmp280 = True
+   framesize = 24
+
    print "srNumber: %d" % srNumber
 
+# read the calibration coefficients
+   ser.write(struct.pack('B', (0xA0 if bmp280 else 0x59)))
+   wait_for_ack()
+
+   ddata = ""
+   calibcoeffsresponse = struct.pack('B', (0x9F if bmp280 else 0x58))
+   while ddata != calibcoeffsresponse:
+      ddata = ser.read(1)
+
+   ddata = ""
+   numbytes = 0
    while numbytes < framesize:
       ddata += ser.read(framesize)
       numbytes = len(ddata)
@@ -195,10 +197,6 @@ else:
    ser.write(struct.pack('BB', 0x52, OSS))
    wait_for_ack()
 
-   if(bmp280):
-      byte_resize = 4
-   else:
-      byte_resize = 8-OSS
 # send the set sampling rate command
 
    '''
@@ -243,8 +241,8 @@ else:
          (UT_msb, UT_lsb, \
          UP_msb, UP_lsb, UP_xlsb) = struct.unpack('BBBBB', data[4:framesize])
 
-         UT = (UT_msb<<8) + (UT_lsb)<<4*(1 if bmp280 else 0)
-         UP = ((UP_msb<<16) + (UP_lsb<<8) + UP_xlsb)>>(byte_resize)           
+         UT = ((UT_msb<<8) + (UT_lsb))<<4*(1 if bmp280 else 0)
+         UP = ((UP_msb<<16) + (UP_lsb<<8) + UP_xlsb)>>(4 if bmp280 else (8 - OSS))           
    
 
          if UT != prev_UT or UP != prev_UP:

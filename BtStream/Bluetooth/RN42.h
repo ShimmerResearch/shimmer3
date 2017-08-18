@@ -58,7 +58,7 @@ extern void BT_disable();
 
 //write data to be transmitted to the Bluetooth module
 //returns 0 if fails, else 1
-//will only fail if a previous BT_write is still in progress
+//will only fail if write buffer (256 bytes) is full
 extern uint8_t BT_write(uint8_t *buf, uint8_t len);
 
 //connect to a specific device that was previously discovered

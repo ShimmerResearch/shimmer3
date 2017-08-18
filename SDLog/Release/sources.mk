@@ -120,6 +120,7 @@ EXG \
 FatFs \
 FatFs/option \
 GSR \
+LSM303AHTR \
 LSM303DLHC \
 MPU9150/Pansenti \
 MPU9150/core/driver/eMPL \

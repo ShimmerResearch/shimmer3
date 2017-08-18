@@ -44,7 +44,7 @@
 
    Data Packet Format:
           Packet Type | TimeStamp | chan1 | chan2 | ... | chanX
-   Byte:       0      |    1-2    |  3-4  |  5-6  | ... | chanX
+   Byte:       0      |    1-3    |  4-5  |  6-7  | ... | chanX
 
    Inquiry Response Packet Format:
           Packet Type | ADC Sampling rate | Config Bytes | Num Chans | Buf size | Chan1 | Chan2 | ... | ChanX
@@ -115,6 +115,7 @@
 #include "hal_UCA0.h"
 #include "hal_UartA0.h"
 #include "hal_CRC.h"
+#include "hal_RTC.h"
 
 void Init(void);
 void BlinkTimerStart(void);
@@ -128,6 +129,7 @@ void SendResponse(void);
 void ConfigureChannels();
 inline void StartStreaming(void);
 inline void StopStreaming(void);
+void SendStatusResponse(uint8_t force);
 void SetDefaultConfiguration(void);
 void ChargeStatusTimerStart(void);
 void ChargeStatusTimerStop(void);
@@ -139,13 +141,14 @@ inline void MonitorChargeStatusStop(void);
 inline void SetChargeStatusLeds(void);
 inline void GsrRange(void);
 void SetBtBaudRate(uint8_t rate);
-void ReadBatt();
+void ReadBatt(void);
 uint8_t UartCheckCrc(uint8_t len);
 void UartProcessCmd();
 void UartSendRsp();
 uint8_t UartCallback(uint8_t data);
 void UartCbufPush(uint8_t elem);
 void UartCbufPickData(uint8_t * dst_buf, uint8_t offset, uint8_t len);
+inline uint8_t Skip50ms(void);
 
 #define ACLK_1S      32768    //1s for ACLK (running at 32768Hz)
 #define ACLK_2S      65536    //2s for ACLK (running at 32768Hz)
@@ -161,18 +164,20 @@ uint8_t currentBuffer, processCommand, sendAck, inquiryResponse, samplingRateRes
       mpu9150GyroRangeResponse, mpu9150SamplingRateResponse, mpu9150AccelRangeResponse, sampleMpu9150Mag,
       mpu9150MagSensAdjValsResponse, sampleBmp180Press, bmp180CalibrationCoefficientsResponse,
       bmp180OversamplingRatioResponse, blinkLedResponse, gsrRangeResponse, internalExpPowerEnableResponse,
-      exgRegsResponse, dcIdResponse, dcMemResponse, btCommsBaudRateResponse, derivedChannelBytesResponse;
+      exgRegsResponse, dcIdResponse, dcMemResponse, btCommsBaudRateResponse, derivedChannelBytesResponse,
+      infomemResponse, vBattResponse, vBattFreqResponse, statusResponse;
 uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE], waitingForArgs, argsSize;
 uint8_t resPacket[RESPONSE_PACKET_SIZE];
-uint8_t storedConfig[NV_TOTAL_NUM_CONFIG_BYTES], channelContents[MAX_NUM_CHANNELS];
-uint8_t nbrAdcChans, nbrDigiChans;
-uint16_t *adcStartPtr;
+uint8_t storedConfig[NV_NUM_RWMEM_BYTES], channelContents[MAX_NUM_CHANNELS];
+uint8_t nbrAdcChans, nbrDigiChans, infomemLength;
+uint16_t *adcStartPtr, infomemOffset;
 uint8_t preSampleMpuMag, mpuMagFreq, mpuMagCount, mpu9150Initialised;
 uint8_t preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp, sampleBmpTempFreq;
-//+ 1 byte (at start) as can only read/write 16-bit values at even addresses
+uint8_t skip50ms;
+uint64_t startSensingTs64;
 //+ 1 byte to allow ACK at end of last data packet when stop streaming command is received
-uint8_t txBuff0[DATA_PACKET_SIZE+2], txBuff1[DATA_PACKET_SIZE+2];
+uint8_t txBuff0[DATA_PACKET_SIZE+1], txBuff1[DATA_PACKET_SIZE+1];
 uint8_t docked, selectedLed;
 //GSR
 uint8_t gsr_active_resistor;
@@ -180,10 +185,13 @@ uint16_t last_GSR_val;
 //ExG
 uint8_t exgLength, exgChip, exgStartAddr;
 //Daughter card EEPROM
-uint8_t dcMemLength;
+uint8_t dcMemLength, dcIDbytes[16];
 uint16_t dcMemOffset;
 //BT baud rate
 uint8_t changeBtBaudRate;
+//Periodic VBatt sampling
+uint32_t vBattSampleFreq,  nextVBattSample;
+uint8_t vBattSampleEn;
 
 uint8_t btMac[12], fwInfo[7], battVal[3];
 
@@ -206,6 +214,7 @@ struct {
    uint8_t entry[ CBUF_SIZE ];
 }ucBuf;
 
+
 void main(void) {
    uint8_t digi_offset;
 
@@ -213,7 +222,7 @@ void main(void) {
 
    dierecord = (char *)0x01A0A;
 
-   InfoMem_read((uint8_t *)0, storedConfig, NV_TOTAL_NUM_CONFIG_BYTES);
+   InfoMem_read((uint8_t *)0, storedConfig, NV_NUM_RWMEM_BYTES);
    if((storedConfig[NV_SENSORS0] == 0xFF) || (storedConfig[NV_BUFFER_SIZE] != 1)) {
       //if config was never written to Infomem, write default
       //assuming some other app didn't make use of InfoMem, or else InfoMem was erased
@@ -225,9 +234,12 @@ void main(void) {
       SetBtBaudRate(storedConfig[NV_BT_COMMS_BAUD_RATE]);
    }
 
+   ReadBatt();
+   RTC_init(0);
+
    ConfigureChannels();
 
-   txBuff0[1] = txBuff1[1] = DATA_PACKET; //packet type
+   txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
 
    BlinkTimerStart();   //blink the blue LED
                         //also starts the charge status timer if not docked
@@ -248,8 +260,15 @@ void main(void) {
    if(docked)
       MonitorChargeStatus();
 
+   //for timing test only:    //TODO: remove from release version
+   //P6SEL &= ~BIT7;
+   //P6OUT &= ~BIT7;    //set low
+   //P6DIR |= BIT7;     //set as output
+
    while(1) {
+      //TODO: should probably check all flags here before going to sleep
       __bis_SR_register(LPM3_bits + GIE); //ACLK remains active
+
       if(!btIsConnected && (changeBtBaudRate!=0xFF)) {
          storedConfig[NV_BT_COMMS_BAUD_RATE] = changeBtBaudRate;
          InfoMem_write((void*)NV_BT_COMMS_BAUD_RATE, &storedConfig[NV_BT_COMMS_BAUD_RATE], 1);
@@ -263,13 +282,13 @@ void main(void) {
          processCommand = 0;
          ProcessCommand();
       }
-      if(configureChannels) {
-         configureChannels = 0;
-         ConfigureChannels();
-      }
       if(sendResponse) {
          sendResponse = 0;
          SendResponse();
+      }
+      if(configureChannels) {
+         configureChannels = 0;
+         ConfigureChannels();
       }
       if(uartProcessCmds){
          uartProcessCmds = 0;
@@ -280,6 +299,8 @@ void main(void) {
          UartSendRsp();
       }
       if(startSensing) {
+         _NOP();
+//         if((!stopSensing) && (!docked)) {
          if(!stopSensing) {
             startSensing = 0;
             StartStreaming();
@@ -381,8 +402,9 @@ void main(void) {
                StopStreaming();
                *(txBuff1+digi_offset++) = ACK_COMMAND_PROCESSED;
             }
-            if(btIsConnected)
-               BT_write((txBuff1+1), (digi_offset-1));
+            //P6OUT &= ~BIT7;       //for timing test only TODO: remove from release version
+            if(btIsConnected && !Skip50ms())
+               BT_write(txBuff1, digi_offset);
             currentBuffer = 0;
          } else {
             if(storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO) {
@@ -463,9 +485,26 @@ void main(void) {
                StopStreaming();
                *(txBuff0+digi_offset++) = ACK_COMMAND_PROCESSED;
             }
-            if(btIsConnected)
-               BT_write((txBuff0+1), (digi_offset-1));
+            //P6OUT &= ~BIT7;       //for timing test only TODO: remove from release version
+            if(btIsConnected && !Skip50ms())
+               BT_write(txBuff0, digi_offset);
             currentBuffer = 1;
+         }
+         if(vBattSampleFreq) {
+            if(!--nextVBattSample) {
+               ReadBatt();
+               if(vBattSampleEn){
+                  vBattResponse = 1;
+                  sendAck = 1;
+                  SendResponse();
+               }
+               nextVBattSample = vBattSampleFreq;
+               //(!sensing || (vBattSampleFreq && !nextVBattSample))
+            }
+         }
+         if(configureChannels) {
+            configureChannels = 0;
+            ConfigureChannels();
          }
          if(startSensing) {
             //if restarting sensing after previously stopping
@@ -552,6 +591,10 @@ void Init(void) {
    last_GSR_val = 0;
    btCommsBaudRateResponse = 0;
    derivedChannelBytesResponse = 0;
+   infomemResponse = 0;
+   vBattResponse = 0;
+   vBattFreqResponse = 0;
+   statusResponse = 0;
    changeBtBaudRate = 0xFF;   //indicates doesn't need changing
    uartSendRspOldMac = 0;
    uartSendRspOldVer = 0;
@@ -574,6 +617,11 @@ void Init(void) {
    ucBuf.idx=0;
    uartProcessCmds = 0;
    uartSendResponses = 0;
+   skip50ms = 0;
+   //vBattSampleFreq = 0;
+   vBattSampleFreq = 0xffff;
+   nextVBattSample = 0xffff;
+   vBattSampleEn = 0;
 
    *fwInfo = DEVICE_VER;
    *(fwInfo + 1) = (FW_IDENTIFIER & 0xFF);
@@ -589,6 +637,9 @@ void Init(void) {
    BT_init();
    BT_disableRemoteConfig(1);
    BT_setRadioMode(SLAVE_MODE);
+   //BT_setFriendlyName("Shimmer3");   //TODO: remove from release version
+   //BT_setAuthentication(4);
+   //BT_setPIN("1234");
    BT_configure();
    BT_receiveFunction(&BtDataAvailable);
    BT_getMacAddress(btMac);
@@ -635,6 +686,8 @@ inline void StartStreaming(void) {
 
    if(!sensing) {
       sensing = 1;
+      skip50ms = 1;
+      nextVBattSample = vBattSampleFreq;
 
       if(docked)
          UART_deactivate();
@@ -877,6 +930,7 @@ inline void StopStreaming(void) {
          BlinkTimerStop();
       preSampleMpuMag = 0;
       preSampleBmpPress = 0;
+      skip50ms = 0;
       sensing = 0;
       if(docked)
          UART_activate();
@@ -1030,14 +1084,19 @@ void ConfigureChannels(void) {
       DMA0_transferDoneFunction(&Dma0ConversionDone);
       if(adcStartPtr)
          DMA0_init(adcStartPtr, (uint16_t *)(txBuff0+4), nbrAdcChans);
+      currentBuffer = 0;
    }
+
+   //TODO: check if was sensing, and if so restart
 }
 
 uint8_t BtDataAvailable(uint8_t data) {
    if(waitingForArgs) {
       args[argsSize++] = data;
       if(((gAction == SET_EXG_REGS_COMMAND) && (argsSize == 3)) ||
-            ((gAction == SET_DAUGHTER_CARD_MEM_COMMAND) && (argsSize == 1))) {
+            //((gAction == SET_DAUGHTER_CARD_ID_COMMAND) && (argsSize == 1)) ||    //TODO: remove from release version
+            ((gAction == SET_DAUGHTER_CARD_MEM_COMMAND) && (argsSize == 1)) ||
+            ((gAction == SET_INFOMEM_COMMAND) && (argsSize == 1))) {
          waitingForArgs += data;
       }
       if(!--waitingForArgs) {
@@ -1053,6 +1112,7 @@ uint8_t BtDataAvailable(uint8_t data) {
       case GET_SAMPLING_RATE_COMMAND:
       case TOGGLE_LED_COMMAND:
       case START_STREAMING_COMMAND:
+//      case GET_STATUS_COMMAND:
       case GET_CONFIG_SETUP_BYTES_COMMAND:
       case STOP_STREAMING_COMMAND:
       case GET_A_ACCEL_CALIBRATION_COMMAND:
@@ -1084,6 +1144,9 @@ uint8_t BtDataAvailable(uint8_t data) {
       case GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND:
       case GET_BT_COMMS_BAUD_RATE:
       case GET_DERIVED_CHANNEL_BYTES:
+      case GET_VBATT_COMMAND:
+      case DUMMY_COMMAND:
+      case GET_VBATT_FREQ_COMMAND:
          gAction = data;
          processCommand = 1;
          return 1;
@@ -1106,6 +1169,7 @@ uint8_t BtDataAvailable(uint8_t data) {
          return 0;
       case SET_SAMPLING_RATE_COMMAND:
       case GET_DAUGHTER_CARD_ID_COMMAND:
+      //case SET_DAUGHTER_CARD_ID_COMMAND:             //TODO: remove from release version
          waitingForArgs = 2;
          gAction = data;
          return 0;
@@ -1115,10 +1179,13 @@ uint8_t BtDataAvailable(uint8_t data) {
       case GET_DAUGHTER_CARD_MEM_COMMAND:
       case SET_DAUGHTER_CARD_MEM_COMMAND:
       case SET_DERIVED_CHANNEL_BYTES:
+      case GET_INFOMEM_COMMAND:
+      case SET_INFOMEM_COMMAND:
          waitingForArgs = 3;
          gAction = data;
          return 0;
       case SET_CONFIG_SETUP_BYTES_COMMAND:
+      case SET_VBATT_FREQ_COMMAND:
          waitingForArgs = 4;
          gAction = data;
          return 0;
@@ -1148,9 +1215,11 @@ void ProcessCommand(void) {
       Board_ledToggle(LED_RED);
       break;
    case START_STREAMING_COMMAND:
+//      if(!docked)
       startSensing = 1;
       break;
    case STOP_STREAMING_COMMAND:
+//      if(sensing && (!docked)) {
       if(sensing) {
          stopSensing = 1;
          return;
@@ -1393,7 +1462,7 @@ void ProcessCommand(void) {
       if(args[0] <= 4)
          storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + ((args[0]&0x07)<<1);
       else
-         storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + (HW_RES_40K<<1);
+         storedConfig[NV_CONFIG_SETUP_BYTE3] = (storedConfig[NV_CONFIG_SETUP_BYTE3]&0xF1) + (GSR_AUTORANGE<<1);
       InfoMem_write((void*)NV_CONFIG_SETUP_BYTE3, &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
       if(sensing) {
          stopSensing = 1;
@@ -1454,6 +1523,15 @@ void ProcessCommand(void) {
       if((dcMemLength<=16) && (dcMemOffset<=15) && (dcMemLength+dcMemOffset<=16))
          dcIdResponse = 1;
       break;
+//   case SET_DAUGHTER_CARD_ID_COMMAND:              //TODO: remove from release version
+//      dcMemLength = args[0];
+//      dcMemOffset = args[1];
+//      if((dcMemLength<=16) && (dcMemOffset<=15) && (dcMemLength+dcMemOffset<=16)) {
+//         CAT24C16_init();
+//         CAT24C16_write(dcMemOffset, dcMemLength, args+2);
+//         CAT24C16_powerOff();
+//      }
+//      break;
    case GET_DAUGHTER_CARD_MEM_COMMAND:
       dcMemLength = args[0];
       dcMemOffset = args[1] + (args[2] << 8);
@@ -1477,7 +1555,7 @@ void ProcessCommand(void) {
          if(args[0]>0 && args[0]<11) {
             changeBtBaudRate = args[0];
          } else {
-            changeBtBaudRate = 0;
+            changeBtBaudRate = 9;
          }
       }
       break;
@@ -1489,6 +1567,33 @@ void ProcessCommand(void) {
       storedConfig[NV_DERIVED_CHANNEL_BYTE_1] = args[1];
       storedConfig[NV_DERIVED_CHANNEL_BYTE_2] = args[2];
       InfoMem_write((void*)NV_DERIVED_CHANNEL_BYTE_0, &storedConfig[NV_DERIVED_CHANNEL_BYTE_0], 3);
+      break;
+   case GET_INFOMEM_COMMAND:
+      infomemLength = args[0];
+      infomemOffset = args[1] + (args[2]<<8);
+      if((infomemLength<=128) && (infomemOffset<=(NV_NUM_RWMEM_BYTES-1)) && (infomemLength+infomemOffset<=NV_NUM_RWMEM_BYTES))
+         infomemResponse = 1;
+      break;
+   case SET_INFOMEM_COMMAND:
+      infomemLength = args[0];
+      infomemOffset = args[1] + (args[2]<<8);
+      memcpy(storedConfig+infomemOffset, args+3, infomemLength);
+      InfoMem_write((void*)(infomemOffset), (storedConfig+infomemOffset), infomemLength);
+      break;
+   case GET_VBATT_COMMAND:
+      vBattResponse = 1;
+      break;
+//   case GET_STATUS_COMMAND:
+//      statusResponse = 1;
+//      break;
+   case DUMMY_COMMAND:
+      break;
+   case GET_VBATT_FREQ_COMMAND:
+      vBattFreqResponse = 1;
+      break;
+   case SET_VBATT_FREQ_COMMAND:
+      vBattSampleFreq = *(uint32_t *)args;
+      vBattSampleEn = vBattSampleFreq?1:0;
       break;
    default:;
    }
@@ -1672,17 +1777,66 @@ void SendResponse(void) {
          *(resPacket + packet_length++) = BT_COMMS_BAUD_RATE_RESPONSE;
          *(resPacket + packet_length++) = storedConfig[NV_BT_COMMS_BAUD_RATE];
          btCommsBaudRateResponse = 0;
+      } else if(infomemResponse) {
+         *(resPacket + packet_length++) = INFOMEM_RESPONSE;
+         *(resPacket + packet_length++) = infomemLength;
+         memcpy((resPacket+packet_length), &storedConfig[infomemOffset], infomemLength);
+         packet_length += infomemLength;
+         infomemResponse = 0;
       } else if(derivedChannelBytesResponse) {
          *(resPacket + packet_length++) = DERIVED_CHANNEL_BYTES_RESPONSE;
          memcpy((resPacket+packet_length), &storedConfig[NV_DERIVED_CHANNEL_BYTE_0], 3);
          packet_length += 3;
          derivedChannelBytesResponse = 0;
       }
+      else if(vBattResponse) {
+         *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
+         *(resPacket + packet_length++) = VBATT_RESPONSE;
+         if(vBattSampleFreq && !nextVBattSample && vBattSampleEn){
+            // already read
+         }
+         else{
+            ReadBatt();
+         }
+         memcpy((resPacket + packet_length), battVal, 3);
+         packet_length+=3;
+         vBattResponse = 0;
+//      } else if(statusResponse) {
+//         *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
+//         *(resPacket + packet_length++) = STATUS_RESPONSE;
+//         //*(resPacket + packet_length++) = (docked & 0x01) + ((sensing  & 0x01)<<1);   //2 valid bits: sensing+docked
+//         *(resPacket + packet_length++) = ((sensing & 0x01)<<4) +
+//                     //((isLogging & 0x01)<<3) +
+//                     //((0 & 0x01)<<2) +
+//                     ((sensing & 0x01)<<1) +
+//                     (docked & 0x01);
+//         statusResponse = 0;
+      } else if (vBattFreqResponse) {
+         *(resPacket + packet_length++) = VBATT_FREQ_RESPONSE;
+         *(resPacket + packet_length++) = vBattSampleFreq & 0xFF;
+         *(resPacket + packet_length++) = (vBattSampleFreq & 0xFF00) >> 8;
+         *(resPacket + packet_length++) = (vBattSampleFreq & 0xFF0000) >> 16;
+         *(resPacket + packet_length++) = (vBattSampleFreq & 0xFF000000) >> 24;
+         vBattFreqResponse = 0;
+      }
    }
 
    BT_write(resPacket, packet_length);
 }
 
+//void SendStatusResponse(uint8_t force){
+//   uint16_t packet_length = 0;
+//
+//   *(resPacket + packet_length++) = ACK_COMMAND_PROCESSED;
+//   *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
+//   *(resPacket + packet_length++) = STATUS_RESPONSE;
+//   //*(resPacket + packet_length++) = (docked & 0x01) + ((sensing  & 0x01)<<1);   //2 valid bits: sensing+docked
+//   if(!force)
+//      *(resPacket + packet_length++) = ((sensing & 0x01)<<4) + ((sensing & 0x01)<<1) + (docked & 0x01);
+//   else if(force == 1)
+//      *(resPacket + packet_length++) = ((0 & 0x01)<<4) + ((0 & 0x01)<<1) + (docked & 0x01);
+//   BT_write(resPacket, packet_length);
+//}
 
 void SetDefaultConfiguration(void) {
    *(uint16_t *)(storedConfig+NV_SAMPLING_RATE) = 640;                                       //51.2Hz
@@ -1697,7 +1851,7 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_CONFIG_SETUP_BYTE2] = (LSM303DLHC_MAG_1_3G<<5) + (LSM303DLHC_MAG_75HZ<<2) //LSM303DLHC Mag 75Hz, +/-1.3 Gauss
                                     + MPU9150_GYRO_500DPS;                                   //MPU9150 Gyro +/-500 degrees per second
    storedConfig[NV_CONFIG_SETUP_BYTE3] = (ACCEL_2G<<6) + (BMP180_OSS_1<<4)                   //MPU9150 Accel +/-2G, BMP pressure oversampling ratio 1
-                                    + (HW_RES_40K<<1);                                       //GSR range resistor 40k
+                                    + (GSR_AUTORANGE<<1);                                    //GSR autorange
                                                                                              //EXP_RESET_N pin set low
    //set all ExG registers to their reset values
    storedConfig[NV_EXG_ADS1292R_1_CONFIG1] = 0x02;
@@ -1722,8 +1876,8 @@ void SetDefaultConfiguration(void) {
    storedConfig[NV_EXG_ADS1292R_2_RESP2] = 0x02;
 
    //set BT baud rate to 115200
-   if(storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF)
-      storedConfig[NV_BT_COMMS_BAUD_RATE] = 0;                                               // 115200 baud
+   if(storedConfig[NV_BT_COMMS_BAUD_RATE] != 0x09)
+      storedConfig[NV_BT_COMMS_BAUD_RATE] = 9;                                               // 460800 baud
 
    storedConfig[NV_DERIVED_CHANNEL_BYTE_0] = 0x00;
    storedConfig[NV_DERIVED_CHANNEL_BYTE_1] = 0x00;
@@ -1989,14 +2143,26 @@ inline void SampleTimerStop(void) {
 __interrupt void TIMER0_B0_ISR(void)
 {
    //main sampling rate control
+   uint8_t rtc_temp[4];
+
    TB0CCR0 += *(uint16_t *)(storedConfig+NV_SAMPLING_RATE);
+   *(uint32_t *)rtc_temp = RTC_get32();
    if(currentBuffer){
-      *((uint16_t *)(txBuff1+2)) = GetTB0();
+      txBuff1[1] = rtc_temp[0];
+      txBuff1[2] = rtc_temp[1];
+      txBuff1[3] = rtc_temp[2];
    } else {
-      *((uint16_t *)(txBuff0+2)) = GetTB0();
+      txBuff0[1] = rtc_temp[0];
+      txBuff0[2] = rtc_temp[1];
+      txBuff0[3] = rtc_temp[2];
    }
    //start ADC conversion
    if(nbrAdcChans) {
+
+      if((DMA0CTL & DMAEN))
+         Board_ledToggle(LED_RED);
+
+
       DMA0_enable();
       ADC_startConversion();
    } else {
@@ -2060,6 +2226,7 @@ __interrupt void TIMER0_B1_ISR(void) {
 *** DMA interrupt vector
 **/
 uint8_t Dma0ConversionDone(void) {
+   //P6OUT ^= BIT6;       //for timing test only TODO: remove from release version
    if(currentBuffer){
       DMA0_repeatTransfer(adcStartPtr, (uint16_t *)(txBuff0+4), nbrAdcChans); //Destination address for next transfer
    } else {
@@ -2089,7 +2256,7 @@ __interrupt void Port2_ISR(void) {
          ChargeStatusTimerStop();
          MonitorChargeStatus();
          selectedLed = 0;  //reset to green for when removed from dock
-         if(!sensing)
+         if(sensing)
             UART_activate();
       } else {
          P2IES &= ~BIT3;   //look for rising edge
@@ -2237,7 +2404,6 @@ void ReadBatt(void){
    battVal[2] = P2IN & 0xC0;
 }
 
-
 #define UART_STEP_WAIT4_CMD         4
 #define UART_STEP_WAIT4_LEN         3
 #define UART_STEP_WAIT4_DATA        2
@@ -2350,9 +2516,8 @@ void UartProcessCmd(){
                case UART_PROP_INFOMEM:
                   uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff)  && (uartInfoMemOffset>=0x1800)
-                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)){
-                     uartInfoMemOffset -= 0x1800;
+                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x01ff) && (uartInfoMemLength+uartInfoMemOffset<=0x0200)){
+                     //uartInfoMemOffset -= 0x1800;
                      uartSendRspGim = 1;
                   }
                   else
@@ -2409,9 +2574,8 @@ void UartProcessCmd(){
                case UART_PROP_INFOMEM:
                   uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
                   uartInfoMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
-                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff) && (uartInfoMemOffset>=0x1800)
-                        && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)) {
-                     uartInfoMemOffset -= 0x1800;
+                  if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x01ff) && (uartInfoMemLength+uartInfoMemOffset<=0x0200)) {
+                     //uartInfoMemOffset -= 0x1800;
                      InfoMem_write((void*)uartInfoMemOffset, uartRxBuf+UART_RXBUF_DATA+3, uartInfoMemLength);
                      uartSendRspAck = 1;
                   }
@@ -2430,7 +2594,7 @@ void UartProcessCmd(){
                   uartDcMemOffset = (uint16_t)uartRxBuf[UART_RXBUF_DATA+1] + (((uint16_t)uartRxBuf[UART_RXBUF_DATA+2]) << 8);
                   if((uartDcMemLength<=128) && (uartDcMemOffset<=2031) && ((uint16_t)uartDcMemLength+uartDcMemOffset<=2032)) {
                      CAT24C16_init();
-                     CAT24C16_write(uartDcMemOffset, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
+                     CAT24C16_write(uartDcMemOffset+16, (uint16_t)uartDcMemLength, uartRxBuf+UART_RXBUF_DATA+3);
                      CAT24C16_powerOff();
                      uartSendRspAck = 1;
                   }
@@ -2554,7 +2718,7 @@ void UartSendRsp(){
       *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
       if((uartDcMemLength+uart_resp_len)<UART_RSP_PACKET_SIZE){
          CAT24C16_init();
-         CAT24C16_read(uartDcMemOffset, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
+         CAT24C16_read(uartDcMemOffset+16, (uint16_t)uartDcMemLength, (uartRespBuf+uart_resp_len));
          CAT24C16_powerOff();
       }
       uart_resp_len += uartDcMemLength;
@@ -2613,11 +2777,29 @@ uint8_t UartCheckCrc(uint8_t len){
    return (uart_rx_crc == uart_calc_crc);
 }
 
+
+uint8_t Skip50ms(){
+   if(!skip50ms){
+      return 0;
+   }
+   if(skip50ms == 1){
+      startSensingTs64 = RTC_get64();
+      skip50ms = 2;
+   } else {
+      uint64_t ts_64 = RTC_get64();
+      if((ts_64 - startSensingTs64) > 1638){
+         skip50ms = 0;
+         return 0;
+      }
+   }
+   return 1;
+}
+
 /**
 ***
  */
 // trap isr assignation - put all unused ISR vector here
-#pragma vector = RTC_VECTOR, USCI_B1_VECTOR,\
+#pragma vector = USCI_B1_VECTOR,\
    TIMER0_A0_VECTOR, TIMER0_A1_VECTOR, TIMER1_A1_VECTOR, \
    UNMI_VECTOR, WDT_VECTOR, SYSNMI_VECTOR
 __interrupt void TrapIsr(void) {

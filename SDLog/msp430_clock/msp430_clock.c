@@ -43,7 +43,7 @@ uint32_t last_ts, this_ts;
 #pragma vector=TIMER1_A0_VECTOR
 __interrupt void TIMER1_A0_ISR (void)
 {
-   uint8_t j,i=cb_cnt, exit_lpm=0;
+   uint8_t j,i=cb_cnt; //, exit_lpm=0;
    uint16_t td_in_ms;
 
    this_ts = (uint32_t)GetTA1();

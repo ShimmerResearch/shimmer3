@@ -10,9 +10,9 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "No device specified."
-   print "Specify the serial port of the device you wish to connect to."
-   print "Example:"
+   print "no device specified"
+   print "You need to specify the serial port of the device you wish to connect to"
+   print "example:"
    print "   resetDefaultConfig.py Com12"
    print "or"
    print "   resetDefaultConfig.py /dev/rfcomm0"
@@ -23,8 +23,8 @@ else:
 # send reset default config command
       ser.write(struct.pack('B', 0x5A))
       wait_for_ack()
-      print "Reset to default configuration."
+      print "Reset to default configuration"
 #close serial port
       ser.close()
    print
-   print "All done!"
+   print "All done"

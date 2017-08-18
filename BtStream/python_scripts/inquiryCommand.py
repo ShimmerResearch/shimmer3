@@ -10,9 +10,9 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "No device specified."
-   print "Specify the serial port of the device you wish to connect to."
-   print "Example:"
+   print "no device specified"
+   print "You need to specify the serial port of the device you wish to connect to"
+   print "example:"
    print "   inquiryCommand.py Com12"
    print "or"
    print "   inquiryCommand.py /dev/rfcomm0"
@@ -56,4 +56,4 @@ else:
 #close serial port
    ser.close()
    print
-   print "All done!"
+   print "All done"

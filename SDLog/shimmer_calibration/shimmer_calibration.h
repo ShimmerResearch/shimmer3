@@ -1,4 +1,3 @@
-
 #ifndef SHIMMER_CALIBRATION_H
 #define SHIMMER_CALIBRATION_H
 //SC_ short for SHIMMER_CALIBRATION_
@@ -7,61 +6,61 @@
 #define min(a,b) a>b?b:a
 #endif
 
-
 #define SHIMMER_CALIB_DATA_MAX   22
 #define SHIMMER_CALIB_COPY_SIZE  128
 #define SHIMMER_CALIB_RAM_MAX    1024
 
+typedef struct shimmer_calib_default_t
+{
+    uint16_t bias_x;
+    uint16_t bias_y;
+    uint16_t bias_z;
+    uint16_t sens_x;
+    uint16_t sens_y;
+    uint16_t sens_z;
+    int8_t align_xx;
+    int8_t align_xy;
+    int8_t align_xz;
+    int8_t align_yx;
+    int8_t align_yy;
+    int8_t align_yz;
+    int8_t align_zx;
+    int8_t align_zy;
+    int8_t align_zz;
+} sc_default_t;
 
-typedef struct shimmer_calib_default_t{
-   uint16_t bias_x;
-   uint16_t bias_y;
-   uint16_t bias_z;
-   uint16_t sens_x;
-   uint16_t sens_y;
-   uint16_t sens_z;
-   int8_t  align_xx;
-   int8_t  align_xy;
-   int8_t  align_xz;
-   int8_t  align_yx;
-   int8_t  align_yy;
-   int8_t  align_yz;
-   int8_t  align_zx;
-   int8_t  align_zy;
-   int8_t  align_zz;
-}sc_default_t;
+typedef union shimmer_calib_data_u
+{
+    uint8_t raw[SHIMMER_CALIB_DATA_MAX];
 
-typedef union shimmer_calib_data_u{
-   uint8_t raw[SHIMMER_CALIB_DATA_MAX];
+    struct
+    {
+        uint16_t bias_x;
+        uint16_t bias_y;
+        uint16_t bias_z;
+        uint16_t sens_x;
+        uint16_t sens_y;
+        uint16_t sens_z;
+        int8_t align_xx;
+        int8_t align_xy;
+        int8_t align_xz;
+        int8_t align_yx;
+        int8_t align_yy;
+        int8_t align_yz;
+        int8_t align_zx;
+        int8_t align_zy;
+        int8_t align_zz;
+    } dd; //default data structure: 21byte as declared above in sc_default_t
+} sc_data_u;
 
-   struct {
-      uint16_t bias_x;
-      uint16_t bias_y;
-      uint16_t bias_z;
-      uint16_t sens_x;
-      uint16_t sens_y;
-      uint16_t sens_z;
-      int8_t  align_xx;
-      int8_t  align_xy;
-      int8_t  align_xz;
-      int8_t  align_yx;
-      int8_t  align_yy;
-      int8_t  align_yz;
-      int8_t  align_zx;
-      int8_t  align_zy;
-      int8_t  align_zz;
-   }dd;//default data structure: 21byte as declared above in sc_default_t
-}sc_data_u;
-
-
-typedef struct shimmer_calib_t{
-   uint16_t id;
-   uint8_t  range;
-   uint8_t  data_len;
-   uint8_t  ts[8];//timestamp
-   sc_data_u  data;//[SHIMMER_CALIB_DATA_MAX];
-}sc_t;
-
+typedef struct shimmer_calib_t
+{
+    uint16_t id;
+    uint8_t range;
+    uint8_t data_len;
+    uint8_t ts[8]; //timestamp
+    sc_data_u data; //[SHIMMER_CALIB_DATA_MAX];
+} sc_t;
 
 #define SC_OFFSET_LENGTH_L             0
 #define SC_OFFSET_LENGTH_H             1
@@ -124,15 +123,13 @@ typedef struct shimmer_calib_t{
 #define SC_SENSOR_RANGE_MAX_BMP180                 1
 #define SC_DATA_LEN_BMP180                         22
 
-
-
 extern void ShimmerCalib_init(void);
 
 extern uint8_t ShimmerCalib_findLength(sc_t* sc1);
 
-extern void ShimmerCalib_ram2File();
+extern void ShimmerCalib_ram2File(void);
 
-extern uint8_t ShimmerCalib_file2Ram();
+extern uint8_t ShimmerCalib_file2Ram(void);
 
 // return 0: success, 1: fail
 extern uint8_t ShimmerCalib_singleSensorWrite(const sc_t* sc1);
@@ -143,9 +140,11 @@ extern uint8_t ShimmerCalib_singleSensorRead(sc_t* sc1);
 extern void ShimmerCalib_checkRamLen();
 extern void ShimmerCalib_ramTempInit();
 
-extern uint8_t ShimmerCalib_ramWrite(const uint8_t* buf, uint8_t length, uint16_t offset);
+extern uint8_t ShimmerCalib_ramWrite(const uint8_t* buf, uint8_t length,
+                                     uint16_t offset);
 
-extern uint8_t ShimmerCalib_ramRead(uint8_t* buf, uint8_t length, uint16_t offset);
+extern uint8_t ShimmerCalib_ramRead(uint8_t* buf, uint8_t length,
+                                    uint16_t offset);
 
 void ShimmerCalib_default(uint8_t sensor);
 

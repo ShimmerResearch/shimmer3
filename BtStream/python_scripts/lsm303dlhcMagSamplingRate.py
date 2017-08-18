@@ -10,11 +10,11 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "No device specified."
-   print "Specify the serial port of the device you wish to connect to."
-   print "A second argument can be specified to change LSM303DLHC Mag sampling rate to new value."
-   print "If no second argument the current range is read and displayed."
-   print "Example:"
+   print "no device specified"
+   print "You need to specify the serial port of the device you wish to connect to"
+   print "A second argument can be specified to change LSM303DLHC Mag sampling rate to new value"
+   print "If no second argument the current range is read and displayed"
+   print "example:"
    print "   lsm303dlhcMagSamplingRate.py Com12"
    print "or"
    print "   lsm303dlhcMagSamplingRate.py Com12 0x01"
@@ -50,7 +50,7 @@ else:
          print "LSM303DLHC Mag sampling rate set to: 0x%02x" % (newsamplingrate)
          ser.close()
       else:
-         print "%d is not a valid LSM303DLHC Mag sampling rate\nMag sampling rate must be between 0 and 7" % newsamplingrate
+         print "%d is not a valid LSM303DLHC Mag sampling rate\nMust be between 0 and 7" % newsamplingrate
 #close serial port
    print
-   print "All done!"
+   print "All done"

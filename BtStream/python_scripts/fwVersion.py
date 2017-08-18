@@ -9,9 +9,9 @@ def wait_for_ack():
    return
 
 if len(sys.argv) < 2:
-   print "No device specified."
-   print "Specify the serial port of the device you wish to connect to."
-   print "Example:"
+   print "no device specified"
+   print "You need to specify the serial port of the device you wish to connect to"
+   print "example:"
    print "   deviceVersion.py Com12"
    print "or"
    print "   deviceVersion.py /dev/rfcomm0"
@@ -23,7 +23,7 @@ else:
 
 # read the acknowledgement
    wait_for_ack()
-   print "Acknowledgement received for get firmware version command."
+   print "Acknowledgement received for get firmware version command"
 
    ddata = ""
    fwversionresponse = struct.pack('B', 0x2F)  #FW_VERSION_RESPONSE
@@ -44,4 +44,4 @@ else:
 
 #close serial port
    ser.close()
-   print "All done!"
+   print "All done"

@@ -425,6 +425,7 @@ __interrupt void USCI_I2C_ISR(void) {
          *rx_packet_data= UCB0RXBUF;
          I2C_Interrupt_Disable(UCNACKIE);
          I2C_Interrupt_Disable(UCB0RXIE);
+         //__bic_SR_register_on_exit(LPM0_bits);  // Exit active CPU
       }
       break;                           
    case 12:                                     // Vector 12: TXIFG  
@@ -441,6 +442,7 @@ __interrupt void USCI_I2C_ISR(void) {
             I2C_Interrupt_Disable(UCB0TXIE);
             I2C_Interrupt_Disable(UCNACKIE);
             transmit_flag = 0;
+            //__bic_SR_register_on_exit(LPM0_bits);  // Exit active CPU
          }
       } else if(receive_flag) {
          if(tx_byte_ctr == 0) {

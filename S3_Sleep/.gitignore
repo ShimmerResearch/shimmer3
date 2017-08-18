@@ -1,0 +1,4 @@
+.settings/
+Debug/
+.launches
+!Debug/*.txt

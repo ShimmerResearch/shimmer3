@@ -107,6 +107,7 @@ else:
    ser.flushInput()
    print "port opening, done."
 
+
    print "---------------------------------------- mac: " 
    inArg = [0x24, 0x03, 0x02, 0x01, UART_PROP_MAC]  
    sendUart(inArg) 

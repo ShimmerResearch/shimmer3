@@ -47,8 +47,8 @@
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
-#define FW_VER_MAJOR          0      //Maor version number: 0-65535
-#define FW_VER_MINOR          8      //Minor version number: 0-255
+#define FW_VER_MAJOR          0      //Major version number: 0-65535
+#define FW_VER_MINOR          9      //Minor version number: 0-255
 #define FW_VER_REL            0      //internal version number: 0-255
 
 typedef uint8_t bool;
@@ -210,8 +210,8 @@ typedef uint8_t error_t;
 #define SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND    0x52
 #define BMPX80_PRES_OVERSAMPLING_RATIO_RESPONSE       0x53
 #define GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND    0x54
-#define BMPX80_CALIBRATION_COEFFICIENTS_RESPONSE      0x58
-#define GET_BMPX80_CALIBRATION_COEFFICIENTS_COMMAND   0x59
+#define BMP180_CALIBRATION_COEFFICIENTS_RESPONSE      0x58
+#define GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND   0x59
 #define RESET_TO_DEFAULT_CONFIGURATION_COMMAND        0x5A
 #define RESET_CALIBRATION_VALUE_COMMAND               0x5B
 #define MPU9150_MAG_SENS_ADJ_VALS_RESPONSE            0x5C
@@ -276,12 +276,14 @@ typedef uint8_t error_t;
 #define GET_VBATT_COMMAND                             0x95
 #define DUMMY_COMMAND                                 0x96
 #define STOP_SDBT_COMMAND                             0x97
-#define SET_CALIB_DUMP_COMMAND                          0x98
-#define RSP_CALIB_DUMP_COMMAND                          0x99
-#define GET_CALIB_DUMP_COMMAND                          0x9A
-#define UPD_CALIB_DUMP_COMMAND                          0x9B
-#define UPD_SDLOG_CFG_COMMAND                           0x9C
+#define SET_CALIB_DUMP_COMMAND                        0x98
+#define RSP_CALIB_DUMP_COMMAND                        0x99
+#define GET_CALIB_DUMP_COMMAND                        0x9A
+#define UPD_CALIB_DUMP_COMMAND                        0x9B
+#define UPD_SDLOG_CFG_COMMAND                         0x9C
 //#define ROUTINE_COMMUNICATION                         0xE0
+#define BMP280_CALIBRATION_COEFFICIENTS_RESPONSE      0x9F
+#define GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND   0xA0
 #define ACK_COMMAND_PROCESSED                         0xFF
 
 
@@ -445,7 +447,8 @@ typedef uint8_t error_t;
 #define NV_MAX_EXP_LEN_LSB                128+95
 #define NV_MAC_ADDRESS                    128+96   // 6bytes
 #define NV_SD_CONFIG_DELAY_FLAG           128+102
-#define NV_TEMP_PRES_CALIBRATION          128+103  // +22 bytes, till 128+124
+#define NV_BT_SET_PIN                     128+103
+#define NV_TEMP_PRES_CALIBRATION          128+104  // +22 bytes, till 128+125
 
 #define NV_NODE0                          128+128+0
 
@@ -559,92 +562,93 @@ typedef uint8_t error_t;
 //SD Log file header format
 #define SDHEAD_LEN                  256// 0-255
 
-#define SDH_SAMPLE_RATE_0           0
-#define SDH_SAMPLE_RATE_1           1
-#define SDH_BUFFER_SIZE             2
-#define SDH_SENSORS0                3
-#define SDH_SENSORS1                4
-#define SDH_SENSORS2                5
-#define SDH_SENSORS3                6
-#define SDH_SENSORS4                7
-#define SDH_CONFIG_SETUP_BYTE0      8 //sensors setting bytes
-#define SDH_CONFIG_SETUP_BYTE1      9
-#define SDH_CONFIG_SETUP_BYTE2      10
-#define SDH_CONFIG_SETUP_BYTE3      11
-#define SDH_CONFIG_SETUP_BYTE4      12
-#define SDH_CONFIG_SETUP_BYTE5      13
-#define SDH_CONFIG_SETUP_BYTE6      14
-#define SDH_TRIAL_CONFIG0           16
-#define SDH_TRIAL_CONFIG1           17
-#define SDH_BROADCAST_INTERVAL      18
-#define SDH_BT_COMMS_BAUD_RATE      19
-#define SDH_EST_EXP_LEN_MSB         20
-#define SDH_EST_EXP_LEN_LSB         21
-#define SDH_MAX_EXP_LEN_MSB         22
-#define SDH_MAX_EXP_LEN_LSB         23
-#define SDH_MAC_ADDR                24
-#define SDH_SHIMMERVERSION_BYTE_0   30
-#define SDH_SHIMMERVERSION_BYTE_1   31
-#define SDH_MYTRIAL_ID              32
-#define SDH_NSHIMMER                33
-#define SDH_FW_VERSION_TYPE_0       34
-#define SDH_FW_VERSION_TYPE_1       35
-#define SDH_FW_VERSION_MAJOR_0      36
-#define SDH_FW_VERSION_MAJOR_1      37
-#define SDH_FW_VERSION_MINOR        38
-#define SDH_FW_VERSION_INTERNAL     39
-#define SDH_DERIVED_CHANNELS_0      40
-#define SDH_DERIVED_CHANNELS_1      41
-#define SDH_DERIVED_CHANNELS_2      42
-#define SDH_RTC_DIFF_0              44
-#define SDH_RTC_DIFF_1              45
-#define SDH_RTC_DIFF_2              46
-#define SDH_RTC_DIFF_3              47
-#define SDH_RTC_DIFF_4              48
-#define SDH_RTC_DIFF_5              49
-#define SDH_RTC_DIFF_6              50
-#define SDH_RTC_DIFF_7              51
-#define SDH_CONFIG_TIME_0           52
-#define SDH_CONFIG_TIME_1           53
-#define SDH_CONFIG_TIME_2           54
-#define SDH_CONFIG_TIME_3           55
-#define SDH_EXG_ADS1292R_1_CONFIG1        56
-#define SDH_EXG_ADS1292R_1_CONFIG2        57
-#define SDH_EXG_ADS1292R_1_LOFF           58
-#define SDH_EXG_ADS1292R_1_CH1SET         59
-#define SDH_EXG_ADS1292R_1_CH2SET         60
-#define SDH_EXG_ADS1292R_1_RLD_SENS       61
-#define SDH_EXG_ADS1292R_1_LOFF_SENS      62
-#define SDH_EXG_ADS1292R_1_LOFF_STAT      63
-#define SDH_EXG_ADS1292R_1_RESP1          64
-#define SDH_EXG_ADS1292R_1_RESP2          65
-#define SDH_EXG_ADS1292R_2_CONFIG1        66
-#define SDH_EXG_ADS1292R_2_CONFIG2        67
-#define SDH_EXG_ADS1292R_2_LOFF           68
-#define SDH_EXG_ADS1292R_2_CH1SET         69
-#define SDH_EXG_ADS1292R_2_CH2SET         70
-#define SDH_EXG_ADS1292R_2_RLD_SENS       71
-#define SDH_EXG_ADS1292R_2_LOFF_SENS      72
-#define SDH_EXG_ADS1292R_2_LOFF_STAT      73
-#define SDH_EXG_ADS1292R_2_RESP1          74
-#define SDH_EXG_ADS1292R_2_RESP2          75
-#define SDH_LSM303DLHC_ACCEL_CALIBRATION  76 //0x4c
-#define SDH_MPU9150_GYRO_CALIBRATION      97 //0x61
-#define SDH_LSM303DLHC_MAG_CALIBRATION    118//0x76
-#define SDH_A_ACCEL_CALIBRATION           139//0x8b
-#define SDH_TEMP_PRES_CALIBRATION         160
-#define SDH_LSM303DLHC_ACCEL_CALIB_TS     182 //+8
-#define SDH_MPU9150_GYRO_CALIB_TS         190 //+8
-#define SDH_LSM303DLHC_MAG_CALIB_TS       198 //+8
-#define SDH_A_ACCEL_CALIB_TS              206 //+8
-#define SDH_DAUGHTER_CARD_ID_BYTE0        214 //+3
-#define SDH_DERIVED_CHANNELS_3            217
-#define SDH_DERIVED_CHANNELS_4            218
-#define SDH_DERIVED_CHANNELS_5            219
-#define SDH_DERIVED_CHANNELS_6            220
-#define SDH_DERIVED_CHANNELS_7            221
-#define SDH_MY_LOCALTIME_5TH              251
-#define SDH_MY_LOCALTIME                  252   //252-255
+#define SDH_SAMPLE_RATE_0           (0)
+#define SDH_SAMPLE_RATE_1           (1)
+#define SDH_BUFFER_SIZE             (2)
+#define SDH_SENSORS0                (3)
+#define SDH_SENSORS1                (4)
+#define SDH_SENSORS2                (5)
+#define SDH_SENSORS3                (6)
+#define SDH_SENSORS4                (7)
+#define SDH_CONFIG_SETUP_BYTE0      (8)//sensors setting bytes
+#define SDH_CONFIG_SETUP_BYTE1      (9)
+#define SDH_CONFIG_SETUP_BYTE2      (10)
+#define SDH_CONFIG_SETUP_BYTE3      (11)
+#define SDH_CONFIG_SETUP_BYTE4      (12)
+#define SDH_CONFIG_SETUP_BYTE5      (13)
+#define SDH_CONFIG_SETUP_BYTE6      (14)
+#define SDH_TRIAL_CONFIG0           (16)
+#define SDH_TRIAL_CONFIG1           (17)
+#define SDH_BROADCAST_INTERVAL      (18)
+#define SDH_BT_COMMS_BAUD_RATE      (19)
+#define SDH_EST_EXP_LEN_MSB         (20)
+#define SDH_EST_EXP_LEN_LSB         (21)
+#define SDH_MAX_EXP_LEN_MSB         (22)
+#define SDH_MAX_EXP_LEN_LSB         (23)
+#define SDH_MAC_ADDR                (24)
+#define SDH_SHIMMERVERSION_BYTE_0   (30)
+#define SDH_SHIMMERVERSION_BYTE_1   (31)
+#define SDH_MYTRIAL_ID              (32)
+#define SDH_NSHIMMER                (33)
+#define SDH_FW_VERSION_TYPE_0       (34)
+#define SDH_FW_VERSION_TYPE_1       (35)
+#define SDH_FW_VERSION_MAJOR_0      (36)
+#define SDH_FW_VERSION_MAJOR_1      (37)
+#define SDH_FW_VERSION_MINOR        (38)
+#define SDH_FW_VERSION_INTERNAL     (39)
+#define SDH_DERIVED_CHANNELS_0      (40)
+#define SDH_DERIVED_CHANNELS_1      (41)
+#define SDH_DERIVED_CHANNELS_2      (42)
+#define SDH_RTC_DIFF_0              (44)
+#define SDH_RTC_DIFF_1              (45)
+#define SDH_RTC_DIFF_2              (46)
+#define SDH_RTC_DIFF_3              (47)
+#define SDH_RTC_DIFF_4              (48)
+#define SDH_RTC_DIFF_5              (49)
+#define SDH_RTC_DIFF_6              (50)
+#define SDH_RTC_DIFF_7              (51)
+#define SDH_CONFIG_TIME_0           (52)
+#define SDH_CONFIG_TIME_1           (53)
+#define SDH_CONFIG_TIME_2           (54)
+#define SDH_CONFIG_TIME_3           (55)
+#define SDH_EXG_ADS1292R_1_CONFIG1        (56)
+#define SDH_EXG_ADS1292R_1_CONFIG2        (57)
+#define SDH_EXG_ADS1292R_1_LOFF           (58)
+#define SDH_EXG_ADS1292R_1_CH1SET         (59)
+#define SDH_EXG_ADS1292R_1_CH2SET         (60)
+#define SDH_EXG_ADS1292R_1_RLD_SENS       (61)
+#define SDH_EXG_ADS1292R_1_LOFF_SENS      (62)
+#define SDH_EXG_ADS1292R_1_LOFF_STAT      (63)
+#define SDH_EXG_ADS1292R_1_RESP1          (64)
+#define SDH_EXG_ADS1292R_1_RESP2          (65)
+#define SDH_EXG_ADS1292R_2_CONFIG1        (66)
+#define SDH_EXG_ADS1292R_2_CONFIG2        (67)
+#define SDH_EXG_ADS1292R_2_LOFF           (68)
+#define SDH_EXG_ADS1292R_2_CH1SET         (69)
+#define SDH_EXG_ADS1292R_2_CH2SET         (70)
+#define SDH_EXG_ADS1292R_2_RLD_SENS       (71)
+#define SDH_EXG_ADS1292R_2_LOFF_SENS      (72)
+#define SDH_EXG_ADS1292R_2_LOFF_STAT      (73)
+#define SDH_EXG_ADS1292R_2_RESP1          (74)
+#define SDH_EXG_ADS1292R_2_RESP2          (75)
+#define SDH_LSM303DLHC_ACCEL_CALIBRATION  (76)//0x4c
+#define SDH_MPU9150_GYRO_CALIBRATION      (97) //0x61
+#define SDH_LSM303DLHC_MAG_CALIBRATION    (118)//0x76
+#define SDH_A_ACCEL_CALIBRATION           (139)//0x8b
+#define SDH_TEMP_PRES_CALIBRATION         (160)
+#define SDH_LSM303DLHC_ACCEL_CALIB_TS     (182)//+8
+#define SDH_MPU9150_GYRO_CALIB_TS         (190) //+8
+#define SDH_LSM303DLHC_MAG_CALIB_TS       (198) //+8
+#define SDH_A_ACCEL_CALIB_TS              (206) //+8
+#define SDH_DAUGHTER_CARD_ID_BYTE0        (214) //+3
+#define SDH_DERIVED_CHANNELS_3            (217)
+#define SDH_DERIVED_CHANNELS_4            (218)
+#define SDH_DERIVED_CHANNELS_5            (219)
+#define SDH_DERIVED_CHANNELS_6            (220)
+#define SDH_DERIVED_CHANNELS_7            (221)
+#define BMP280_XTRA_CALIB_BYTES           (222)
+#define SDH_MY_LOCALTIME_5TH              (251)
+#define SDH_MY_LOCALTIME                  (252)  //252-255
 
 
 //SENSORS0
@@ -697,8 +701,9 @@ typedef uint8_t error_t;
 //#define SDH_MONITOR                    0x04
 
 //choice of clock
-#define TCXO_CLOCK      255765.625
-#define MSP430_CLOCK    32768
+#define TCXO_CLOCK      (255765.625)
+//#define TCXO_CLOCK_DIV  (31970.7031) // TCXO_CLOCK / 8
+#define MSP430_CLOCK    (32768.0)
 
 // BT routine communication
 // all node time must *2 in use

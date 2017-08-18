@@ -49,7 +49,7 @@
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
 #define FW_VER_MINOR    7     //Minor version number: 0-255
-#define FW_VER_REL      0     //Release candidate version number: 0-255
+#define FW_VER_REL      8     //Release candidate version number: 0-255
 
 
 // Packet Types
@@ -140,6 +140,7 @@
 #define SET_EXG_REGS_COMMAND                          0x61
 #define EXG_REGS_RESPONSE                             0x62
 #define GET_EXG_REGS_COMMAND                          0x63
+#define SET_DAUGHTER_CARD_ID_COMMAND                  0x64     //TODO: remove from release version
 #define DAUGHTER_CARD_ID_RESPONSE                     0x65
 #define GET_DAUGHTER_CARD_ID_COMMAND                  0x66
 #define SET_DAUGHTER_CARD_MEM_COMMAND                 0x67
@@ -153,7 +154,20 @@
 #define SET_DERIVED_CHANNEL_BYTES                     0x6D
 #define DERIVED_CHANNEL_BYTES_RESPONSE                0x6E
 #define GET_DERIVED_CHANNEL_BYTES                     0x6F
-//0x70 to 0x87 and 0xE0 reserved for Log+Stream
+#define STATUS_RESPONSE                               0x71
+#define GET_STATUS_COMMAND                            0x72
+//0x70 to 0x8B and 0xE0 reserved for Log+Stream
+#define INSTREAM_CMD_RESPONSE                         0x8A     //Doesn't really fit in BtStream, but added to allow compatability
+                                                               //with Log+Stream
+#define SET_INFOMEM_COMMAND                           0x8C
+#define INFOMEM_RESPONSE                              0x8D
+#define GET_INFOMEM_COMMAND                           0x8E
+#define VBATT_RESPONSE                                0x94
+#define GET_VBATT_COMMAND                             0x95
+#define DUMMY_COMMAND                                 0x96
+#define SET_VBATT_FREQ_COMMAND                        0x98
+#define VBATT_FREQ_RESPONSE                           0x99
+#define GET_VBATT_FREQ_COMMAND                        0x9A
 #define ACK_COMMAND_PROCESSED                         0xFF
 
 
@@ -190,7 +204,7 @@
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +
                                        //BMP180TEMP + BMP180PRESS + batteryVoltage + 
                                        //3xexternalADC + 4xinternalADC
-#define DATA_PACKET_SIZE         66    //3 + (MAX_NUM_CHANNELS * 2) + 1 + 6 (+1 as BMP180 
+#define DATA_PACKET_SIZE         67    //1 + 3 + (MAX_NUM_CHANNELS * 2) + 1 + 6 (+1 as BMP180
                                        //pressure requires 3 bytes, +6 for 4 (3 byte) ExG 
                                        //channels plus 2 status bytes instead of 
                                        //4xinternalADC)
@@ -244,6 +258,7 @@
 #define NV_NUM_SETTINGS_BYTES             34
 #define NV_NUM_CALIBRATION_BYTES          84
 #define NV_TOTAL_NUM_CONFIG_BYTES         118
+#define NV_NUM_RWMEM_BYTES                512
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2

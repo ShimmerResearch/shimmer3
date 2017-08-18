@@ -93,8 +93,10 @@ def wait_for_ack():
       print "0x%02x" % ord(ddata[0])
 	  
    return
-   
-if len(sys.argv) < 2:
+
+if len(sys.argv) < 3:
+   print "must provide infomem sector (B, C or D) as third argument" 
+elif len(sys.argv) < 2:
    print "no device specified"
    print "You need to specify the serial port of the device you wish to connect to"
    print "example:"
@@ -103,32 +105,31 @@ if len(sys.argv) < 2:
    print "   *.py /dev/rfcomm0"
 else:
 # read incoming data
+  
    ser = serial.Serial(sys.argv[1], 115200)
    ser.flushInput()
    print "port opening, done."
-
-   framesize = 4  
-   ddata = ""
    
-   if sys.argv[2]=="0":
+   if sys.argv[2] =="D":
+      # infomem D
       memAddr1 = 0x00
-      memAddr2 = 0x18
-   elif sys.argv[2]=="1":
+      memAddr2 = 0x00
+   elif sys.argv[2]=="C":
+      # infomem C
       memAddr1 = 0x80
-      memAddr2 = 0x18
-   elif sys.argv[2]=="2":
+      memAddr2 = 0x00
+   elif sys.argv[2]=="B":
+      # infomem B
       memAddr1 = 0x00
-      memAddr2 = 0x19
+      memAddr2 = 0x01
    else:
-      memAddr1 = 0x80
-      memAddr2 = 0x19
+      # infomem B
+      memAddr1 = 0x00
+      memAddr2 = 0x01
+      print("%s is not a valid infomem sector - using B by default" % sys.argv[2])
+      sys.argv[2] = "B"
 
-   #print "---------------------------------------- mac: " 
-   #inArg = [0x24, 0x03, 0x02, 0x01, UART_PROP_MAC]  
-   #sendUart(inArg) 
-   print "---------------------------------------- info Mem get: " 
-   inArg = [0x24, 0x03, 0x05, 0x01, UART_PROP_INFOMEM, 0x80, memAddr1, memAddr2] 
+   print("---------------------------------------- info Mem %s get: " % sys.argv[2]) 
+   inArg = [0x24, 0x03, 0x05, 0x01, UART_PROP_INFOMEM, 0x80, memAddr1, memAddr2]
    sendUart(inArg) 
-         
-	  
 print 'All done'

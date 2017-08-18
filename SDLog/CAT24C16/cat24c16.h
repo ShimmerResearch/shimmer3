@@ -3,14 +3,16 @@
 
 #include <stdint.h>
 
-#define CAT24C16_ADDR	0x50 //7 bit address I2C address
-							 //lower 3 bits are highest order bits of memory address
-#define PAGE_SIZE		16
-#define BLOCK_SIZE		256
-#define READ_SIZE		128
+#define CAT24C16_ADDR   0x50 //7 bit address I2C address
+                             //lower 3 bits are highest order bits of memory address
+#define PAGE_SIZE       16
+#define BLOCK_SIZE      256
+#define READ_SIZE       128
 
-#define DAUGHT_CARD_ID  (0x00)
-
+// Indices of important daughter card information
+#define DAUGHT_CARD_ID           (0x00)
+#define DAUGHT_CARD_REV          (0x01)
+#define DAUGHT_CARD_SPECIAL_REV  (0x02)
 
 //initialise the I2C for use with the CAT24C16
 //and also power on

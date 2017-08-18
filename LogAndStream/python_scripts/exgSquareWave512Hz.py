@@ -44,7 +44,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 18 # 1byte packet type + 3byte timestamp + 14byte ExG data
+   framesize = 18 # 1byte packet type + 2byte timestamp + 14byte ExG data
 
    print "Packet Type,Timestamp,Chip1 Status,Chip1 Channel1,Chip1 Channel2,Chip2 Status,Chip2 Channel1,Chip2 Channel2"
    try:
@@ -59,6 +59,7 @@ else:
 
          (packettype,) = struct.unpack('B', data[0:1])
 
+         # (timestamp, c1status) = struct.unpack('HB', data[1:4])
          (ts0, ts1, ts2, c1status) = struct.unpack('BBBB', data[1:5])
          timestamp = ts0 + ts1*256 + ts2*65536
 # 24-bit signed values MSB values are tricky, as struct only supports 16-bit or 32-bit

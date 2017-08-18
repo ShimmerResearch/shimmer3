@@ -103,11 +103,18 @@ if len(sys.argv) < 2:
    print "   *.py /dev/rfcomm0"
 else:
 # read incoming data
+   ddata = ""
+   numbytes = 0
+   framesize = 9 # 1byte packet type + 2byte timestamp + 3x2byte Analog Accel
+   
    ser = serial.Serial(sys.argv[1], 115200)
    ser.flushInput()
    print "port opening, done."
 
-   framesize = 4      
+   #raw_nb = raw_input('Enter a command:')
+   #nb = int(raw_nb, 0)
+   framesize = 4
+      
    ddata = ""
     
    print "---------------------------------------- mac: " 

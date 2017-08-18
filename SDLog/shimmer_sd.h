@@ -42,16 +42,17 @@
  * @modifed Mark Nolan
  * @date June, 2014
  *
+ * @modifed Sam O'Mahony
+ * @date August, 2017
  */
 #ifndef SHIMMER_SD_H
 #define SHIMMER_SD_H
-
 
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Major version number: 0-65535
-#define FW_VER_MINOR       15    //Minor version number: 0-255
+#define FW_VER_MINOR       17    //Minor version number: 0-255
 #define FW_VER_REL         0     //internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00
@@ -155,7 +156,7 @@
 #define SENSOR_MPU9150_MAG                0x20
 #define SENSOR_EXG1_16BIT                 0x10
 #define SENSOR_EXG2_16BIT                 0x08
-#define SENSOR_BMP180_PRESSURE            0x04
+#define SENSOR_BMPX80_PRESSURE            0x04
 #define SENSOR_MPU9150_TEMP               0x02
 
 //SENSORS3
@@ -270,7 +271,7 @@
 #define MPU9150_GYRO_RANGE                      0x03
 //Config Byte3
 #define MPU9150_ACCEL_RANGE                     0xC0
-#define BMP180_PRESSURE_RESOLUTION              0x30
+#define BMPX80_PRESSURE_RESOLUTION              0x30
 #define GSR_RANGE                               0x0E
 #define EXP_POWER_ENABLE                        0x01
 //Unused bits 3-0
@@ -494,6 +495,7 @@
 #define SDH_DERIVED_CHANNELS_5            219
 #define SDH_DERIVED_CHANNELS_6            220
 #define SDH_DERIVED_CHANNELS_7            221
+#define BMP280_XTRA_CALIB_BYTES           222
 #define SDH_MY_LOCALTIME_5TH              251   //252-255
 #define SDH_MY_LOCALTIME_L                252   //252-255
 
@@ -527,7 +529,7 @@
 #define SDH_SENSOR_MPU9150_MAG         0x20
 #define SDH_SENSOR_EXG1_16BIT          0x10
 #define SDH_SENSOR_EXG2_16BIT          0x08
-#define SDH_SENSOR_BMP180_PRES         0x04
+#define SDH_SENSOR_BMPX80_PRES         0x04
 #define SDH_SENSOR_MPU9150_TEMP        0x02
 //SENSORS3
 #define SDH_SENSOR_MPL_QUAT_6DOF       0x80
@@ -562,7 +564,8 @@
 #define SDH_TCXO                       0x10
 
 //choice of clock
-#define TCXO_CLOCK      (255765.625)
+#define TCXO_CLOCK      (255765.625) // 16.369MHz / 8 / 8
+//#define TCXO_CLOCK_DIV  (31970.7031) // TCXO_CLOCK / 8
 #define MSP430_CLOCK    (32768.0)
 
 // BT routine communication
@@ -635,7 +638,7 @@ typedef enum {
    TASK_STARTSENSING = BIT8,
    TASK_STOPSENSING = BIT9,
    TASK_SAMPLEMPU9150MAG = BITA,
-   TASK_SAMPLEBMP180PRESS = BITB,
+   TASK_SAMPLEBMPX80PRESS = BITB,
    //TASK_WR2SD = BITA,
    TASK_STREAMDATA = BITC,
    TASK_SETUP_DOCK = BITD
