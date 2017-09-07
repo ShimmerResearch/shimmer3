@@ -298,7 +298,7 @@ bool SD_ERROR, SD_IN_SLOT;
 #define TESTDOCK       0
 #define RTC_OFF        0
 #define PRES_TS_EN     0
-#define FACTORY_TEST   1
+#define FACTORY_TEST   0
 //should be 1
 #define TS_BYTE3       1
 #define SKIP65MS       1
