@@ -120,6 +120,7 @@ shimmer3_common_source/EXG \
 shimmer3_common_source/FatFs \
 shimmer3_common_source/FatFs/option \
 shimmer3_common_source/GSR \
+shimmer3_common_source/LSM303AHTR \
 shimmer3_common_source/LSM303DLHC \
 shimmer3_common_source/MPU9150 \
 shimmer3_common_source/msp430_clock \

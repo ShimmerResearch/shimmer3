@@ -36,7 +36,7 @@ DAUGHT_CARD_REV            = 3
 DAUGHT_CARD_SPECIAL_REV    = 255
 # =======================================================
 
-
+global counter
 
 # =======================================================
 
@@ -90,21 +90,24 @@ def sendUart(inArg):
          else:
             data = ser.read(2)  
          buf_len = ser.inWaiting()    
-         print "      0 1 2 3 4 5 6 7 8 9 a b c d e f"
-         print "cmd:", binascii.hexlify(data), data
+         # print "      0 1 2 3 4 5 6 7 8 9 a b c d e f"
+         # print "cmd:", binascii.hexlify(data), data
          cnt1 = 0
       else:
          if (buf_len>16):
             ddata = ser.read(16)
-            print "0x%02x" % cnt1, binascii.hexlify(ddata) , ddata
+            # print "0x%02x" % cnt1, binascii.hexlify(ddata) , ddata
+            print "Set %d - Get %d" % (counter, int(binascii.hexlify(ddata[2]),16))
+            if(counter != int(binascii.hexlify(ddata[2]),16)):
+               print "************* BAD VALUE *************"
             buf_len = buf_len - 16;
          elif(buf_len>2):
             ddata = ser.read(buf_len-2)
-            print "0x%02x" % cnt1, binascii.hexlify(ddata) , ddata
+            # print "0x%02x" % cnt1, binascii.hexlify(ddata) , ddata
             buf_len = 2;
          else:
             ddata = ser.read(buf_len)# for crc 2 bytes
-            print "crc:", binascii.hexlify(ddata) , ddata
+            # print "crc:", binascii.hexlify(ddata) , ddata
             buf_len = 0;
          cnt1 = cnt1 + 16;
 
@@ -126,28 +129,29 @@ else:
 
 #set the daughter card ID byte (SR number)
 
-   print "---------------------------------------- mac: "
-   inArg = [UART_GET, UART_COMP_SHIMMER, UART_PROP_MAC]  
-   sendUart(inArg) 
-   print "---------------------------------------- DC ID get: "
-   dcMemLength = 16
-   dcMemOffset = 0
-   inArg = [UART_GET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset] 
-   sendUart(inArg)
-   print "---------------------------------------- DC ID set: "
+for counter in range(0,256):
+   # print "---------------------------------------- mac: "
+   # inArg = [UART_GET, UART_COMP_SHIMMER, UART_PROP_MAC]  
+   # sendUart(inArg) 
+   # print "---------------------------------------- DC ID get: "
+   # dcMemLength = 16
+   # dcMemOffset = 0
+   # inArg = [UART_GET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset] 
+   # sendUart(inArg)
+   # print "---------------------------------------- DC ID set: "
    dcMemLength = 3
    dcMemOffset = 0
    # inArg = [UART_SET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset, hex(DAUGHT_CARD_ID), hex(DAUGHT_CARD_REV), hex(DAUGHT_CARD_SPECIAL_REV)]
-   inArg = [UART_SET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset, 0x1f, 0x07, 0x00]
+   inArg = [UART_SET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset, 0x1f, 0x07, counter]
    sendUart(inArg) 
-   print "---------------------------------------- DC ID get: "
+   # print "---------------------------------------- DC ID get: "
    dcMemLength = 16
    dcMemOffset = 0
    inArg = [UART_GET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_ID, dcMemLength, dcMemOffset] 
    sendUart(inArg) 
-   print "---------------------------------------- DC Mem get: "
-   dcMemLength = 16
-   dcMemOffset_LSB = 0
-   dcMemOffset_MSB = 0
-   inArg = [UART_GET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_MEM, dcMemLength, dcMemOffset_LSB, dcMemOffset_MSB] 
-   sendUart(inArg) 
+   # print "---------------------------------------- DC Mem get: "
+   # dcMemLength = 16
+   # dcMemOffset_LSB = 0
+   # dcMemOffset_MSB = 0
+   # inArg = [UART_GET, UART_COMP_DAUGHTER_CARD, UART_PROP_CARD_MEM, dcMemLength, dcMemOffset_LSB, dcMemOffset_MSB] 
+   # sendUart(inArg) 

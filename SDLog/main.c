@@ -186,6 +186,7 @@ void RcStop();
 void RcStart();
 void SetBattVal();
 inline uint8_t Skip100ms();
+void SamplingClkAssignment(void);
 
 void i2cSlaveDiscover(void);
 char i2cSlavePresent(char address);
@@ -277,6 +278,15 @@ uint64_t myLocalTimeLong, myCenterTimeLong, myTimeDiffLong, myTimeDiffLongMin;
 uint64_t myTimeDiffArr[SYNC_TRANS_IN_ONE_COMM];
 uint64_t startSensingTs64, firstTs;
 
+// variables used for delayed undock-start
+bool battCritical;
+uint8_t undockEvent, wr2sd, battCriticalCount;
+uint64_t time_newUnDockEvent;
+
+// approx. 10% cutoff voltage - 3.65 Volts
+#define BATT_CUTOFF_3_65VOLTS   (2500)
+#define TIMEOUT_100_MS          (3277)
+
 // make dir for SDLog files
 FATFS fatfs;         // File object
 DIRS dir;            //Directory object
@@ -299,8 +309,13 @@ void main(void)
     WDTCTL = WDTPW | WDTHOLD;
     Init();
     taskList = 0;
-    TaskSet(TASK_SETUP_DOCK);
-    TaskSet(TASK_BATT_READ);
+
+    if (!configuring && !wr2sd)
+    {
+        SetupDock();
+    }
+    ReadBatt();
+    msp430_delay_ms(10);
 
     // Initialise Watchdog status timer
     ChargeStatusTimerStart();
@@ -321,7 +336,28 @@ void main(void)
         }
         if (taskCurrent == TASK_SETUP_DOCK)
         {
-            SetupDock();
+            // wait 3 seconds first...
+            if (!configuring && !wr2sd
+                    && ((P2IN & BIT3)
+                            || ((RTC_get64() - time_newUnDockEvent)
+                                    > TIMEOUT_100_MS)))
+            {
+                if (docked != ((P2IN & BIT3) >> 3))
+                {
+                    docked = ((P2IN & BIT3) >> 3);
+                    SetupDock();
+                }
+
+                if (docked != ((P2IN & BIT3) >> 3))
+                {
+                    TaskSet(TASK_SETUP_DOCK);
+                }
+                undockEvent = 0;
+            }
+            else
+            {
+                TaskSet(TASK_SETUP_DOCK);
+            }
         }
         if (taskCurrent == TASK_UARTCMD)
         {
@@ -356,11 +392,14 @@ void main(void)
         if (taskCurrent == TASK_STARTSENSING)
         {
             configuring = 1;
-            PreStartStreaming();
-            StartStreaming();
-            if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+            if ((!battCritical) && (fileBad == FR_OK))
             {
-                RcStart();
+                PreStartStreaming();
+                StartStreaming();
+                if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+                {
+                    RcStart();
+                }
             }
             configuring = 0;
         }
@@ -404,6 +443,9 @@ void main(void)
 
 void Init(void)
 {
+    // Needs to be here before LED functions are called:
+    battCritical = FALSE;
+
     Board_init();
     Board_ledOn(LED_ALL);
 
@@ -546,6 +588,12 @@ void Init(void)
 
     memset(mac, 0, 14);
     memset(macAddr, 0, 6);
+
+    // variables used for delayed undock-start
+    wr2sd = 0;
+    undockEvent = 0;
+    time_newUnDockEvent = 0;
+    battCriticalCount = 0;
 
     mplCalibrating = 0;
     mplCalibratingMag = 0;
@@ -741,12 +789,19 @@ void SetupDock()
 
     if (docked)
     {
+        battCriticalCount = 0;
         onUserButton = 0;
         onSingleTouch = 0;
         onDefault = 0;
 //        DockSdPowerCycle();
         if (sensing)
+        {
             TaskSet(TASK_STOPSENSING);
+        }
+        else
+        {
+            UART_activate();
+        }
         uartSteps = 0;
         battInterval = BATT_INTERVAL_D;
         RcStop();
@@ -772,6 +827,10 @@ void SetupDock()
     else
     {
         battInterval = BATT_INTERVAL;
+        if (!sensing)
+        {
+            UART_deactivate();
+        }
         P6OUT |= BIT0;             // DETECT_N set to high
         P4OUT &= ~BIT2;            // SD power off
         __delay_cycles(2880000);   // wait 120ms
@@ -858,25 +917,7 @@ void StartStreaming(void)
 #if SKIP100MS
         skip100ms = 1;
 #endif
-        if (storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_TCXO)
-        {
-            if (clockFreq != (float) TCXO_CLOCK)
-            {
-                clockFreq = (float) TCXO_CLOCK;
-                P4OUT |= BIT6;
-                _delay_cycles(2400000);
-                P4SEL |= BIT7;
-            }
-        }
-        else if (storedConfig[NV_SD_TRIAL_CONFIG1] & (!SDH_TCXO))
-        {
-            if (clockFreq != (float) MSP430_CLOCK)
-            {
-                clockFreq = (float) MSP430_CLOCK;
-                P4OUT &= ~BIT6;
-                P4SEL &= ~BIT7;
-            }
-        }
+        SamplingClkAssignment();
 
         ClkAssignment();
         TB0CTL = MC_0; // StopTb0()
@@ -1213,8 +1254,10 @@ inline void StopStreaming(void)
 
     //shut every thing down
 
-    if (docked)   // if docked, cannot write to SD card any more
+    if (docked)
+    {   // if docked, cannot write to SD card any more
         DockSdPowerCycle();
+    }
     else
     {
         Write2SD();
@@ -1279,7 +1322,9 @@ inline void StopStreaming(void)
         }
     }
     if (docked)
+    {
         UART_activate();
+    }
 
     msp430_delay_ms(10); //give plenty of time for I2C operations to finish before disabling I2C
     I2C_Disable();
@@ -1749,23 +1794,29 @@ __interrupt void Port2_ISR(void)
 
         //dock_detect_N
     case P2IV_P2IFG3:
-        //TODO: Debounce this
-        //see slaa513 for example using multiple time bases on a single timer module
+        if (!undockEvent)
+        {
+            if (!(P2IN & BIT3)) // undocked
+            {
+                undockEvent = 1;
+                battCritical = FALSE;
+                time_newUnDockEvent = RTC_get64();
+            }
+            //see slaa513 for example using multiple time bases on a single timer module
+            if (TaskSet(TASK_SETUP_DOCK))
+            {
+                __bic_SR_register_on_exit(LPM3_bits);
+            }
+        }
+
         if (P2IN & BIT3)
         {
             P2IES |= BIT3;       //look for falling edge
-            docked = 1;
-            if (!sensing)
-                UART_activate();
         }
         else
         {
             P2IES &= ~BIT3;      //look for rising edge
-            docked = 0;
-            UART_deactivate();   //ADS1292_activate();
         }
-        if (TaskSet(TASK_SETUP_DOCK))
-            __bic_SR_register_on_exit(LPM3_bits);
         break;
         // Default case
     default:
@@ -2325,7 +2376,7 @@ __interrupt void TIMER0_B1_ISR(void)
         if (blinkStatus)
         {
             // below are settings for green0, yellow and red leds, battery charge status
-            if (docked)
+            if (P2IN & BIT3)
             {
                 BattBlinkOn();
             }
@@ -2826,13 +2877,14 @@ void ReadBatt(void)
 
 void SetBattVal()
 {
+    uint16_t currentBattVal = *((uint16_t*) battVal);
     if (battStat & BATT_MID)
     {
-        if (*(uint16_t*) battVal < 2568)
+        if (currentBattVal < 2568)
         {
             battStat = BATT_LOW;
         }
-        else if (*(uint16_t*) battVal < 2767)
+        else if (currentBattVal < 2767)
         {
             battStat = BATT_MID;
         }
@@ -2841,11 +2893,11 @@ void SetBattVal()
     }
     else if (battStat & BATT_LOW)
     {
-        if (*(uint16_t*) battVal < 2618)
+        if (currentBattVal < 2618)
         {
             battStat = BATT_LOW;
         }
-        else if (*(uint16_t*) battVal < 2767)
+        else if (currentBattVal < 2767)
         {
             battStat = BATT_MID;
         }
@@ -2854,11 +2906,11 @@ void SetBattVal()
     }
     else
     {
-        if (*(uint16_t*) battVal < 2568)
+        if (currentBattVal < 2568)
         {
             battStat = BATT_LOW;
         }
-        else if (*(uint16_t*) battVal < 2717)
+        else if (currentBattVal < 2717)
         {
             battStat = BATT_MID;
         }
@@ -2866,6 +2918,20 @@ void SetBattVal()
             battStat = BATT_HIGH;
     }
     battVal[2] = P2IN & 0xC0;
+
+    // 10% Battery cutoff point - v0.17.3 onwards
+    if ((storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_BATT_CRITICAL_CUTOFF)
+            && (currentBattVal < BATT_CUTOFF_3_65VOLTS))
+    {
+        if (battCriticalCount++ > 2)
+        {
+            battCritical = TRUE;
+            if (sensing)
+            {
+                TaskSet(TASK_STOPSENSING);
+            }
+        }
+    }
 }
 
 uint8_t UartCallback(uint8_t data)
@@ -3408,12 +3474,14 @@ void UartSendRsp()
         *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_ID;
         if ((uartDcMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
         {
-            CAT24C16_init();
-            CAT24C16_read(uartDcMemOffset, (uint16_t) uartDcMemLength,
-                          (uartRespBuf + uart_resp_len));
-            CAT24C16_powerOff();
-        }
-        uart_resp_len += uartDcMemLength;
+          //  CAT24C16_init();
+         //   CAT24C16_read(uartDcMemOffset, (uint16_t) uartDcMemLength,
+          //                (uartRespBuf + uart_resp_len));
+          //  CAT24C16_powerOff();
+            memcpy(uartRespBuf + uart_resp_len, daughtCardId + uartDcMemOffset,
+                              uartDcMemLength);
+           uart_resp_len += uartDcMemLength;
+       }
     }
     else if (uartSendRspGdm)
     {
@@ -4496,18 +4564,7 @@ void UpdateSdConfig()
             storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_SYNC;
         }
 
-        if (storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_TCXO)
-        {
-            clockFreq = (float) TCXO_CLOCK;
-            P4OUT |= BIT6;
-            P4SEL |= BIT7;
-        }
-        else
-        {
-            clockFreq = (float) MSP430_CLOCK;
-            P4OUT &= ~BIT6;
-            P4SEL &= ~BIT7;
-        }
+        SamplingClkAssignment();
         ClkAssignment();
         TB0CTL = MC_0;
         TB0Start();
@@ -4582,7 +4639,7 @@ void UpdateSdConfig()
             sprintf(buffer, "exg2_16bit=%d\r\n",
                     storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT ? 1 : 0);
             f_write(&cfg_fil, buffer, strlen(buffer), &bw);
-            sprintf(buffer, "pres_bmp180=%d\r\n",
+            sprintf(buffer, ((bmpInUse == BMP180_IN_USE) ? ("pres_bmp180=%d\r\n") : ("pres_bmp280=%d\r\n")),
                     storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE ? 1 : 0);
             f_write(&cfg_fil, buffer, strlen(buffer), &bw);
             // sample_rate
@@ -4618,7 +4675,10 @@ void UpdateSdConfig()
             sprintf(buffer, "accel_mpu_range=%d\r\n",
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] >> 6) & 0x03);
             f_write(&cfg_fil, buffer, strlen(buffer), &bw);
-            sprintf(buffer, "pres_bmp180_prec=%d\r\n",
+            sprintf(buffer,
+                    ((bmpInUse == BMP180_IN_USE) ?
+                            ("pres_bmp180_prec=%d\r\n") :
+                            ("pres_bmp280_prec=%d\r\n")),
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] >> 4) & 0x03);
             f_write(&cfg_fil, buffer, strlen(buffer), &bw);
             sprintf(buffer, "gsr_range=%d\r\n",
@@ -4664,6 +4724,11 @@ void UpdateSdConfig()
             sprintf(buffer,
                     "singletouch=%d\r\n",
                     storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH ?
+                            1 : 0);
+            f_write(&cfg_fil, buffer, strlen(buffer), &bw);
+            sprintf(buffer,
+                    "low_battery_autostop=%d\r\n",
+                    storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_BATT_CRITICAL_CUTOFF ?
                             1 : 0);
             f_write(&cfg_fil, buffer, strlen(buffer), &bw);
             sprintf(buffer, "tcxo=%d\r\n",
@@ -4998,7 +5063,7 @@ uint8_t ParseConfig(void)
     uint8_t accel_lpm = 0, accel_hrm = 0, broadcast_interval, accel_mpu_range =
             0, exp_power = 0;
     uint8_t accel_range = 0, accel_smplrate = 0, gyro_range = 0, mag_smplrate =
-            0, mag_gain = 0, pres_bmp180_prec = 0, gsr_range = 0;
+            0, mag_gain = 0, pres_bmpX80_prec = 0, gsr_range = 0;
     bool user_button_enable = FALSE;
 #if !RTC_OFF
     bool rwc_error_enable = TRUE;
@@ -5008,7 +5073,7 @@ uint8_t ParseConfig(void)
     uint32_t max_exp_len = 0;
     uint32_t config_time = 0;
     bool iAmMaster = FALSE, time_sync = FALSE, singletouch = FALSE,
-            tcxo = FALSE;
+            tcxo = FALSE, low_battery_autostop = FALSE;
     uint8_t i, pchar[3], node_addr[6], center_addr[6];
 
     // DMP related - start
@@ -5094,7 +5159,7 @@ uint8_t ParseConfig(void)
             storedConfig[NV_SENSORS2] |= atoi(equals) * SENSOR_EXG1_16BIT;
         else if (strstr(buffer, "exg2_16bit="))
             storedConfig[NV_SENSORS2] |= atoi(equals) * SENSOR_EXG2_16BIT;
-        else if (strstr(buffer, "pres_bmp180="))
+        else if (strstr(buffer, "pres_bmp180=") || strstr(buffer, "pres_bmp280="))
             storedConfig[NV_SENSORS2] |= atoi(equals) * SENSOR_BMPX80_PRESSURE;
         else if (strstr(buffer, "sample_rate="))
         {
@@ -5156,10 +5221,10 @@ uint8_t ParseConfig(void)
             gyro_range = atoi(equals);
             storedConfig[NV_CONFIG_SETUP_BYTE2] |= (gyro_range) & 0x03; //BIT1-0
         }
-        else if (strstr(buffer, "pres_bmp180_prec="))
+        else if (strstr(buffer, "pres_bmp180_prec=") || strstr(buffer, "pres_bmp280_prec="))
         {
-            pres_bmp180_prec = atoi(equals);
-            storedConfig[NV_CONFIG_SETUP_BYTE3] |= (pres_bmp180_prec & 0x03)
+            pres_bmpX80_prec = atoi(equals);
+            storedConfig[NV_CONFIG_SETUP_BYTE3] |= (pres_bmpX80_prec & 0x03)
                     << 4;          //BIT5-4
         }
 #if !RTC_OFF
@@ -5199,14 +5264,16 @@ uint8_t ParseConfig(void)
             storedConfig[NV_CONFIG_SETUP_BYTE3] |= (exp_power & 0x01)
                     * EXP_POWER_ENABLE;
         }
+        else if (strstr(buffer, "low_battery_autostop="))
+        {
+            low_battery_autostop = (atoi(equals) == 0) ? FALSE : TRUE;
+            storedConfig[NV_SD_TRIAL_CONFIG1] |= low_battery_autostop
+                    * SDH_BATT_CRITICAL_CUTOFF;
+        }
         else if (strstr(buffer, "tcxo="))
         {
             tcxo = (atoi(equals) == 0) ? FALSE : TRUE;
             storedConfig[NV_SD_TRIAL_CONFIG1] |= tcxo * SDH_TCXO;
-            if (tcxo)
-            {
-                clockFreq = (float) TCXO_CLOCK;
-            }
         }
         else if (strstr(buffer, "center="))
         {
@@ -5534,17 +5601,7 @@ uint8_t ParseConfig(void)
     fileBad = f_close(&cfg_fil);
     _delay_cycles(1200000);
 
-    if (clockFreq == (float) TCXO_CLOCK)
-    {
-        P4OUT |= BIT6;
-        _delay_cycles(2400000);
-        P4SEL |= BIT7;
-    }
-    else
-    {
-        P4OUT &= ~BIT6;
-        P4SEL &= ~BIT7;
-    }
+    SamplingClkAssignment();
     ClkAssignment();
     TB0CTL = MC_0;
     TB0Start();
@@ -7008,6 +7065,7 @@ void RcStart()
 
 void Write2SD()
 {
+    wr2sd = 1;
     UINT bw;
     uint64_t file_td_h, file_td_m, local_time_64 = RTC_get64();
     //uint32_t rwc_curr_time_l_32;
@@ -7049,6 +7107,8 @@ void Write2SD()
 
     if (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)
         PrepareSDBuffHead();
+
+    wr2sd = 0;
 }
 
 void BattBlinkOn()
@@ -7429,8 +7489,8 @@ void MPL_calibrateGo(void)
             Board_ledOff(LED_BLUE);
             Board_ledOff(LED_GREEN1);
 
-            if (!sd_state)          // restore SD state if it was previously off
-                P4OUT &= ~BIT2;            //SW_FLASH set low
+            if (!sd_state)         // restore SD state if it was previously off
+                P4OUT &= ~BIT2;    // SW_FLASH set low
             configuring = 0;       // led flag, in configuration period
             mplCalibrating = 0;
         }
@@ -7441,6 +7501,31 @@ void MPL_calibrateGo(void)
         mplCalibrating = 0;
     }
 }
+
+void SamplingClkAssignment(void)
+{
+    if (storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_TCXO)
+    {
+        if (clockFreq != (float) TCXO_CLOCK)
+        {
+            clockFreq = (float) TCXO_CLOCK;
+            P4OUT |= BIT6;
+            _delay_cycles(2400000); // 100ms delay for tcxo
+            P4SEL |= BIT7;
+        }
+    }
+    else
+    {
+        if (clockFreq != (float) MSP430_CLOCK)
+        {
+            clockFreq = (float) MSP430_CLOCK;
+            P4OUT &= ~BIT6;
+            P4SEL &= ~BIT7;
+        }
+    }
+}
+
+
 // DMP related - end
 
 // trap isr assignation - put all unused ISR vector here

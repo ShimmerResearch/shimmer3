@@ -37,7 +37,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * @author Sam O'Mahony
- * @date June, 2017
+ * @date October, 2017
  */
 
 #include "lsm303ahtr.h"
@@ -63,15 +63,32 @@ void LSM303AHTR_accelInit(uint8_t samplingRate, uint8_t range, uint8_t lowPower,
     if (samplingRate > 7 && !lowPower)
     {
         highFreq = 1;
+        switch (samplingRate)
+        {
+        case 8:
+            // 1600 Hz => ODR[3:0] 0101 = 5
+            samplingRate = 0x05;
+            break;
+        case 9:
+            // 3200 Hz => ODR[3:0] 0110 = 6
+            samplingRate = 0x06;
+            break;
+        case 10:
+            // 6400 Hz => ODR[3:0] 0111 = 7
+            samplingRate = 0x07;
+            break;
+        default:
+            break;
+        }
     }
     else
     {
         highFreq = 0;
     }
 
-    //Configure Accelerometer
+//Configure Accelerometer
     I2C_Set_Slave_Address(LSM303AHTR_ACCEL_ADDR);
-    //write CTRL1_A register
+//write CTRL1_A register
     i2c_buffer[0] = CTRL1_A;
     i2c_buffer[1] = (samplingRate << 4) + (range << 2) + (highFreq << 1);
     I2C_Write_Packet_To_Sensor(i2c_buffer, 2);

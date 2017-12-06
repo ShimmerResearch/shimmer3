@@ -38,6 +38,10 @@
  *
  * @author Mike Healy
  * @date December, 2013
+ *
+ * @edited Sam O'Mahony
+ * @date November, 2017
+ *
  */
 
 //copied as directly as possible from TinyOS GsrP.nc
@@ -47,11 +51,19 @@
 #include "msp430.h"
 #include "math.h"
 
+/*
+ * Prakash R - GSR investigation resulted in changing all values, including constants
+ * som - change applied in firmware
+ */
+
 #define HW_RES_40K_MIN_ADC_VAL   1120 //10k to 56k..1159->1140 //nom: changed to 1120 for linear conversion
+
 #define HW_RES_287K_MAX_ADC_VAL  3960 //56k to 220k was 4000 but was 3948 on shimmer so changed to 3800 //nom: changed to 3960 for linear conversion
 #define HW_RES_287K_MIN_ADC_VAL  1490 //56k to 220k..1510->1490
+
 #define HW_RES_1M_MAX_ADC_VAL    3700 //220k to 680k
 #define HW_RES_1M_MIN_ADC_VAL    1630 //220k to 680k..1650->1630
+
 #define HW_RES_3M3_MAX_ADC_VAL   3930 //680k to 4M7
 #define HW_RES_3M3_MIN_ADC_VAL   1125 //680k to 4M7
 

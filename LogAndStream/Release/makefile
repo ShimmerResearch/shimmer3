@@ -36,6 +36,7 @@ ORDERED_OBJS += \
 "./shimmer3_common_source/FatFs/option/ccsbcs.obj" \
 "./shimmer3_common_source/FatFs/option/syscall.obj" \
 "./shimmer3_common_source/GSR/gsr.obj" \
+"./shimmer3_common_source/LSM303AHTR/lsm303ahtr.obj" \
 "./shimmer3_common_source/LSM303DLHC/lsm303dlhc.obj" \
 "./shimmer3_common_source/MPU9150/mpu9150.obj" \
 "./shimmer3_common_source/msp430_clock/msp430_clock.obj" \
@@ -61,6 +62,7 @@ RMDIR := RMDIR /S/Q
 -include shimmer3_common_source/FatFs/subdir_vars.mk
 -include shimmer3_common_source/FatFs/option/subdir_vars.mk
 -include shimmer3_common_source/GSR/subdir_vars.mk
+-include shimmer3_common_source/LSM303AHTR/subdir_vars.mk
 -include shimmer3_common_source/LSM303DLHC/subdir_vars.mk
 -include shimmer3_common_source/MPU9150/subdir_vars.mk
 -include shimmer3_common_source/msp430_clock/subdir_vars.mk
@@ -74,6 +76,7 @@ RMDIR := RMDIR /S/Q
 -include shimmer3_common_source/FatFs/subdir_rules.mk
 -include shimmer3_common_source/FatFs/option/subdir_rules.mk
 -include shimmer3_common_source/GSR/subdir_rules.mk
+-include shimmer3_common_source/LSM303AHTR/subdir_rules.mk
 -include shimmer3_common_source/LSM303DLHC/subdir_rules.mk
 -include shimmer3_common_source/MPU9150/subdir_rules.mk
 -include shimmer3_common_source/msp430_clock/subdir_rules.mk
@@ -207,9 +210,9 @@ LogAndStream.txt: $(EXE_OUTPUTS)
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
 	-$(RM) "main.obj" "system_pre_init.obj" "shimmer3_common_source\5xx_HAL\hal_ADC.obj" "shimmer3_common_source\5xx_HAL\hal_Board.obj" "shimmer3_common_source\5xx_HAL\hal_Button.obj" "shimmer3_common_source\5xx_HAL\hal_CRC.obj" "shimmer3_common_source\5xx_HAL\hal_DMA.obj" "shimmer3_common_source\5xx_HAL\hal_I2C.obj" "shimmer3_common_source\5xx_HAL\hal_InfoMem.obj" "shimmer3_common_source\5xx_HAL\hal_RTC.obj" "shimmer3_common_source\5xx_HAL\hal_SDCard.obj" "shimmer3_common_source\5xx_HAL\hal_TB0.obj" "shimmer3_common_source\5xx_HAL\hal_UCA0.obj" "shimmer3_common_source\5xx_HAL\hal_UCS.obj" "shimmer3_common_source\5xx_HAL\hal_UartA0.obj" "shimmer3_common_source\5xx_HAL\hal_pmm.obj" "shimmer3_common_source\BMPX80\bmpX80.obj" "shimmer3_common_source\Bluetooth_SD\RN42.obj" "shimmer3_common_source\CAT24C16\cat24c16.obj" "shimmer3_common_source\EXG\ads1292.obj" "shimmer3_common_source\EXG\exg.obj" "shimmer3_common_source\FatFs\ff.obj" "shimmer3_common_source\FatFs\mmc.obj" "shimmer3_common_source\FatFs\option\ccsbcs.obj" 
-	-$(RM) "shimmer3_common_source\FatFs\option\syscall.obj" "shimmer3_common_source\GSR\gsr.obj" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.obj" "shimmer3_common_source\MPU9150\mpu9150.obj" "shimmer3_common_source\msp430_clock\msp430_clock.obj" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.obj" 
+	-$(RM) "shimmer3_common_source\FatFs\option\syscall.obj" "shimmer3_common_source\GSR\gsr.obj" "shimmer3_common_source\LSM303AHTR\lsm303ahtr.obj" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.obj" "shimmer3_common_source\MPU9150\mpu9150.obj" "shimmer3_common_source\msp430_clock\msp430_clock.obj" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.obj" 
 	-$(RM) "main.d" "system_pre_init.d" "shimmer3_common_source\5xx_HAL\hal_ADC.d" "shimmer3_common_source\5xx_HAL\hal_Board.d" "shimmer3_common_source\5xx_HAL\hal_Button.d" "shimmer3_common_source\5xx_HAL\hal_CRC.d" "shimmer3_common_source\5xx_HAL\hal_DMA.d" "shimmer3_common_source\5xx_HAL\hal_I2C.d" "shimmer3_common_source\5xx_HAL\hal_InfoMem.d" "shimmer3_common_source\5xx_HAL\hal_RTC.d" "shimmer3_common_source\5xx_HAL\hal_SDCard.d" "shimmer3_common_source\5xx_HAL\hal_TB0.d" "shimmer3_common_source\5xx_HAL\hal_UCA0.d" "shimmer3_common_source\5xx_HAL\hal_UCS.d" "shimmer3_common_source\5xx_HAL\hal_UartA0.d" "shimmer3_common_source\5xx_HAL\hal_pmm.d" "shimmer3_common_source\BMPX80\bmpX80.d" "shimmer3_common_source\Bluetooth_SD\RN42.d" "shimmer3_common_source\CAT24C16\cat24c16.d" "shimmer3_common_source\EXG\ads1292.d" "shimmer3_common_source\EXG\exg.d" "shimmer3_common_source\FatFs\ff.d" "shimmer3_common_source\FatFs\mmc.d" "shimmer3_common_source\FatFs\option\ccsbcs.d" "shimmer3_common_source\FatFs\option\syscall.d" 
-	-$(RM) "shimmer3_common_source\GSR\gsr.d" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.d" "shimmer3_common_source\MPU9150\mpu9150.d" "shimmer3_common_source\msp430_clock\msp430_clock.d" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.d" 
+	-$(RM) "shimmer3_common_source\GSR\gsr.d" "shimmer3_common_source\LSM303AHTR\lsm303ahtr.d" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.d" "shimmer3_common_source\MPU9150\mpu9150.d" "shimmer3_common_source\msp430_clock\msp430_clock.d" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

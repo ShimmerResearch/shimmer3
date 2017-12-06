@@ -52,7 +52,7 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Major version number: 0-65535
-#define FW_VER_MINOR       17    //Minor version number: 0-255
+#define FW_VER_MINOR       18    //Minor version number: 0-255
 #define FW_VER_REL         0     //internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00
@@ -122,7 +122,7 @@
 //#define UART_PROP_DIVIDER           0x05
 //== new uart ends ==
 #define CBUF_SIZE                   27
-#define CBUF_PARAM_LEN_MAX          CBUF_SIZE-6
+#define CBUF_PARAM_LEN_MAX          (CBUF_SIZE-6)
 // UART OLD COMMANDS
 #define UART_CMD_MAC 1
 #define UART_CMD_VER 2
@@ -183,7 +183,7 @@
 
 // Infomem contents
 #define NV_NUM_SETTINGS_BYTES             34
-#define NV_NUM_CALIBRATION_BYTES          138+2 // 138 bytes plus buffer of 2 (just in case)
+#define NV_NUM_CALIBRATION_BYTES          (138+2) // 138 bytes plus buffer of 2 (just in case)
 #define NV_TOTAL_NUM_CONFIG_BYTES         384
 
 
@@ -231,31 +231,31 @@
 #define NV_DERIVED_CHANNELS_6             121
 #define NV_DERIVED_CHANNELS_7             122
 
-#define NV_SENSORS3                       128+0
-#define NV_SENSORS4                       128+1
-#define NV_CONFIG_SETUP_BYTE4             128+2
-#define NV_CONFIG_SETUP_BYTE5             128+3
-#define NV_CONFIG_SETUP_BYTE6             128+4
-#define NV_MPL_ACCEL_CALIBRATION          128+5 //+21
-#define NV_MPL_MAG_CALIBRATION            128+26 //+21
-#define NV_MPL_GYRO_CALIBRATION           128+47 //+12
-#define NV_SD_SHIMMER_NAME                128+59   // +12 bytes
-#define NV_SD_EXP_ID_NAME                 128+71   // +12 bytes
-#define NV_SD_CONFIG_TIME                 128+83   // +4 bytes
-#define NV_SD_MYTRIAL_ID                  128+87   // 1 byte
-#define NV_SD_NSHIMMER                    128+88   // 1 byte
-#define NV_SD_TRIAL_CONFIG0               128+89
-#define NV_SD_TRIAL_CONFIG1               128+90
-#define NV_SD_BT_INTERVAL                 128+91
-#define NV_EST_EXP_LEN_MSB                128+92 // 2bytes
-#define NV_EST_EXP_LEN_LSB                128+93
-#define NV_MAX_EXP_LEN_MSB                128+94 // 2bytes
-#define NV_MAX_EXP_LEN_LSB                128+95
-#define NV_MAC_ADDRESS                    128+96 // 6bytes
-#define NV_SD_CONFIG_DELAY_FLAG           128+102
+#define NV_SENSORS3                       (128+0)
+#define NV_SENSORS4                       (128+1)
+#define NV_CONFIG_SETUP_BYTE4             (128+2)
+#define NV_CONFIG_SETUP_BYTE5             (128+3)
+#define NV_CONFIG_SETUP_BYTE6             (128+4)
+#define NV_MPL_ACCEL_CALIBRATION          (128+5)    //+21
+#define NV_MPL_MAG_CALIBRATION            (128+26)   //+21
+#define NV_MPL_GYRO_CALIBRATION           (128+47)   //+12
+#define NV_SD_SHIMMER_NAME                (128+59)   // +12 bytes
+#define NV_SD_EXP_ID_NAME                 (128+71)   // +12 bytes
+#define NV_SD_CONFIG_TIME                 (128+83)   // +4 bytes
+#define NV_SD_MYTRIAL_ID                  (128+87)   // 1 byte
+#define NV_SD_NSHIMMER                    (128+88)   // 1 byte
+#define NV_SD_TRIAL_CONFIG0               (128+89)
+#define NV_SD_TRIAL_CONFIG1               (128+90)
+#define NV_SD_BT_INTERVAL                 (128+91)
+#define NV_EST_EXP_LEN_MSB                (128+92)   // 2bytes
+#define NV_EST_EXP_LEN_LSB                (128+93)
+#define NV_MAX_EXP_LEN_MSB                (128+94)   // 2bytes
+#define NV_MAX_EXP_LEN_LSB                (128+95)
+#define NV_MAC_ADDRESS                    (128+96)   // 6bytes
+#define NV_SD_CONFIG_DELAY_FLAG           (128+102)
 
-#define NV_CENTER                         128+128+0
-#define NV_NODE0                          128+128+6
+#define NV_CENTER                         (128+128+0)
+#define NV_NODE0                          (128+128+6)
 
 //Config byte masks
 //Config Byte0
@@ -562,6 +562,7 @@
 #define SDH_ACCEL_LPM                  0x40
 #define SDH_ACCEL_HRM                  0x20
 #define SDH_TCXO                       0x10
+#define SDH_BATT_CRITICAL_CUTOFF       0x01
 
 //choice of clock
 #define TCXO_CLOCK      (255765.625) // 16.369MHz / 8 / 8
@@ -578,8 +579,8 @@
 #define RC_INT_C        54//240
 #define RC_CLK_N        16384   //16384=2hz;//32768=1hz;8192=4hz
 #define RC_CLK_C        8192   //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_N     32768/RC_CLK_N   //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_C     32768/RC_CLK_C   //16384=2hz;//32768=1hz;8192=4hz
+#define RC_FACTOR_N     (32768/RC_CLK_N)   //16384=2hz;//32768=1hz;8192=4hz
+#define RC_FACTOR_C     (32768/RC_CLK_C)   //16384=2hz;//32768=1hz;8192=4hz
 
 
 //routine communication response text - ack:flag:time4:time3:time2:time1
@@ -610,8 +611,7 @@
 #define BATT_HIGH       0x01
 #define BATT_MID        0x02
 #define BATT_LOW        0x04
-#define BATT_INTERVAL   65535
-//#define BATT_INTERVAL   19660800    //can use 19660800 for 10min interval
+#define BATT_INTERVAL   19660800    // 19660800 = 10min interval
 #define BATT_INTERVAL_D 65535
 
 #define MAX_NODES       20

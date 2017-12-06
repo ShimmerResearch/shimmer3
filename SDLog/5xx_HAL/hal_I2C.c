@@ -41,12 +41,14 @@
 #include "msp430.h"
 #include "hal_I2C.h"
 #include "hal_TB0.h"
+#include "../shimmer_sd.h"
 
-#define I2C_TIMEOUT  164      //164/32768 = 5.005ms
-                              //Longest I2C operations is reading 128bytes from
-                              //EEPROM on daughter card. This takes approx. 3.6ms
-                              //(from measurements)
+#define I2C_TIMEOUT      164      //164/32768 = 5.005ms
+                                  //Longest I2C operations is reading 128bytes from
+                                  //EEPROM on daughter card. This takes approx. 3.6ms
+                                  //(from measurements)
 
+#define I2C_TIMEOUT_TCXO 1280     //1280/255765.625 = 5ms
 
 // Local Variables
 // @brief tx_packet_length is how many bytes of data will be written
@@ -69,10 +71,13 @@ uint16_t rx_byte_ctr;
 // @brief Used to keep track how many bytes have been transmitted
 uint8_t tx_byte_ctr;      
 
+uint16_t i2c_timeout;
+
+extern float clockFreq;
 
 /**
 * @brief <b>Function Name</b>:     : I2C_Master_Init                                                
-* @brief  <b>Description</b>: Initializes the I2C Master Block. Upon succesful
+* @brief  <b>Description</b>: Initializes the I2C Master Block. Upon successful
 * initialization of the I2C master block, this function will have set the bus
 * speed for the master, and will have enabled the SPI Master block.
 * @param Input Parameters:
@@ -108,6 +113,12 @@ void I2C_Master_Init(uint8_t selectClockSource,
     * UCSYNC = Synchronous mode
     */
    UCB0CTL0 |= UCMST + UCMODE_3 + UCSYNC;
+
+   if (clockFreq == (float) MSP430_CLOCK){
+       i2c_timeout = I2C_TIMEOUT;
+   } else {
+       i2c_timeout = I2C_TIMEOUT_TCXO;
+   }
   
    I2C_Enable();
 }
@@ -297,28 +308,29 @@ uint8_t I2C_Interrupt_Status(uint8_t mask) {
 
 
 uint8_t TI_USCI_I2C_slave_present(uint8_t slave_address) {
-	uint8_t ucie, slave_add, returnValue;
-	ucie = UCB0IE; // restore old UCB0I2CIE
-	slave_add = UCB0I2CSA; // store old slave address
-	UCB0IE &= ~ UCNACKIE; // no NACK interrupt
-	UCB0I2CSA = slave_address; // set slave address
-	UCB0IE &= ~(UCTXIE + UCRXIE); // no RX or TX interrupts
+    uint8_t ucie, slave_add, returnValue;
+    ucie = UCB0IE; // restore old UCB0I2CIE
+    slave_add = UCB0I2CSA; // store old slave address
+    UCB0IE &= ~ UCNACKIE; // no NACK interrupt
+    UCB0I2CSA = slave_address; // set slave address
+    UCB0IE &= ~(UCTXIE + UCRXIE); // no RX or TX interrupts
 
-	__disable_interrupt();
+    __disable_interrupt();
 
-	UCB0CTL1 |= UCTR + UCTXSTT + UCTXSTP; // I2C TX, start condition
-	while (UCB0CTL1 & UCTXSTP)
-		; // wait for STOP condition
-	returnValue = !(UCB0IFG & UCNACKIFG);
+    UCB0CTL1 |= UCTR + UCTXSTT + UCTXSTP; // I2C TX, start condition
+    while (UCB0CTL1 & UCTXSTP)
+        ; // wait for STOP condition
+    returnValue = !(UCB0IFG & UCNACKIFG);
 
-	__enable_interrupt();
+    __enable_interrupt();
 
-	UCB0I2CSA = slave_add; // restore old slave address
-	UCB0IE = ucie; // restore old UCB0CTL1
+    UCB0I2CSA = slave_add; // restore old slave address
+    UCB0IE = ucie; // restore old UCB0CTL1
 
-	return returnValue; // return whether or not
-	// a NACK occured
+    return returnValue; // return whether or not
+    // a NACK occured
 }
+
 
 /**
 * @brief <b>Function Name</b>:     : I2C_Write_Packet_To_Sensor                                            
@@ -358,8 +370,8 @@ uint8_t I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength) {
       if(transmit_flag) {
          //only check for timeout if still waiting to transmit
          now = GetTB0();
-         if(((!((start+I2C_TIMEOUT)<start)) && (now >= (start+I2C_TIMEOUT))) ||
-               (((start+I2C_TIMEOUT)<start) && (now<start) && (now >= (start+I2C_TIMEOUT)))) {  //needed to handle timer overflow
+         if(((!((start+i2c_timeout)<start)) && (now >= (start+i2c_timeout))) ||
+               (((start+i2c_timeout)<start) && (now<start) && (now >= (start+i2c_timeout)))) {  //needed to handle timer overflow
             //timeout
             I2C_Disable();
             __delay_cycles(240000); //10ms (assuming 24MHz clock)
@@ -411,8 +423,8 @@ uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData, uint16_t dataLength) {
       if(receive_flag) {
          //only check for timeout if still waiting to transmit
          now = GetTB0();
-         if(((!((start+I2C_TIMEOUT)<start)) && (now >= (start+I2C_TIMEOUT))) ||
-               (((start+I2C_TIMEOUT)<start) && (now<start) && (now >= (start+I2C_TIMEOUT)))) {  //needed to handle timer overflow
+         if(((!((start+i2c_timeout)<start)) && (now >= (start+i2c_timeout))) ||
+               (((start+i2c_timeout)<start) && (now<start) && (now >= (start+i2c_timeout)))) {  //needed to handle timer overflow
             //timeout
             I2C_Disable();
             __delay_cycles(240000); //10ms (assuming 24MHz clock)
