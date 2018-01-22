@@ -1,16 +1,16 @@
-#LogAndStream
+# LogAndStream
 This is a general purpose configurable application to be used with shimmer3 and any add-on daughter-cards supplied by Shimmer.
 
-###Changelog
+### Changelog
 For notes on changes in the development of this firmware, please see ```CHANGELOG.txt``` for reference.
 
-###Log file Format:
+### Log file Format:
    ```
           | SD Header | Data Buffer 1 | Data Buffer 2 ...
    Byte #:|   0~255   |    256~...    |     ...
    ```
 
-###Data Buffer Format:
+### Data Buffer Format:
    ```
           | Data Block 1 | Data Block 2 ...
    Byte #:|     0~...    |    ...   
@@ -18,7 +18,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    - Data buffer always store integer number of Data Blocks
    ```
    
-###Data Block Format:
+### Data Block Format:
    ```
           |TimeStamp|Achan1|Achan2| ... |AchanX | Dchan1  | Dchan2  | ... |    DchanY   |
    Byte #:|   0-2   | 3~4  | 5~6  | ... |2x~2x+2|2x+3~2x+4|2x+5~2x+6| ... |2x+2y~2x+wy+2|
@@ -26,7 +26,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    - refer to user manual for endianness of each specific channel
    ```
  
-###UART structure:
+### UART structure:
    set/get/response Packet Format:
    ```
           |start_sign | cmd | length | comp | prop |     data     |          crc         |
@@ -51,7 +51,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    Content(0x)| 24 | 0xfd  crc_l crc_h |
    ```
    
-   defiend UART values
+   Defined UART values
    ```
       // uart: commands
       #define UART_SET                    0x01
@@ -82,7 +82,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
       #define UART_PROP_CARD_MEM          0x03
    ```
       
-###Bluetooth command configurations
+### Bluetooth command configurations
    Currently the following parameters can be configured. This configuration is stored in the Infomem so survives a reset/power off:
    ```
       - Sampling rate
@@ -217,7 +217,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    ```
 
 
-   The assignment of the selected sensors field is as follows:
+   The assignment of the selected sensor fields is as follows:
    ```
       - 1 bit per sensor. When there is a conflict priority is most significant bit -> least significant bit
          Byte0:
@@ -276,7 +276,10 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    ```
 
    The breakdown of the kinematic (accel x 2, gyro and mag) calibration values is as follows:
-   ```
-      Each of the 3 offset bias vector values (one for each axis) are stored as 16-bit signed integers (big endian) and are contained in bytes 0-5. Each of the 3 sensitivity vector values (again one for each axis) are stored as 16-bit signed integers (big endian) and are contained in bytes 6-11. Each of the 9 alignment matrix values are stored as 8-bit signed integers and are contained in bytes 12-20.  
-   ```
+   
+   Each of the 3 offset bias vector values (one for each axis) are stored as 16-bit signed integers (big endian) and are contained in
+   bytes 0-5. Each of the 3 sensitivity vector values (again one for each axis) are stored as 16-bit signed integers (big endian) and
+   are contained in bytes 6-11. Each of the 9 alignment matrix values are stored as 8-bit signed integers and are contained in bytes 12
+   20.  
+
 
