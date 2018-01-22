@@ -1,0 +1,578 @@
+LogAndStream change log
+
+********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+06 Dec 2017 - 0.10.0
+  som - uprev of v0.9.7
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.0
+
+01 Dec 2017 - 0.9.7
+  som - update: revert to old GSR values (pre L&S_v0.9.3)
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.7
+
+28 Nov 2017 - 0.9.6
+  som - bug-fix: undock-start bugfix ported from StroKare firmware
+  som - update: low-battery autostop feature - configurable via infomem/sdlog.cfg
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.6
+
+23 Nov 2017 - 0.9.5
+  SOM: Bug fix - Device freezing when TCXO enabled - was down to timeout in i2c driver assuming 32Khz clock. Modified to match 32kHz clock timing if tcxo enabled
+  SOM: new feature - factory firmware (FACTORY_TEST) now includes offset of 200 in special rev number for easier identification (like that in BtStream v0.7.8 onwards).
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.5
+
+21 Nov 2017 - 0.9.4
+  Update: Board Id updated via UART and BT , removed factory restriction on programming daughter ID (for Proto mini and SR31-7 conflicts)
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.4
+
+03 Nov 2017 - 0.9.3
+  Update: Applied Prakash's newly calcluated GSR values
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.3
+
+16 Oct 2017 - 0.9.2
+  Bug fix: For Shimmer units using the BMP280 device, bmp180 was still being written to sdlog.cfg file. Now writes text based on current on-board sensor.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.2
+
+04 Oct 2017 - 0.9.1
+  Bug fix: LSM303AHTR (new chip) wide range accel settings not being set correctly for sampling rates > 1024 Hz - fix applied.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.1
+
+********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+02Aug2017 0.9.0
+  UPREV of v0.8.6 for public release
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.0
+
+27Jul2017 0.8.6
+  Bug fix: Updated TCXO to use correct clock frequency
+  new feature: Default name changed from "idXXXX" to "Shimmer_XXXX"
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.6
+
+21Jul2017 0.8.5
+  Bug fix: Shimmer now writes default calibration parameters for a blank Shimmer device (all 0xFF's).
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.5
+
+18Jul2017 0.8.4
+  Bug fix: Shimmer caught in startup loop due to incorrect BT initialisation
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.4
+
+18Jul2017 0.8.3
+  Bug fix: Incorrect daughter card ID over Bluetooth - resolved
+  Bug fix: BMP280 calib response interrupting BT comms - resolved
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.3
+
+18Jul2017 0.8.2
+  New feature: Much improved TCXO functionality
+  New feature: Several changes to match new software API's for new sensors
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.2
+
+10Jul2017 0.8.1
+  New feature: features necessary for factory tests at RTT - BT name write, SR number write, SD card test, BMP280 calibration get/response commands
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.1
+
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+19May2017 0.8.0
+  New Feature: Added rtc set/not set bit to in-stream status byte.
+  UPREV of v0.7.14 for public release
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.0
+
+15May2017 0.7.14
+  bug fix: GSR range configuration not retained after power cycle - also present in LogAndStream_v0.7.0
+  bug fix: FreqDiv function set to use round(clockFreq / num_in) instead of ceil(clockFreq / num_in) - was changing sampling rate between sessions as the resulting output of FreqDiv() did not match that set by Consensys.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.14
+
+11May2017 0.7.13
+  bug fix: SD Error LED infomem bit not being updated when configured over bluetooth - now added
+  bug fix: "rtc_error_enable" not being written to sdlog.cfg file - now resolved
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.13
+
+10May2017 0.7.12
+  new feature: SD Error LED flashing is now configurable via infomem bit SDH_SDERROR_EN in NV_SD_TRIAL_CONFIG0, corresponding bit is also stored in sdlog.cfg file
+  new feature: In stream status byte updated - bit 5 now contains SD slot occupation status: SD is in slot - (1)/No SD present in slot - (0).
+
+  fw change: set DMAEN bit true based on isLogging || isStreaming && GSR enabled. This is in keeping with the GSR fix applied recently and applies specifically to that scenario.
+
+Mistake when committing this rev - changes were made since to create new 7.13 and thus 7.12 was never committed. Changes are instead documented in: https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.13
+
+08May2017 0.7.11
+  new feature: SD error LED sequence (RED/YELLOW) now added to indicate SD error whenever access is requested during use
+  new feature: Infomem config and calibration bytes now stored correctly even if SD error is present, this mimics BtStream operation and mirrors the functionality where no SD card is present.
+  bug fix: SD card error in stream status bits 
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.11
+
+
+28Apr2017 0.7.10
+  Bug fix: Significant packet loss over Bluetooth with L&S v0.7.9.
+  Bug fix: Get battery voltage command time-out
+  Bug fix: Shimmers getting locked in unknown state with 0.7.9.
+  
+  New Feature: SD card error and red LED status bits added to in-stream status byte (as in GQ).
+  New feature: Ignore UART comms (dock or otherwise) while "initialize" state is true.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.10
+
+14Apr2017 0.7.9
+  Bug fix: All ExG boards (SR37, SR47 and SR59) - Normal P2.0 output conflicting with DRY on ADS chips. Changed to input for these boards.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.7.9
+
+12Apr2017 0.7.8 
+  new feature: Added WatchDog Timer (WDT) functionality
+  bug fix: Improved SetBattDma() and ADC_init() functions to combat noise on ADC lines
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.8 for more information.
+
+06Apr2017 0.7.7
+   This release improves upon/fixes several areas/issues including:
+	- GSR
+	    * Periodic spikes in data when streaming and/or logging
+	- BMP functionality
+ 	    * BMP180 at 'very high' resolution - value always starts at zero
+	    * Support for BMP280 device
+	- Compiler Optimization
+	    * Experimenting with different compiler optimization parameters
+
+   See https://github.com/ShimmerEngineering/FW_Shimmer3/releases with tag v0.7.7 for more info.
+
+07Mar2017 0.7.6
+   new feature: Battery LED lights on user press, new task started on button release - offers better user feedback.
+
+03Mar2017 0.7.5
+   bug fix: LSM303dlhc mag fix
+
+06Dec2016 0.7.1
+   improve: DERIVED_CHANNELS increased to 8 bytes, locations:   
+      #define NV_DERIVED_CHANNELS_0             31
+      #define NV_DERIVED_CHANNELS_1             32
+      #define NV_DERIVED_CHANNELS_2             33   
+      #define NV_DERIVED_CHANNELS_3             118
+      #define NV_DERIVED_CHANNELS_4             119
+      #define NV_DERIVED_CHANNELS_5             120
+      #define NV_DERIVED_CHANNELS_6             121
+      #define NV_DERIVED_CHANNELS_7             122      
+      #define SDH_DERIVED_CHANNELS_0            40
+      #define SDH_DERIVED_CHANNELS_1            41
+      #define SDH_DERIVED_CHANNELS_2            42
+      #define SDH_DERIVED_CHANNELS_3            217
+      #define SDH_DERIVED_CHANNELS_4            218
+      #define SDH_DERIVED_CHANNELS_5            219
+      #define SDH_DERIVED_CHANNELS_6            220
+      #define SDH_DERIVED_CHANNELS_7            221      
+
+14Sep2016 0.7.0
+	uprev
+
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+09Sep2016 0.6.19
+	bug fix: initial timestamp (5 bytes) further change to 2nd and on files
+
+07Sep2016 0.6.18
+	bug fix: initial timestamp (5 bytes) are now the same as the first data timestamp.
+
+02Sep2016 0.6.17	
+	bug fix: when logging, daughter card ID (first 16 bytes) can be correctly polled through BT now. If during logging, the app tries to poll daughter card memory (not ID), 0xFF instead of the real daughter card memory will be returned.
+
+31Aug2016 0.6.16
+	bug fix: Consensys/CON-251 : Logging to SD card stopped - unexpected 
+		fixed by adding (&& !sensing ) in sdlogcfgUpdate
+
+30Aug2016 0.6.15
+	bug fix: bmp180calib into sdheader before startStreaming
+
+29Aug2016 0.6.14	
+	improve: if any BT configuration command is sent, that the InfoMem flag is set. 
+		 in addition to the existing check on the flag when undocked/powered on, when the Shimmer changes state (i.e. starts logging/streaming/connected/disconnected), it should also check the flag and update the config file if needed.
+
+26Aug2016 0.6.13
+	improve: timestamp for sensors calib_dump now stored in SDHeader
+		- MPL calib info removed
+		- new sdheader plan \\192.168.0.139\Shimmer\archive\Apps Team\Firmware\ConfigurationHeader - SDLog_v0.12.4.xlsx
+	improve: daughter card ID (first 3 bytes from EEPROM) now stored in SDHeader
+	improve: new battery ADC threshold used
+
+26Aug2016 0.6.12
+	bug fix: undock_start bug
+
+23Aug2016 0.6.11
+	bug fix: calib_dump offset = 0 added.
+
+19Aug2016 0.6.10
+	bug fix: changed (res == FR_NO_FILE) to (res != FR_OK) 
+	not: this version fw will show as v0.6.9, coz of the a bug...
+
+03Aug2016 0.6.9
+	improve: undocking -> creates a new Calib_dump file if there is not one.
+
+26July2016 0.6.8
+	bug fix: test_flag
+
+26July2016 0.6.7
+	improve: calib dump with default values
+
+21July2016 0.6.6
+	bug fix: initialize ramDumpFlag = 0 correctly now
+
+20July2016 0.6.5
+	bug fix: when calib dump is updated, infomem/storedConfig will get updated correctly now
+	improve: shimmerCalibv0.2.4 implemented
+
+12July2016 0.6.4
+	bug fix: Problems were spotted before whereby, if a Shimmer is in the middle of streaming and a start SD logging request is called, the SD header can sometimes be messed up. Can the SD header creation be prioritised over streaming/sensing?
+		solution: added  Config2SdHead() and Timestamp0ToFirstFile() after StartLogging()
+
+12July2016 0.6.3
+	improve: new BT + SD command to set/rsp/get/update_dump_file all calibration parameters using the new byte array structure;
+		#define SET_CALIB_DUMP_COMMAND                          0x98
+		#define RSP_CALIB_DUMP_COMMAND                          0x99
+		#define GET_CALIB_DUMP_COMMAND                          0x9A
+		#define UPD_CALIB_DUMP_COMMAND                          0x9B		 
+	improve: new BT + SD command to Write config file after all of InfoMem is written.
+		#define UPD_SDLOG_CFG_COMMAND                           0x9C
+	improve: Remove the bit in the infomem that triggers an overwrite of the calibration parameters in the SD card
+	bug fix: after writeConfigurationToInfoMem, updates configure_channel info for the coming inquiry command.
+
+09Feb2016 0.6.2	
+	bug fix: derived channels reset problem.
+
+16Nov2015 0.6.1	
+	bug fix: daughter card Mem protection: 
+		mem starts from 0 to 2031 now. won't affect ID section (0-15) now
+
+06102015 0.6.0
+	uprev
+
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+06102015 0.5.27 (MH change requested by RM)
+         bug fix: ExG registers swapped incorrectly in header
+
+10062015 0.5.26 (MH change requested by RM)
+         bug fix: RTC difference (byte 44-51) not set in header
+
+24092015 0.5.25
+	improve: button debounce improve
+	
+24092015 0.5.24
+24092015 0.5.23
+	version control
+	
+22092015 0.5.22
+	bug fix: max_exp_len=
+	improve: skip50ms
+	
+22092015 0.5.21
+	improve: user button disabled if btIsConnected
+	
+16092015 0.5.20
+16092015 0.5.19
+	bug fix: pressure sensor sampling problem at low freq.	
+
+11092015 0.5.18
+	bug fix: set infomem
+	
+10092015 0.5.16
+	improve: 0x80 bit in trial_config0 to indicate rtc_offset source - 1:bt, 0:uart
+	improve: uart set/get_infomem uses address 0x0000-0x01ff rather than 0x1800-0x19ff now
+	
+10092015 0.5.15
+	bug fix: set/get infomem: range check, length set to 128, update sdlog.cfg and calib files
+		 using address 0x0000-0x01ff
+	
+09092015 0.5.14
+	bug fix: remove flag
+	
+09092015 0.5.13
+	improve: duration control: max_exp_len=2    (min)
+	improve: on docking/undocking, status response improved
+	improve: default param values
+	
+07092015 0.5.12
+	improve: STOP_STREAMING_COMMAND only stops streaming now. sdlogging will stay unchanged.
+	improve: STOP_SDBT_COMMAND: 0x97
+	improve: led flashes when rtc not set.
+	
+04092015 0.5.11
+	improve: DUMMY_COMMAND: 0x96
+
+18082015 0.5.10
+	improve: start/stop logging cmd
+		 get/response vbatt cmd
+		
+		#define START_LOGGING_COMMAND                         0x92
+		#define STOP_LOGGING_COMMAND                          0x93
+		#define VBATT_RESPONSE                                0x94
+         		*(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
+         		*(resPacket + packet_length++) = VBATT_RESPONSE;
+         		memcpy((resPacket + packet_length), battVal, 3);
+         		packet_length+=3;
+		#define GET_VBATT_COMMAND                             0x95
+	
+18082015 0.5.9
+	bug fix: power-up on dock also loads names from infomem to ram now
+
+14082015 0.5.6
+	bug fix: RWC_RESPONSE
+	
+14082015 0.5.5
+	bug fix: test_flag
+	
+13082015 0.5.4
+	improve: RTC over BT	
+		#define SET_RWC_COMMAND                               0x8F
+			- e.g. send: 0x8f 0x00 0x11 0x22 0x33 0x44 0x55 0x66 0x77
+		#define RWC_RESPONSE                                  0x90
+			- e.g. resp: 0x90 0x00 0x11 0x22 0x33 0x44 0x55 0x66 0x77
+		#define GET_RWC_COMMAND                               0x91
+			- e.g. send: 0x91
+	improve: 3bytes ts - both log&stream
+	
+14072015 0.5.3
+	version control...
+	
+13072015 0.5.2
+	bug fix: shimmername and expid response in bt commands
+	
+28052015 0.5.1
+	change: power cycle priority sequence: when no valid info + no sdlog.cfg file: flash an error
+	
+20052015 0.5.0
+	uprev
+	
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+19052015 0.4.6
+	bug fix: gsr jumps range from 111-2-33333-2-1111 @1024Hz
+
+15052015 0.4.5
+	bug fix: sample_rate ++	
+
+14052015 0.4.4
+	bug fix: tcxo blocked from infomem/sdlog.cfg file
+
+13052015 0.4.3
+	bug fix: temperature/pressure mixed bug
+	improve: GSR_smoothTrans() filters spikes under 80ms now
+
+17042015 0.4.2
+	bug fix: 0xffs in mac and rtc_diff in sdheader
+
+08042015 0.4.1
+	bug fix: a "calib out of dock won't work" bug solved
+
+27032015 0.4.0
+	= 0.3.17
+
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+27032015 0.3.17
+	improve: derived_channels, bt cmds added: 0x6d-0x6f
+
+26032015 0.3.16
+	improve: new calib scheme
+	improve: derived_channels, now 3bytes (up from 2bytes), location change
+
+26032015 0.3.15
+	bug fix: tasklist removal
+	bug fix: 2s bug same solution as sdlog
+	improve: derived_channel from uart cmds/.cfg file
+	improve: msp430_millisecond clock removal
+	improve: new uart (WP 3.0)
+
+06032015 0.3.14
+	bug fix: 0xff in ver bytes, 0 now
+	bug fix: when calib from infomem, still read from i2c for bmp180 calib info
+
+25022015 0.3.13
+	bug fix: # sd bytes set to 37 (down from 43)
+	bug fix: sprintf function with 'float'
+	bug fix: '0' after decimal point. 
+
+16022015 0.3.12
+	bug fix: TCXO removed
+
+13022015 0.3.11
+	bug fix: calib calculation -0.5 removed
+
+13022015 0.3.10
+	bug fix: undock start, ram use 0xff as default
+	bug fix: new main loop mechanism
+
+06022015 0.3.9
+	new calib scheme: priority seq changed
+
+06022015 0.3.8
+	bug fix: calib got overwritten to 0x00 in Config2Head
+	new Calib scheme: using separate calib files now
+
+28012015 0.3.7
+	bug fix: undock create a new sdlog.cfg file and then start
+
+27012015 0.3.6
+	bug fix: uart fix - name no 0xff
+
+27012015 0.3.5
+	bug fix: uart fix - name length
+
+26012015 0.3.4
+	infomem number changed
+
+26012015 0.3.3
+	uart applied 
+
+15102014 0.3.1
+	this is a test version for tcxo
+
+10102014 0.3.0
+	bug fix: debounce
+	button press disabled when configuring
+
+**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+09102014 0.2.39
+	tim$
+
+09102014 0.2.38
+	bug fix: byte 251
+
+07102014 0.2.37
+	streaming > uart0
+
+07102014 0.2.36
+	bug fix: sd writing causes exg noise
+
+07102014 0.2.35
+	exg prior to uart, for uca0
+	hardware version in ver$ (returns 7 bytes now)
+
+06102014 0.2.34
+	bug fix: nothing to fix, this is a testing version for RS
+
+03102014 0.2.33
+	exp board fail protect
+
+02102014 0.2.32
+	8-bit added for rtc_counter. (byte 251 in sd header)
+
+01102014 0.2.31
+	sending of status byte optimized 
+
+25092014 0.2.30
+	bug fix: memcpy() 4 bytes to 8 bytes
+
+22092014 0.2.29
+	uart_i/o crc
+	bug fix: calib 0
+
+22092014 0.2.28
+	#define SET_CRC_COMMAND 0x8b
+	bug fix: exgForcedOff = 0 when undock&&!sensing
+
+17092014 0.2.27
+	rtc$: not expects 21 bytes input followed by rtc$
+	
+09092014 0.2.26
+	rtc$
+	rct$
+	rdt$
+	bugfix: stored_config_temp hands out before config2sd()
+
+08092014 0.2.25
+	bug fix: booting+docked won't read calib from sd card.	
+
+04092014 0.2.23
+	bug fix: when set_baudRate, no sd write till its really changed.
+
+04092014 0.2.22
+	restructure: reschedule of baud_rate setting timing
+	bug fix: don't CheckSdInslot() when receiving START_SDBT_COMMAND
+	bug fix: don't set storedConfig vals to 0 before reading sdlog.cfg
+
+02092014 0.2.20
+	restructure: calibSync()
+	restructure: uca0: exit_lpm;
+
+01082014 0.2.19
+	bug fix: sd card sync: config_time = 0 fixed
+	bug fix: str= -> br_amp=
+	restructure: default from 0x00 rather than 0xff
+
+29082014 0.2.17
+	chg_stat added in bat$
+	mem$
+
+29082014 0.2.16
+	flag in InfoMem
+
+25082014 0.2.15
+	bug fix: SendStatusByte() when undock->dock
+
+25082014 0.2.14
+	bug fix: no_file/nocfgtime
+
+22082014 0.2.13
+	exg start/stop disabled in the fw when on dock
+
+21082014 0.2.12
+	bat$
+   	Board_ledOff(LED_ALL);
+	baud_rate=0-9
+	won't start exg when the shimmer is on dock
+	restructure: removed msp_delay_ms from sdCardPowerCycle
+
+15082014 0.2.11
+	calibration: 
+	sdheader: infoMem -> sd calib file -> default
+	infoMem : infoMem -> sd calib file
+
+14082014 0.2.10
+	dock status sending after anti-shake 100ms process
+
+12082014 0.2.9
+	file_bad flash wont happen when starting up w/o sdcard in slot 
+	or when configuring through BT w/o sdCard inslot
+
+12082014 0.2.8
+	sd_detect_n pull-up when no card 
+
+07082014 0.2.7
+	exp_power configuration changed
+
+07082014 0.2.6
+	mac$ echo removed
+
+07082014 0.2.5
+	changed another flag
+
+05082014 0.2.4
+	messageInProgress bug
+
+01082014 0.2.3
+	'ID' replaced by 'id'
+	exp_power problem fixed
+
+22072014 0.2.2
+	ver$ compatible with exg
+	exg docking bug fixed
+
+17072014 0.2.0
+	br_amp=1 supported
+	bug fix: uart 
+	mac$ returns bt mac address
