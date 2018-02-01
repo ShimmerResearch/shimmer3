@@ -43,7 +43,7 @@
  * @date June, 2014
  *
  * @modifed Sam O'Mahony
- * @date August, 2017
+ * @date January, 2018
  */
 #ifndef SHIMMER_SD_H
 #define SHIMMER_SD_H
@@ -52,7 +52,7 @@
 #define DEVICE_VER         3     //Represents shimmer3. 0-3 for shimmer1 to shimmer3
 #define FW_IDENTIFIER      2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR       0     //Major version number: 0-65535
-#define FW_VER_MINOR       18    //Minor version number: 0-255
+#define FW_VER_MINOR       19    //Minor version number: 0-255
 #define FW_VER_REL         0     //internal version number: 0-255
 // Packet Types
 #define DATA_PACKET                       0x00

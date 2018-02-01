@@ -102,6 +102,7 @@ void xmit_mmc (
 )
 {
     SDCard_sendFrame((uint8_t *)buff, bc);
+//    SDCard_sendFrame_DMA((uint8_t *)buff, bc);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -116,6 +117,7 @@ void rcvr_mmc (
 {
 
     SDCard_readFrame(buff, bc);
+//    SDCard_readFrame_DMA(buff, bc);
 }
 
 

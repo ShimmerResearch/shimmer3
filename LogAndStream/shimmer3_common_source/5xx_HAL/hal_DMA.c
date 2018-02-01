@@ -123,32 +123,31 @@ void DMA2_transferDoneFunction(uint8_t (*conversionDoneFuncPtr)(void)) {
 #pragma vector=DMA_VECTOR
 __interrupt void DMA_ISR(void)
 {
-   switch(__even_in_range(DMAIV,16))
-   {
-	  case 0: break;
-      case 2:                                 // DMA0IFG = DMA Channel 0
-         if(reportTransferDoneFuncPtr) {   // ensure this has been set
-            if((*reportTransferDoneFuncPtr)())
-               __bic_SR_register_on_exit(LPM3_bits);
-         }
-         break;
-      case 4:                           // DMA1IFG = DMA Channel 1
-      // if(reportTransferDoneFuncPtr_1) {   // ensure this has been set
-      // if((*reportTransferDoneFuncPtr_1)())
-         __bic_SR_register_on_exit(LPM3_bits);
-      //}
-      break;
-      case 6:
-         if(reportTransferDoneFuncPtr_2) {   // ensure this has been set
-            if((*reportTransferDoneFuncPtr_2)())
-               __bic_SR_register_on_exit(LPM3_bits);
-         }
-         break;                          // DMA2IFG = DMA Channel 2
-      case 8: break;                          // DMA3IFG = DMA Channel 3
-      case 10: break;                         // DMA4IFG = DMA Channel 4
-      case 12: break;                         // DMA5IFG = DMA Channel 5
-      case 14: break;                         // DMA6IFG = DMA Channel 6
-      case 16: break;                         // DMA7IFG = DMA Channel 7
-      default: break;
-   }
+    switch (__even_in_range(DMAIV, 16))
+    {
+    case DMAIV_NONE:
+        break;
+    case DMAIV_DMA0IFG: /* DMA0IFG = DMA Channel 0 */
+        if (reportTransferDoneFuncPtr)
+        { /* ensure this has been set */
+            if ((*reportTransferDoneFuncPtr)())
+                __bic_SR_register_on_exit(LPM3_bits);
+        }
+        break;
+    case DMAIV_DMA1IFG: /* DMA1IFG = DMA Channel 1 */
+        // if(reportTransferDoneFuncPtr_1) {   // ensure this has been set
+        // if((*reportTransferDoneFuncPtr_1)())
+        __bic_SR_register_on_exit(LPM3_bits);
+        //}
+        break;
+    case DMAIV_DMA2IFG: /* DMA2IFG = DMA Channel 2 */
+        if (reportTransferDoneFuncPtr_2)
+        {   // ensure this has been set
+            if ((*reportTransferDoneFuncPtr_2)())
+                __bic_SR_register_on_exit(LPM3_bits);
+        }
+        break;
+    default:
+        break;
+    }
 }

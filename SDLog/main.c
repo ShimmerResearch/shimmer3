@@ -43,17 +43,17 @@
  * @date June, 2014
  *
  * @modifed Sam O'Mahony
- * @date August, 2017
+ * @date January, 2018
  */
 
 /***********************************************************************************
  Data Buffer Format:
- Packet Type |TimeStamp|Achan1|Achan2| ... |AchanX|Dchan1|Dchan2| ... |DchanX|
- Byte:    0-1     |   2-3   |Achan1|Achan2| ... |AchanX|Dchan1|Dchan2| ... |DchanX|
+      Packet Type |TimeStamp|Achan1|Achan2| ... |AchanX|Dchan1|Dchan2| ... |DchanX|
+ Byte:     0      |   1-3   |Achan1|Achan2| ... |AchanX|Dchan1|Dchan2| ... |DchanX|
 
  Log file Format:
- SD Header   |TimeStamp1   |Achan1 data1| ... |DchanX data1|TimeStamp2   |Achan2 data2|...
- Byte:  0-255   |  256-257    |   258-259  | ... |            |             |            |...
+      SD Header | TimeStamp1  |Achan1 data1| ... |DchanX data1|  TimeStamp2 |Achan2 data2|...
+ Byte:  0-255   |  256-258    |   259-260  | ... |            |             |            |...
 
  ***********************************************************************************/
 
@@ -146,14 +146,6 @@ void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor);
 void ShimmerCalibInitFromInfoAll(void);
 void ShimmerCalibUpdateFromInfoAll(void);
 void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time);
-//uint8_t GetCalibFlag();
-//void SetCalibFlag(uint8_t flag);
-//void CalibFromFileRead(uint8_t sensor);
-//void CalibDefault(uint8_t sensor);
-//void CalibNewFile(uint8_t sensor, uint8_t range);
-//void CalibFromFile();
-//void CalibFromInfo(uint8_t sensor);
-//void CalibAll();
 void UpdateSdConfig();
 uint8_t ParseConfig();
 void SetDefaultConfiguration(void);
@@ -282,6 +274,9 @@ uint64_t startSensingTs64, firstTs;
 bool battCritical;
 uint8_t undockEvent, wr2sd, battCriticalCount;
 uint64_t time_newUnDockEvent;
+
+/* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
+uint8_t adsClockTied;
 
 // approx. 10% cutoff voltage - 3.65 Volts
 #define BATT_CUTOFF_3_65VOLTS   (2500)
@@ -589,11 +584,14 @@ void Init(void)
     memset(mac, 0, 14);
     memset(macAddr, 0, 6);
 
-    // variables used for delayed undock-start
+    /* variables used for delayed undock-start */
     wr2sd = 0;
     undockEvent = 0;
     time_newUnDockEvent = 0;
     battCriticalCount = 0;
+
+    /* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
+    adsClockTied = 0;
 
     mplCalibrating = 0;
     mplCalibratingMag = 0;
@@ -810,12 +808,12 @@ void SetupDock()
         {
             InfoMem_read((uint8_t *) 0, storedConfig, 6);
             if (memcmp(all0xff, storedConfig, 6))
-            {       // not all 0xff:
+            { /* not all 0xff: */
                 InfoMem_read((uint8_t *) 0, storedConfig,
                 NV_TOTAL_NUM_CONFIG_BYTES);
             }
             else
-            {       // all 0xff:
+            { /* all 0xff: */
                 SetDefaultConfiguration();
             }
         }
@@ -831,10 +829,10 @@ void SetupDock()
         {
             UART_deactivate();
         }
-        P6OUT |= BIT0;             // DETECT_N set to high
-        P4OUT &= ~BIT2;            // SD power off
-        __delay_cycles(2880000);   // wait 120ms
-        P4OUT |= BIT2;             // SD power on
+        P6OUT |= BIT0;             /* DETECT_N set to high */
+        P4OUT &= ~BIT2;            /* SD power off */
+        __delay_cycles(2880000);   /* wait 120ms */
+        P4OUT |= BIT2;             /* SD power on */
 
         CheckSdInslot();
 
@@ -855,12 +853,12 @@ void SetupDock()
                 fileBad = 0;
                 InfoMem_read((uint8_t *) 0, storedConfig, 6);
                 if (memcmp(all0xff, storedConfig, 6))
-                {         // not all 0xff:
+                { /* not all 0xff: */
                     InfoMem_read((uint8_t *) 0, storedConfig,
                     NV_TOTAL_NUM_CONFIG_BYTES);
                 }
                 else
-                {             // all 0xff:
+                { /* all 0xff: */
                     SetDefaultConfiguration();
                 }
                 UpdateSdConfig();
@@ -875,12 +873,12 @@ void SetupDock()
         //CalibAll();
         if (ShimmerCalib_file2Ram())
         {
-            //fail, i.e. no such file. use current DumpRam to generate a file
+            /* fail, i.e. no such file. use current DumpRam to generate a file */
             ShimmerCalib_ram2File();
         }
         ShimmerCalibSyncFromDumpRamAll();
 
-        if (sdHeadText[SDH_TRIAL_CONFIG1] & SDH_SINGLETOUCH) // set trigger mode
+        if (sdHeadText[SDH_TRIAL_CONFIG1] & SDH_SINGLETOUCH) /* set trigger mode */
             onSingleTouch = 1;
         else if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_USER_BUTTON_ENABLE)
             onUserButton = 1;
@@ -932,7 +930,9 @@ void StartStreaming(void)
         }
 
         if (storedConfig[NV_CONFIG_SETUP_BYTE3] & EXP_POWER_ENABLE)
-        { //power of exp board
+        { /*power of exp board*/
+            P3SEL &= ~BIT3;
+            P3DIR |= BIT3;
             P3OUT |= BIT3;
         }
 
@@ -1190,7 +1190,8 @@ void StartStreaming(void)
             bmpTempInterval = ((bmpInUse == BMP180_IN_USE) ? clk_45 : clk_55);
             memset(bmpVal, 0, BMPX80_PACKET_SIZE);
         }
-        //ExG
+
+        /* ExG */
         if ((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                 || (storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
                 || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT)
@@ -1200,16 +1201,25 @@ void StartStreaming(void)
 
             if (storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT
                     || storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT)
+            {
                 EXG_writeRegs(0, ADS1292R_CONFIG1, 10,
                               (storedConfig + NV_EXG_ADS1292R_1_CONFIG1));
+            }
+
+            /* This second long delay was added to satisfy program flow requirements
+             * of the ADS1292R as per pg 63 of its datasheet. */
+            __delay_cycles(24000000);
+
             if (storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT
                     || storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT)
+            {
                 EXG_writeRegs(1, ADS1292R_CONFIG1, 10,
                               (storedConfig + NV_EXG_ADS1292R_2_CONFIG1));
-            //probably turning on internal reference, so wait for it to settle
-            __delay_cycles(2400000);   //100ms (assuming 24MHz clock)
+            }
+            /*probably turning on internal reference, so wait for it to settle*/
+            __delay_cycles(2400000);   /*100ms (assuming 24MHz clock)*/
 
-            //probably setting the PGA gain so cancel the channel offset
+            /*probably setting the PGA gain so cancel the channel offset*/
             if (((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                     || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT))
                     && (storedConfig[NV_EXG_ADS1292R_1_RESP2] & BIT7))
@@ -1227,12 +1237,29 @@ void StartStreaming(void)
                     || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT))
                     && ((storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
                             || (storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT)))
+            {
                 EXG_start(2);
+            }
             else if ((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                     || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT))
+            {
                 EXG_start(0);
+            }
             else
+            {
                 EXG_start(1);
+            }
+
+            if ((daughtCardId[DAUGHT_CARD_ID] == 47)
+                    && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+            {
+                /* Check if unit is SR47-4 or greater.
+                 * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
+                 * This ensures clock lines on ADS chip are correct
+                 */
+                ADS1292_disableDrdyInterrupts(ADS1292_DRDY_INT_CHIP2);
+                adsClockTied = 1;
+            }
         }
     }
 
@@ -1252,10 +1279,10 @@ inline void StopStreaming(void)
         MPL_saveCalibrationBytes();
     }
 
-    //shut every thing down
+    /*shut everything down*/
 
     if (docked)
-    {   // if docked, cannot write to SD card any more
+    {   /*if docked, cannot write to SD card any more*/
         DockSdPowerCycle();
     }
     else
@@ -1264,7 +1291,7 @@ inline void StopStreaming(void)
         fileBad = f_close(&dataFil);
         newDirFlag = 1;
         msp430_delay_ms(50);
-        P4OUT &= ~BIT2;      //sd access close
+        P4OUT &= ~BIT2;      /*sd access close*/
     }
 
     SampleTimerStop();
@@ -1273,15 +1300,15 @@ inline void StopStreaming(void)
 
     P8OUT &= ~BIT6;
 
-    P3OUT &= ~BIT3;       //set EXP_RESET_N low
-    P2OUT &= ~BIT0;       //set GPIO_INTERNAL1 low (strain)
+    P3OUT &= ~BIT3;       /*set EXP_RESET_N low*/
+    P2OUT &= ~BIT0;       /*set GPIO_INTERNAL1 low (strain)*/
 
-    // DMP related - start
+    /*DMP related - start*/
     if (storedConfig[NV_CONFIG_SETUP_BYTE4] & MPU9150_MPL_DMP)
     {
         MPU9150_reset();
     }
-    // DMP related - end
+     /*DMP related - end*/
     else if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_ACCEL))
     {
@@ -1306,12 +1333,12 @@ inline void StopStreaming(void)
         if ((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                 || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT))
         {
-            EXG_stop(0);       //probably not needed
+            EXG_stop(0);       /*probably not needed*/
         }
         if ((storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
                 || (storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT))
         {
-            EXG_stop(1);       //probably not needed
+            EXG_stop(1);       /*probably not needed*/
         }
         if ((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                 || (storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
@@ -1326,10 +1353,10 @@ inline void StopStreaming(void)
         UART_activate();
     }
 
-    msp430_delay_ms(10); //give plenty of time for I2C operations to finish before disabling I2C
+    msp430_delay_ms(10); /*give plenty of time for I2C operations to finish before disabling I2C*/
     I2C_Disable();
     i2cEn = 0;
-    P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
+    P8OUT &= ~BIT4;         /*set SW_I2C low to power off I2C chips*/
     streamData = 0;
     TaskClear(TASK_WR2SD);
     sdBuffLen = 0;
@@ -1346,18 +1373,18 @@ char i2cSlavePresent(char address)
 {
     char isPresent = 0;
 
-    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-    P8OUT |= BIT4;          //enable I2C pull-ups by turning on SW_I2C
+    /*I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus*/
+    P8OUT |= BIT4;          /*enable I2C pull-ups by turning on SW_I2C*/
     P3OUT |= BIT3;
-    __delay_cycles(48000);  //2ms
+    __delay_cycles(48000);  /*2ms*/
 
-    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
+    /*Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK*/
     I2C_Master_Init(S_MCLK, 24000000, 400000);
 
     isPresent = TI_USCI_I2C_slave_present(address);
 
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
+    P8OUT &= ~BIT4;         /*disable I2C pull-ups by turning off SW_I2C*/
+    __delay_cycles(120000); /*5ms (assuming 24MHz MCLK) to ensure no writes pending*/
     P3OUT &= ~BIT3;
 
     return isPresent;
@@ -1776,6 +1803,10 @@ __interrupt void Port2_ISR(void)
     //ExG chip1 data ready
     case P2IV_P2IFG0:
         EXG_dataReadyChip1();
+        if (adsClockTied)
+        {
+            EXG_dataReadyChip2();
+        }
         break;
 
         //EXP_DETECT_N
@@ -3247,18 +3278,49 @@ void UartProcessCmd()
                                 && (uartInfoMemLength + uartInfoMemOffset
                                         <= 0x0200))
                         {
-                            //uartInfoMemOffset -= 0x1800;
-                            InfoMem_read((uint8_t *) NV_MAC_ADDRESS, macAddr,
-                                         6);
-                            InfoMem_write((void*) uartInfoMemOffset,
+                            if (uartInfoMemOffset
+                                    == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
+                            {
+                                /* Read MAC address so it is not forgotten */
+                                InfoMem_read((uint8_t *) NV_MAC_ADDRESS,
+                                             macAddr, 6);
+                            }
+                            if (uartInfoMemOffset
+                                    == (INFOMEM_SEG_D_ADDR - INFOMEM_OFFSET))
+                            {
+                                /* Check if unit is SR47-4 or greater.
+                                 * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
+                                 * This ensures clock lines on ADS chip are correct
+                                 */
+                                if ((daughtCardId[DAUGHT_CARD_ID] == 47)
+                                        && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+                                {
+                                    *(uartRxBuf + UART_RXBUF_DATA + 3
+                                            + NV_EXG_ADS1292R_1_CONFIG2) |= 8;
+                                }
+                            }
+                            /* Write received UART bytes to infomem */
+                            InfoMem_write((uint8_t*) uartInfoMemOffset,
                                           uartRxBuf + UART_RXBUF_DATA + 3,
                                           uartInfoMemLength);
-                            InfoMem_write((uint8_t*) NV_MAC_ADDRESS, macAddr,
-                                          6);
+                            if (uartInfoMemOffset
+                                    == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
+                            {
+                                /* Re-write MAC address to Infomem */
+                                InfoMem_write((uint8_t*) NV_MAC_ADDRESS,
+                                              macAddr, 6);
+                            }
+                            /* Reload latest infomem bytes to RAM */
+                            InfoMem_read((uint8_t *) uartInfoMemOffset,
+                                         storedConfig + uartInfoMemOffset,
+                                         uartInfoMemLength);
+
                             uartSendRspAck = 1;
                         }
                         else
+                        {
                             uartSendRspBadArg = 1;
+                        }
                         break;
                     default:
                         uartSendRspBadCmd = 1;
@@ -3535,6 +3597,7 @@ void UartCbufPush(uint8_t elem)
     if (ucBuf.idx >= CBUF_SIZE)
         ucBuf.idx = 0;
 }
+
 void UartCbufPickData(uint8_t * dst_buf, uint8_t offset, uint8_t len)
 {
     if ((!len) || (len > CBUF_PARAM_LEN_MAX) || (offset > CBUF_PARAM_LEN_MAX)
@@ -3609,748 +3672,6 @@ void SetSdCfgFlag(uint8_t flag)
                       1);
     }
 }
-
-//uint8_t GetCalibFlag(){
-//   uint8_t sd_config_delay_flag = 0;
-//   InfoMem_read((uint8_t*)NV_SD_CONFIG_DELAY_FLAG, &sd_config_delay_flag, 1);
-//   if(!(sd_config_delay_flag & BIT7)){
-//      if(sd_config_delay_flag & BIT1)
-//
-//         return 1;
-//   }
-//   return 0;
-//}
-//
-//void SetCalibFlag(uint8_t flag){
-//   uint8_t sd_config_delay_flag;
-//   if(flag){
-//      InfoMem_read((uint8_t*)NV_SD_CONFIG_DELAY_FLAG, &sd_config_delay_flag, 1);
-//      if(!(sd_config_delay_flag & BIT7)){
-//         sd_config_delay_flag |= BIT1;
-//      }
-//      else{
-//         sd_config_delay_flag = BIT1;
-//      }
-//      InfoMem_write((uint8_t*)NV_SD_CONFIG_DELAY_FLAG, &sd_config_delay_flag, 1);
-//   }
-//   else{
-//      InfoMem_read((uint8_t*)NV_SD_CONFIG_DELAY_FLAG, &sd_config_delay_flag, 1);
-//      sd_config_delay_flag &= ~BIT1;
-//      InfoMem_write((uint8_t*)NV_SD_CONFIG_DELAY_FLAG, &sd_config_delay_flag, 1);
-//   }
-//}
-//
-//void CalibFromFile(){
-//   streamData = 0;// this will skip one sample
-//   if(storedConfig[NV_SENSORS1] & SENSOR_LSM303DLHC_ACCEL){
-//      CalibFromFileRead(S_ACCEL_D);
-//      memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION], &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-//      InfoMem_write((uint8_t*)NV_LSM303DLHC_ACCEL_CALIBRATION, &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-//   }
-//   if(storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO){
-//      CalibFromFileRead(S_GYRO);
-//      memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION], &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-//      InfoMem_write((uint8_t*)NV_MPU9150_GYRO_CALIBRATION, &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-//   }
-//   if(storedConfig[NV_SENSORS0] & SENSOR_LSM303DLHC_MAG){
-//      CalibFromFileRead(S_MAG);
-//      memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION], &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-//      InfoMem_write((uint8_t*)NV_LSM303DLHC_MAG_CALIBRATION, &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-//   }
-//   if(storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL){
-//      CalibFromFileRead(S_ACCEL_A);
-//      memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION], &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-//      InfoMem_write((uint8_t*)NV_A_ACCEL_CALIBRATION, &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-//   }
-//   if(storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE){
-//      BMP180_init();
-//      BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
-//      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-//   }
-//}
-//
-//void CalibFromFileRead(uint8_t sensor){
-//   char buffer[66], * equals, keyword[20], cal_file[48], cal_indiv_file[32], cal_indiv_whole[48];
-//   uint8_t i = 0, num_2byte_params = 6, num_1byte_params = 9;
-//   uint16_t address;
-//   bool sensor_found = FALSE;
-//   float value;
-//   int8_t rounded_value, oldformat_calib_file = 0;
-//   volatile error_t res;
-//
-//   uint8_t mpu9150_gyro_range = (sdHeadText[SDH_CONFIG_SETUP_BYTE2] & 0x03);
-//   uint8_t lsm303dlhc_mag_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE2]>>5)&0x07);
-//   uint8_t lsm303dlhc_accel_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE0]>>2)&0x03);
-//
-//   DIRS gdc;
-//   FIL gfc;
-//
-//   if(sensor == S_GYRO){
-//      strcpy(cal_indiv_file, "/calib_gyro_");//calib_gyro_250dps.ini
-//      if(mpu9150_gyro_range == MPU9150_GYRO_250DPS){
-//         strcpy(keyword, "Gyro 250dps");
-//         strcat(cal_indiv_file, "250");
-//      }else if(mpu9150_gyro_range == MPU9150_GYRO_500DPS){
-//         strcpy(keyword, "Gyro 500dps");
-//         strcat(cal_indiv_file, "500");
-//      }else if(mpu9150_gyro_range == MPU9150_GYRO_1000DPS){
-//         strcpy(keyword, "Gyro 1000dps");
-//         strcat(cal_indiv_file, "1000");
-//      }else if(mpu9150_gyro_range == MPU9150_GYRO_2000DPS){
-//         strcpy(keyword, "Gyro 2000dps");
-//         strcat(cal_indiv_file, "2000");
-//      }
-//      strcat(cal_indiv_file, "dps.ini");
-//      address = NV_MPU9150_GYRO_CALIBRATION;
-//   }
-//   else if(sensor == S_MAG){
-//      strcpy(cal_indiv_file, "/calib_mag_");//calib_mag_13ga.ini
-//      if(lsm303dlhc_mag_range == LSM303_MAG_13GA){
-//         strcpy(keyword, "Mag 1.3Ga");
-//         strcat(cal_indiv_file, "13");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_19GA){
-//         strcpy(keyword, "Mag 1.9Ga");
-//         strcat(cal_indiv_file, "19");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_25GA){
-//         strcpy(keyword, "Mag 2.5Ga");
-//         strcat(cal_indiv_file, "25");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_40GA){
-//         strcpy(keyword, "Mag 4.0Ga");
-//         strcat(cal_indiv_file, "40");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_47GA){
-//         strcpy(keyword, "Mag 4.7Ga");
-//         strcat(cal_indiv_file, "47");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_56GA){
-//         strcpy(keyword, "Mag 5.6Ga");
-//         strcat(cal_indiv_file, "56");
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_81GA){
-//         strcpy(keyword, "Mag 8.1Ga");
-//         strcat(cal_indiv_file, "81");
-//      }
-//      strcat(cal_indiv_file, "ga.ini");
-//      address = NV_LSM303DLHC_MAG_CALIBRATION;
-//   }
-//   else if(sensor == S_ACCEL_D){
-//      strcpy(cal_indiv_file, "/calib_accel_wr_");//calib_accel_d_2g.ini
-//      if(lsm303dlhc_accel_range == RANGE_2G){
-//         strcpy(keyword, "Accel 2.0g");
-//         strcat(cal_indiv_file, "2");
-//      }else if(lsm303dlhc_accel_range == RANGE_4G){
-//         strcpy(keyword, "Accel 4.0g");
-//         strcat(cal_indiv_file, "4");
-//      }else if(lsm303dlhc_accel_range == RANGE_8G){
-//         strcpy(keyword, "Accel 8.0g");
-//         strcat(cal_indiv_file, "8");
-//      }else{ //(sdHeadText[SDH_ACCEL_RANGE] == RANGE_16G)
-//         strcpy(keyword, "Accel 16.0g");
-//         strcat(cal_indiv_file, "16");
-//      }
-//      strcat(cal_indiv_file, "g.ini");
-//      address = NV_LSM303DLHC_ACCEL_CALIBRATION;
-//   }
-//   else if(sensor == S_ACCEL_A){
-//      strcpy(keyword, "Accel_A");
-//      strcpy(cal_indiv_file, "/calib_accel_ln_2g.ini");
-//      address = NV_A_ACCEL_CALIBRATION;
-//   }
-//   else {
-//      return;
-//   }
-//
-//   strcpy(cal_file, "/Calibration");// "/Calibration/calibParams.ini"
-//   if(f_opendir(&gdc, "/Calibration")){
-//      if(f_opendir(&gdc, "/calibration")){
-//         CalibDefault(sensor);
-//         return;
-//      }else
-//         strcpy(cal_file, "/calibration");
-//   }
-//   strcpy(cal_indiv_whole, cal_file);
-//   strcat(cal_file, "/calibParams.ini");
-//   strcat(cal_indiv_whole, cal_indiv_file);
-//
-//   res = f_open(&gfc, cal_indiv_whole, (FA_OPEN_EXISTING | FA_READ));
-//   if(res == FR_NO_FILE) {
-//      if(f_open(&gfc, cal_file, (FA_OPEN_EXISTING | FA_READ))){ // no calibration file, use default
-//         CalibDefault(sensor);
-//         return;
-//      }
-//      oldformat_calib_file = 1;
-//   }
-//   else if(res)
-//      return;
-//
-//   // look for sensor in calibration file.
-//   if(oldformat_calib_file){
-//      while(f_gets(buffer, 64, &gfc)){
-//         if(!strstr(buffer, keyword))
-//            continue;
-//         else{ // found the right sensor
-//            sensor_found = TRUE;
-//            break;
-//         }
-//      }
-//   }
-//   else
-//      sensor_found = TRUE;
-//
-//   if(sensor_found){
-//      for(i = 0; i < num_2byte_params; i++){
-//         f_gets(buffer, 64, &gfc);
-//         if(!(equals = strchr(buffer, '='))){
-//            sensor_found = FALSE; // there's an error, use the default
-//            break;
-//         }
-//         equals ++;
-//         value = atof(equals);
-//         if((sensor == S_GYRO) & (i >= 3))
-//            value *= 100;
-//         storedConfig[address + 2*i] = ((int16_t)value & 0xFF00) >> 8;
-//         storedConfig[address + 2*i + 1] = ((int16_t)value & 0xFF);
-//      }
-//      for(i = 0; i < num_1byte_params; i++){
-//         f_gets(buffer, 64, &gfc);
-//         if(!(equals = strchr(buffer, '='))){
-//            sensor_found = FALSE; // there's an error, use the default
-//            break;
-//         }
-//         equals ++;
-//         value = atof(equals)*100;
-//         rounded_value = (int8_t)value;
-//         storedConfig[address + 2*num_2byte_params + i] = (rounded_value);
-//      }
-//   }
-//
-//   f_close(&gfc);
-//
-//   if(!sensor_found)
-//      CalibDefault(sensor);
-//}
-//
-//uint8_t CalibCheckInfoValid(uint8_t sensor){
-//   uint16_t address;
-//   uint8_t ram_range, info_range = 0xff, info_config;
-//   int byte_cnt = 0;
-//
-//   if(sensor == S_ACCEL_A){
-//      address = NV_A_ACCEL_CALIBRATION;
-//   }else if(sensor == S_GYRO){
-//      address = NV_MPU9150_GYRO_CALIBRATION;
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-//      info_range = info_config & 0x03;
-//      ram_range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-//      // must have info_range == ram_range or there is a mismatch between RAM and infomem
-//      if(info_range != ram_range)
-//         return 0;
-//   }else if(sensor == S_MAG){
-//      address = NV_LSM303DLHC_MAG_CALIBRATION;
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-//      info_range = (info_config & 0xe0)>>5;
-//      ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xe0)>>5;
-//      if(info_range != ram_range)
-//         return 0;
-//   }else if(sensor == S_ACCEL_D){
-//      address = NV_LSM303DLHC_ACCEL_CALIBRATION;
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE0, &info_config, 1);
-//      info_range = (info_config & 0x0c)>>2;
-//      ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0c)>>2;
-//      if(info_range != ram_range)
-//         return 0;
-//   }
-//
-//   InfoMem_read((uint8_t *)address, storedConfig+address, 21);
-//   byte_cnt = 0;
-//   while(byte_cnt<21){
-//      if(storedConfig[address+byte_cnt] != 0xff){
-//         //CalibNewFile(sensor, info_range);
-//         return 1;
-//         //break;
-//      }
-//      byte_cnt++;
-//   }
-//   return 0;
-//}
-//
-//void CalibAll(){
-//   uint8_t cal_aaccel_done = 0, cal_gyro_done = 0, cal_mag_done = 0, cal_daccel_done = 0;
-//   uint8_t mpu9150_gyro_range = (sdHeadText[SDH_CONFIG_SETUP_BYTE2] & 0x03);
-//   uint8_t lsm303dlhc_mag_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE2]>>5)&0x07);
-//   uint8_t lsm303dlhc_accel_range = ((sdHeadText[SDH_CONFIG_SETUP_BYTE0]>>2)&0x03);
-//
-//   if(GetCalibFlag()){ // info > sdcard
-//      if(CalibCheckInfoValid(S_ACCEL_A)){
-//         CalibNewFile(S_ACCEL_A, 0);
-//         cal_aaccel_done = 1;
-//      }
-//      if(CalibCheckInfoValid(S_GYRO)){
-//         CalibNewFile(S_GYRO, mpu9150_gyro_range);
-//         cal_aaccel_done = 1;
-//      }
-//      if(CalibCheckInfoValid(S_MAG)){
-//         CalibNewFile(S_MAG, lsm303dlhc_mag_range);
-//         cal_aaccel_done = 1;
-//      }
-//      if(CalibCheckInfoValid(S_ACCEL_D)){
-//         CalibNewFile(S_ACCEL_D, lsm303dlhc_accel_range);
-//         cal_aaccel_done = 1;
-//      }
-//      SetCalibFlag(0);
-//   }
-//
-//   if(!cal_aaccel_done){
-//      CalibFromFileRead(S_ACCEL_A);
-//      InfoMem_write((uint8_t*)NV_A_ACCEL_CALIBRATION, &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-//   }
-//   memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION], &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-//   if(!cal_gyro_done){
-//      CalibFromFileRead(S_GYRO);
-//      InfoMem_write((uint8_t*)NV_MPU9150_GYRO_CALIBRATION, &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-//   }
-//   memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION], &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-//   if(!cal_mag_done){
-//      CalibFromFileRead(S_MAG);
-//      InfoMem_write((uint8_t*)NV_LSM303DLHC_MAG_CALIBRATION, &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-//   }
-//   memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION], &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-//   if(!cal_daccel_done){
-//      CalibFromFileRead(S_ACCEL_D);
-//      InfoMem_write((uint8_t*)NV_LSM303DLHC_ACCEL_CALIBRATION, &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-//   }
-//   memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION], &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-//
-//   if(storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE){
-//      BMP180_init();
-//      BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
-//      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-//   }
-//
-//   // DMP related - start
-//   if(storedConfig[NV_CONFIG_SETUP_BYTE4]&MPU9150_MPL_DMP){
-//      MPL_loadCalibrationBytes(); // load previously saved calibration values if the file exists
-//      MPU_loadCalibration(&storedConfig[0]);
-//      memcpy(&sdHeadText[SDH_MPL_ACCEL_CALIBRATION], &storedConfig[NV_MPL_ACCEL_CALIBRATION], 21);
-//      memcpy(&sdHeadText[SDH_MPL_MAG_CALIBRATION], &storedConfig[NV_MPL_MAG_CALIBRATION], 21);
-//      memcpy(&sdHeadText[SDH_MPL_GYRO_CALIBRATION], &storedConfig[NV_MPL_GYRO_CALIBRATION], 12);
-//   }
-//   // DMP related - end
-//}
-//
-//void CalibFromInfo(uint8_t sensor){
-//   uint8_t ram_range, info_range = 0xff, info_config, info_valid = 0;
-//   int byte_cnt = 0;
-//
-//   if(sensor == S_ACCEL_A){
-//      InfoMem_read((uint8_t *)NV_A_ACCEL_CALIBRATION, storedConfig+NV_A_ACCEL_CALIBRATION, 21);
-//      byte_cnt = 0;
-//      while(byte_cnt<21){
-//         if(storedConfig[NV_A_ACCEL_CALIBRATION+byte_cnt] != 0xff){
-//            info_valid = 1;
-//            break;
-//         }
-//         byte_cnt++;
-//      }
-//   }
-//   else if(sensor == S_GYRO){
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-//      info_range = info_config & 0x03;
-//      ram_range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-//      // must have info_range == ram_range or there is a mismatch between RAM and infomem
-//      if(info_range == ram_range){
-//         InfoMem_read((uint8_t *)NV_MPU9150_GYRO_CALIBRATION, storedConfig+NV_MPU9150_GYRO_CALIBRATION, 21);
-//         byte_cnt = 0;
-//         while(byte_cnt<21){
-//            if(storedConfig[NV_MPU9150_GYRO_CALIBRATION+byte_cnt] != 0xff){
-//               info_valid = 1;
-//               break;
-//            }
-//            byte_cnt++;
-//         }
-//      }
-//   }
-//   else if(sensor == S_MAG){
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-//      info_range = (info_config & 0xe0)>>5;
-//      ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xe0)>>5;
-//      if(info_range == ram_range){
-//         InfoMem_read((uint8_t *)NV_LSM303DLHC_MAG_CALIBRATION, storedConfig+NV_LSM303DLHC_MAG_CALIBRATION, 21);
-//         byte_cnt = 0;
-//         while(byte_cnt<21){
-//            if(storedConfig[NV_LSM303DLHC_MAG_CALIBRATION+byte_cnt] != 0xff){
-//               info_valid = 1;
-//               break;
-//            }
-//            byte_cnt++;
-//         }
-//      }
-//   }
-//   else if(sensor == S_ACCEL_D){
-//      InfoMem_read((uint8_t *)NV_CONFIG_SETUP_BYTE0, &info_config, 1);
-//      info_range = (info_config & 0x0c)>>2;
-//      ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0c)>>2;
-//      if(info_range == ram_range){
-//         InfoMem_read((uint8_t *)NV_LSM303DLHC_ACCEL_CALIBRATION, storedConfig+NV_LSM303DLHC_ACCEL_CALIBRATION, 21);
-//         byte_cnt = 0;
-//         while(byte_cnt<21){
-//            if(storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION+byte_cnt] != 0xff){
-//               info_valid = 1;
-//               break;
-//            }
-//            byte_cnt++;
-//         }
-//      }
-//   }
-//   else
-//      return;
-//
-//   if(!info_valid)// if range not match, or all 0xff in infomem
-//      CalibDefault(sensor);
-//
-//   if(!docked && CheckSdInslot())
-//      CalibNewFile(sensor, info_range);
-//}
-//void CalibDefault(uint8_t sensor){
-//   int16_t bias, sensitivity, sensitivity_x, sensitivity_y, sensitivity_z;
-//   uint8_t bias_byte_one, bias_byte_two, sens_byte_one, sens_byte_two, number_axes = 1;
-//   int8_t align_xx, align_xy, align_xz, align_yx, align_yy, align_yz, align_zx, align_zy, align_zz, i = 0;
-//   uint16_t address;
-//   bool align = FALSE;
-//
-//   uint8_t mpu9150_gyro_range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-//   uint8_t lsm303dlhc_mag_range = (storedConfig[NV_CONFIG_SETUP_BYTE2]>>5)&0x07;
-//   uint8_t lsm303dlhc_accel_range = (storedConfig[NV_CONFIG_SETUP_BYTE0]>>2)&0x03;
-//
-//   if(sensor==S_ACCEL_D){
-//      number_axes = 3;
-//      bias = 0;
-//      align = TRUE;
-//      address = NV_LSM303DLHC_ACCEL_CALIBRATION;
-//      if(lsm303dlhc_accel_range == RANGE_2G)
-//         sensitivity = 1631;
-//      else if(lsm303dlhc_accel_range == RANGE_4G)
-//         sensitivity = 815;
-//      else if (lsm303dlhc_accel_range == RANGE_8G)
-//         sensitivity = 408;
-//      else //(sdHeadText[SDH_ACCEL_RANGE] == RANGE_16G)
-//         sensitivity = 135;
-//      align_xx = -100;
-//      align_xy = 0;
-//      align_xz = 0;
-//      align_yx = 0;
-//      align_yy = 100;
-//      align_yz = 0;
-//      align_zx = 0;
-//      align_zy = 0;
-//      align_zz = -100;
-//   }
-//   else if(sensor==S_GYRO){
-//      number_axes = 3;
-//      bias = 0;
-//      if(mpu9150_gyro_range == MPU9150_GYRO_250DPS)
-//         sensitivity = 13100;
-//      else if(mpu9150_gyro_range == MPU9150_GYRO_500DPS)
-//         sensitivity = 6550;
-//      else if (mpu9150_gyro_range == MPU9150_GYRO_1000DPS)
-//         sensitivity = 3280;
-//      else //(sdHeadText[SDH_GYRO_RANGE] == MPU9150_GYRO_2000DPS)
-//         sensitivity = 1640;
-//      align = TRUE;
-//      align_xx = 0;
-//      align_xy = -100;
-//      align_xz = 0;
-//      align_yx = -100;
-//      align_yy = 0;
-//      align_yz = 0;
-//      align_zx = 0;
-//      align_zy = 0;
-//      align_zz = -100;
-//      address = NV_MPU9150_GYRO_CALIBRATION;
-//   }
-//   else if(sensor==S_MAG){
-//      number_axes = 3;
-//      bias = 0;
-//      if(lsm303dlhc_mag_range == LSM303_MAG_13GA){
-//         sensitivity_x = 1100;
-//         sensitivity_y = 1100;
-//         sensitivity_z = 980;
-//      }else if(lsm303dlhc_mag_range == LSM303_MAG_19GA){
-//         sensitivity_x = 855;
-//         sensitivity_y = 855;
-//         sensitivity_z = 760;
-//      }else if (lsm303dlhc_mag_range == LSM303_MAG_25GA){
-//         sensitivity_x = 670;
-//         sensitivity_y = 670;
-//         sensitivity_z = 600;
-//      }else if (lsm303dlhc_mag_range == LSM303_MAG_40GA){
-//         sensitivity_x = 450;
-//         sensitivity_y = 450;
-//         sensitivity_z = 400;
-//      }else if (lsm303dlhc_mag_range == LSM303_MAG_47GA){
-//         sensitivity_x = 400;
-//         sensitivity_y = 400;
-//         sensitivity_z = 355;
-//      }else if (lsm303dlhc_mag_range == LSM303_MAG_56GA){
-//         sensitivity_x = 330;
-//         sensitivity_y = 330;
-//         sensitivity_z = 295;
-//      }else{ //(sdHeadText[SDH_MAG_RANGE] == LSM303_MAG_81GA)
-//         sensitivity_x = 230;
-//         sensitivity_y = 230;
-//         sensitivity_z = 205;
-//      }
-//      align = TRUE;
-//      align_xx = -100;
-//      align_xy = 0;
-//      align_xz = 0;
-//      align_yx = 0;
-//      align_yy = 100;
-//      align_yz = 0;
-//      align_zx = 0;
-//      align_zy = 0;
-//      align_zz = -100;
-//      address = NV_LSM303DLHC_MAG_CALIBRATION;
-//   }
-//   else if(sensor==S_ACCEL_A){
-//      number_axes = 3;
-//      bias = 2047;
-//      sensitivity = 83;
-//      align = TRUE;
-//      align_xx = 0;
-//      align_xy = -100;
-//      align_xz = 0;
-//      align_yx = -100;
-//      align_yy = 0;
-//      align_yz = 0;
-//      align_zx = 0;
-//      align_zy = 0;
-//      align_zz = -100;
-//      address = NV_A_ACCEL_CALIBRATION;
-//   }
-//   else{
-//      return;
-//   }
-//   bias_byte_one = (uint8_t)(bias >> 8);
-//   bias_byte_two = (uint8_t)(bias);
-//   sens_byte_one = (uint8_t)(sensitivity >> 8);
-//   sens_byte_two = (uint8_t)(sensitivity);
-//   // offset
-//   for(i = 0; i < number_axes; i++){
-//      storedConfig[address + 2*i] = bias_byte_one;
-//      storedConfig[address + 2*i + 1] = bias_byte_two;
-//   }
-//   // sensitivity
-//   if(sensor==S_MAG){
-//      sens_byte_one = (uint8_t)(sensitivity_x >> 8);
-//      sens_byte_two = (uint8_t)(sensitivity_x);
-//      storedConfig[address + 2*(number_axes)] = sens_byte_one;
-//      storedConfig[address + 2*(number_axes) + 1] = sens_byte_two;
-//      sens_byte_one = (uint8_t)(sensitivity_y >> 8);
-//      sens_byte_two = (uint8_t)(sensitivity_y);
-//      storedConfig[address + 2*(number_axes + 1)] = sens_byte_one;
-//      storedConfig[address + 2*(number_axes + 1) + 1] = sens_byte_two;
-//      sens_byte_one = (uint8_t)(sensitivity_z >> 8);
-//      sens_byte_two = (uint8_t)(sensitivity_z);
-//      storedConfig[address + 2*(number_axes + 2)] = sens_byte_one;
-//      storedConfig[address + 2*(number_axes + 2) + 1] = sens_byte_two;
-//   }else{
-//      for(i = 0; i < number_axes; i++){
-//         storedConfig[address + 2*(number_axes + i)] = sens_byte_one;
-//         storedConfig[address + 2*(number_axes + i) + 1] = sens_byte_two;
-//      }
-//   }
-//   // alignment
-//   if(align){
-//      storedConfig[address+ 12] = align_xx;
-//      storedConfig[address+ 13] = align_xy;
-//      storedConfig[address+ 14] = align_xz;
-//      storedConfig[address+ 15] = align_yx;
-//      storedConfig[address+ 16] = align_yy;
-//      storedConfig[address+ 17] = align_yz;
-//      storedConfig[address+ 18] = align_zx;
-//      storedConfig[address+ 19] = align_zy;
-//      storedConfig[address+ 20] = align_zz;
-//   }
-//}
-//
-//void CalibNewFile(uint8_t sensor, uint8_t range){
-//   if(!docked && CheckSdInslot()){
-//      uint8_t sd_power_state;
-//      if(!(P4OUT & BIT2)){
-//         SdPowerOn();
-//         sd_power_state = 0;
-//      }
-//      else
-//         sd_power_state = 1;
-//
-//      // set file name
-//      volatile error_t res;
-//      char cal_file_name[66], sensor_str[9], range_str[9];
-//      char buffer[66];
-//      uint16_t address;
-//      DIRS gdc;
-//      FIL gfc;
-//      UINT bw;
-//      strcpy((char*)cal_file_name, "/Calibration");
-//      if(res = f_opendir(&gdc, "/Calibration")){
-//         if(res = f_opendir(&gdc, "/calibration"))
-//            if(res == FR_NO_PATH)   // we'll have to make /data first
-//               res = f_mkdir("/Calibration");
-//         else
-//            strcpy((char*)cal_file_name, "/calibration");
-//      }
-//
-//      if(sensor==S_ACCEL_D){
-//         strcat((char*)cal_file_name, "/calib_accel_wr_");//calib_accel_d_2g.ini
-//         address = NV_LSM303DLHC_ACCEL_CALIBRATION;
-//         strcpy((char*)sensor_str, "Accel ");
-//         if(range == RANGE_2G){
-//            strcat((char*)cal_file_name, "2");
-//            strcpy((char*)range_str, "2.0g");
-//         }else if(range == RANGE_4G){
-//            strcat((char*)cal_file_name, "4");
-//            strcpy((char*)range_str, "4.0g");
-//         }else if (range == RANGE_8G){
-//            strcat((char*)cal_file_name, "8");
-//            strcpy((char*)range_str, "8.0g");
-//         }else if(range == RANGE_16G){
-//            strcat((char*)cal_file_name, "16");
-//            strcpy((char*)range_str, "16.0g");
-//         }else
-//            return;
-//         strcat((char*)cal_file_name, "g.ini");
-//      }
-//      else if(sensor==S_GYRO){
-//         strcat((char*)cal_file_name, "/calib_gyro_");//calib_gyro_250dps.ini
-//         address = NV_MPU9150_GYRO_CALIBRATION;
-//         strcpy((char*)sensor_str, "Gyro ");
-//         if(range == MPU9150_GYRO_250DPS){
-//            strcat((char*)cal_file_name, "250");
-//            strcpy((char*)range_str, "250dps");
-//         }else if (range == MPU9150_GYRO_500DPS){
-//            strcat((char*)cal_file_name, "500");
-//            strcpy((char*)range_str, "500dps");
-//         }else if (range == MPU9150_GYRO_1000DPS){
-//            strcat((char*)cal_file_name, "1000");
-//            strcpy((char*)range_str, "1000dps");
-//         }else if (range == MPU9150_GYRO_2000DPS){
-//            strcat((char*)cal_file_name, "2000");
-//            strcpy((char*)range_str, "2000dps");
-//         }else
-//            return;
-//         strcat((char*)cal_file_name, "dps.ini");
-//      }
-//      else if(sensor==S_MAG){
-//         strcat((char*)cal_file_name, "/calib_mag_");//calib_mag_13ga.ini
-//         address = NV_LSM303DLHC_MAG_CALIBRATION;
-//         strcpy((char*)sensor_str, "Mag ");
-//         if(range == LSM303_MAG_13GA){
-//            strcat((char*)cal_file_name, "13");
-//            strcpy((char*)range_str, "1.3Ga");
-//         }else if(range == LSM303_MAG_19GA){
-//            strcat((char*)cal_file_name, "19");
-//            strcpy((char*)range_str, "1.9Ga");
-//         }else if (range == LSM303_MAG_25GA){
-//            strcat((char*)cal_file_name, "25");
-//            strcpy((char*)range_str, "2.5Ga");
-//         }else if (range == LSM303_MAG_40GA){
-//            strcat((char*)cal_file_name, "40");
-//            strcpy((char*)range_str, "4.0Ga");
-//         }else if (range == LSM303_MAG_47GA){
-//            strcat((char*)cal_file_name, "47");
-//            strcpy((char*)range_str, "4.7Ga");
-//         }else if (range == LSM303_MAG_56GA){
-//            strcat((char*)cal_file_name, "56");
-//            strcpy((char*)range_str, "5.6Ga");
-//         }else if (range == LSM303_MAG_81GA){
-//            strcat((char*)cal_file_name, "81");
-//            strcpy((char*)range_str, "8.1Ga");
-//         }else
-//            return;
-//         strcat((char*)cal_file_name, "ga.ini");
-//      }
-//      else if(sensor==S_ACCEL_A){
-//         strcat((char*)cal_file_name, "/calib_accel_ln_2g.ini");
-//         address = NV_A_ACCEL_CALIBRATION;
-//         strcpy((char*)sensor_str, "Accel_A ");
-//         strcpy((char*)range_str, "2.0g");
-//      }
-//      else{
-//         return;
-//      }
-//
-//      if(fileBad = f_open(&gfc, (char*)cal_file_name, (FA_WRITE | FA_CREATE_ALWAYS))) // no calibration file, use default
-//         return;
-//      else{
-//         uint8_t i;
-//         char minus_sign[2];
-//         int16_t cal_val_16;
-//         int16_t val_int, val_f;
-//         uint8_t val_f_str[5];
-//         float cal_val_f;
-//         char cal_param_str[4];
-//         for(i=0;i<6;i++){
-//            switch(i){
-//            case 0: strcpy((char*)cal_param_str, "b0"); break;
-//            case 1: strcpy((char*)cal_param_str, "b1"); break;
-//            case 2: strcpy((char*)cal_param_str, "b2"); break;
-//            case 3: strcpy((char*)cal_param_str, "k0"); break;
-//            case 4: strcpy((char*)cal_param_str, "k1"); break;
-//            case 5: strcpy((char*)cal_param_str, "k2"); break;
-//            default: return;
-//            }
-//            cal_val_16 = (int16_t)(((uint16_t)storedConfig[address+2*i])<<8)+(uint16_t)storedConfig[address+2*i+1];
-//            cal_val_f = (float)cal_val_16;
-//            minus_sign[0] = '\0';
-//            if((sensor == S_GYRO) & (i >= 3))
-//               cal_val_f /= 100;
-//            if(cal_val_f>=0){
-//               val_int = (uint16_t)floor(cal_val_f);// the compiler can't handle sprintf %f here
-//            }
-//            else{//cal_val_f<0
-//               cal_val_f *= -1;
-//               strcpy(minus_sign, "-");// in case -0 = 0
-//               val_int = (uint16_t)floor(cal_val_f);// the compiler can't handle sprintf %f here
-//            }
-//            val_f = (uint16_t)round((cal_val_f-(float)val_int)*10000);
-//            ItoaWith0((uint64_t)val_f, val_f_str, 5);
-//            sprintf(buffer, "%s = %s%d.%s\r\n", cal_param_str, minus_sign, val_int, val_f_str);
-//            f_write(&gfc, buffer, strlen(buffer), &bw);
-//         }
-//         for(i=6;i<15;i++){
-//            switch(i){
-//            case 6: strcpy((char*)cal_param_str, "r00"); break;
-//            case 7: strcpy((char*)cal_param_str, "r01"); break;
-//            case 8: strcpy((char*)cal_param_str, "r02"); break;
-//            case 9: strcpy((char*)cal_param_str, "r10"); break;
-//            case 10: strcpy((char*)cal_param_str, "r11"); break;
-//            case 11: strcpy((char*)cal_param_str, "r12"); break;
-//            case 12: strcpy((char*)cal_param_str, "r20"); break;
-//            case 13: strcpy((char*)cal_param_str, "r21"); break;
-//            case 14: strcpy((char*)cal_param_str, "r22"); break;
-//            default: return;
-//            }
-//            cal_val_f = (float)((int8_t)storedConfig[address+6+i]);
-//            cal_val_f /= 100;
-//            minus_sign[0] = '\0';
-//            if(cal_val_f>=0){
-//               val_int = (uint16_t)floor(cal_val_f);// the compiler can't handle sprintf %f here
-//            }
-//            else{//cal_val_f<0
-//               cal_val_f *= -1;
-//               strcpy(minus_sign, "-");
-//               val_int = (uint16_t)floor(cal_val_f);// the compiler can't handle sprintf %f here
-//            }
-//            val_f = (uint16_t)round((cal_val_f-(float)val_int)*100);
-//            ItoaWith0((uint64_t)val_f, val_f_str, 3);
-//            sprintf(buffer, "%s = %s%d.%s\r\n", cal_param_str, minus_sign, val_int, val_f_str);
-//            f_write(&gfc, buffer, strlen(buffer), &bw);
-//         }
-//         fileBad = f_close(&gfc);
-//         msp430_delay_ms(50);
-//      }
-//      if(!sd_power_state)
-//         SdPowerOff();
-//   }
-//}
 
 void ShimmerCalibInitFromInfoAll(void)
 {
@@ -5686,7 +5007,7 @@ uint8_t ParseConfig(void)
 
 void SetDefaultConfiguration(void)
 {
-    //51.2Hz
+    /* 51.2Hz */
     memset((uint8_t*) (storedConfig), 0, NV_A_ACCEL_CALIBRATION); //0
     memset((uint8_t*) (storedConfig + NV_A_ACCEL_CALIBRATION), 0xff, 84);
     memset((uint8_t*) (storedConfig + NV_DERIVED_CHANNELS_3), 0, 5); //0
@@ -5696,28 +5017,39 @@ void SetDefaultConfiguration(void)
     memset((uint8_t*) (storedConfig + NV_SD_CONFIG_DELAY_FLAG + 1), 0xff, 25);
     memset((uint8_t*) (storedConfig + NV_NODE0), 0xff, 128);
 
-    *(uint16_t *) (storedConfig + NV_SAMPLING_RATE) = 640;
+    *(uint16_t *) (storedConfig + NV_SAMPLING_RATE) = 640; /* 32768 / 51.2 = 640 */
     storedConfig[NV_BUFFER_SIZE] = 1;
-    //core sensors enabled
+    /* core sensors enabled */
     storedConfig[NV_SENSORS0] = SENSOR_A_ACCEL + SENSOR_MPU9150_GYRO
             + SENSOR_LSM303DLHC_MAG;
     storedConfig[NV_SENSORS1] = SENSOR_VBATT;
     storedConfig[NV_SENSORS2] = 0;
-    //LSM303DLHC Accel 100Hz, +/-2G, Low Power and High Resolution modes off
+    /* LSM303DLHC Accel 100Hz, +/-2G, Low Power and High Resolution modes off */
     storedConfig[NV_CONFIG_SETUP_BYTE0] = (LSM303DLHC_ACCEL_100HZ << 4)
             + (ACCEL_2G << 2);
-    //MPU9150 sampling rate of 8kHz/(155+1), i.e. 51.282Hz
+    /* MPU9150 sampling rate of 8kHz/(155+1), i.e. 51.282Hz */
     storedConfig[NV_CONFIG_SETUP_BYTE1] = 0x9B;
-    //LSM303DLHC Mag 75Hz, +/-1.3 Gauss, MPU9150 Gyro +/-500 degrees per second
+    /* LSM303DLHC Mag 75Hz, +/-1.3 Gauss, MPU9150 Gyro +/-500 degrees per second */
     storedConfig[NV_CONFIG_SETUP_BYTE2] = (LSM303DLHC_MAG_1_3G << 5)
             + (LSM303DLHC_MAG_75HZ << 2) + MPU9150_GYRO_500DPS;
-    //MPU9150 Accel +/-2G, BMP pressure oversampling ratio 1, GSR auto range, EXP_RESET_N pin set low
-    // todo: *** *** *** warning! *** *** ***  btStream for this here is not correct, this is mpu9150_accrange, not lsm303 acc range
+    /* MPU9150 Accel +/-2G, BMP pressure oversampling ratio 1, GSR auto range, EXP_RESET_N pin set low */
+        /* todo: *** *** *** warning! *** *** ***  btStream for this here is not correct, this is mpu9150_accrange, not lsm303 acc range */
     storedConfig[NV_CONFIG_SETUP_BYTE3] = (ACCEL_2G << 6)
-            + (GSR_AUTORANGE << 1);   //HW_RES_40K
-    //set all ExG registers to their reset values
+            + (GSR_AUTORANGE << 1);   /* HW_RES_40K */
+
+    /* Set all ExG registers to their reset values */
+        /*ADS CHIP 1*/
     storedConfig[NV_EXG_ADS1292R_1_CONFIG1] = 0x02;
     storedConfig[NV_EXG_ADS1292R_1_CONFIG2] = 0x80;
+    if ((daughtCardId[DAUGHT_CARD_ID] == 47)
+                && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+        {
+            /* Check if unit is SR47-4 or greater.
+             * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
+             * This ensures clock lines on ADS chip are correct
+             */
+            storedConfig[NV_EXG_ADS1292R_1_CONFIG2] |= 8;
+        }
     storedConfig[NV_EXG_ADS1292R_1_LOFF] = 0x10;
     storedConfig[NV_EXG_ADS1292R_1_CH1SET] = 0x00;
     storedConfig[NV_EXG_ADS1292R_1_CH2SET] = 0x00;
@@ -5726,6 +5058,8 @@ void SetDefaultConfiguration(void)
     storedConfig[NV_EXG_ADS1292R_1_LOFF_STAT] = 0x00;
     storedConfig[NV_EXG_ADS1292R_1_RESP1] = 0x00;
     storedConfig[NV_EXG_ADS1292R_1_RESP2] = 0x02;
+
+    /*ADS CHIP 2*/
     storedConfig[NV_EXG_ADS1292R_2_CONFIG1] = 0x02;
     storedConfig[NV_EXG_ADS1292R_2_CONFIG2] = 0x80;
     storedConfig[NV_EXG_ADS1292R_2_LOFF] = 0x10;
@@ -5736,18 +5070,22 @@ void SetDefaultConfiguration(void)
     storedConfig[NV_EXG_ADS1292R_2_LOFF_STAT] = 0x00;
     storedConfig[NV_EXG_ADS1292R_2_RESP1] = 0x00;
     storedConfig[NV_EXG_ADS1292R_2_RESP2] = 0x02;
-    if (storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF)
+    if (storedConfig[NV_BT_COMMS_BAUD_RATE] == 0xFF){
         storedConfig[NV_BT_COMMS_BAUD_RATE] = 9;
+    }
+
+    /* Write RAM contents to Infomem */
     InfoMem_write((void*) 0, storedConfig, NV_A_ACCEL_CALIBRATION);
 
-    // sd config
-    //shimmername
+    /* sd config */
+        /* shimmername */
     strcpy((char*) (storedConfig + NV_SD_SHIMMER_NAME), "Shimmer_XXXX");
 
     memcpy((storedConfig + NV_SD_SHIMMER_NAME) + 8, mac + 8, 4);
     memcpy(shimmerName, (storedConfig + NV_SD_SHIMMER_NAME), 6);
     shimmerName[6] = 0;
-    //exp_id
+
+    /* exp_id */
     strcpy((char*) (storedConfig + NV_SD_EXP_ID_NAME), "default_exp");
     strcpy((char*) expIdName, "default_exp");
     strcpy((char*) configTimeText, "0");
@@ -7004,6 +6342,220 @@ void StreamData()
     }
 }
 
+
+/*
+ * StreamData function modified for SDLog - tested working for ExG test signal
+ * Removed references to PRES_TS_EN and DMP.
+ *
+void StreamData()
+{
+    uint8_t adc_offset;
+    uint8_t* current_buffer_ptr;
+    uint8_t *tx_buff_ptr;
+    uint8_t tx_buff_temp[DATA_PACKET_SIZE];
+
+    tx_buff_ptr = currentBuffer ? txBuff1 : txBuff0;
+
+    adc_offset = 4;
+
+//    uint8_t digi_offset = (nbrAdcChans * 2) + adc_offset;
+    uint8_t digi_offset;
+
+    if (storedConfig[NV_SENSORS0] & SENSOR_GSR)
+    {
+        GsrRange();
+    }
+
+    // vbatt
+    if (storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL)
+        *(uint16_t*) battVal = *((uint16_t *) (tx_buff_ptr + 6 + adc_offset)); // 2 dummy + ts + accel
+    else
+        *(uint16_t*) battVal = *((uint16_t *) (tx_buff_ptr + adc_offset)); // 2 dummy+ts
+    if (vbattEn)
+    {
+    }
+    else
+    {      // shift data to cover vbatt bytes
+        if (storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL)
+        {
+            memcpy(tx_buff_temp, tx_buff_ptr + adc_offset + 8,
+                   nbrAdcChans * 2 - 8);
+            memcpy(tx_buff_ptr + adc_offset + 6, tx_buff_temp,
+                   nbrAdcChans * 2 - 8);
+        }
+        else
+        {
+            memcpy(tx_buff_temp, tx_buff_ptr + adc_offset + 2,
+                   nbrAdcChans * 2 - 2);
+            memcpy(tx_buff_ptr + adc_offset, tx_buff_temp, nbrAdcChans * 2 - 2);
+        }
+    }
+
+    digi_offset = (nbrAdcChans - (!vbattEn)) * 2 + adc_offset;
+
+    if (currentBuffer)
+    {
+        current_buffer_ptr = txBuff1;
+    }
+    else
+    {
+        current_buffer_ptr = txBuff0;
+    }
+
+    if (storedConfig[NV_SENSORS0] & SENSOR_MPU9150_GYRO)
+    {
+        MPU9150_getGyro(current_buffer_ptr + digi_offset);
+        digi_offset += 6;
+    }
+    if (storedConfig[NV_SENSORS1] & SENSOR_LSM303DLHC_ACCEL)
+    {
+        if (lsmInUse == LSM303DLHC_IN_USE)
+        {
+            LSM303DLHC_getAccel(current_buffer_ptr + digi_offset);
+        }
+        else
+        {
+            LSM303AHTR_getAccel(current_buffer_ptr + digi_offset);
+        }
+        digi_offset += 6;
+    }
+    if (storedConfig[NV_SENSORS0] & SENSOR_LSM303DLHC_MAG)
+    {
+        if (lsmInUse == LSM303DLHC_IN_USE)
+        {
+            LSM303DLHC_getMag(current_buffer_ptr + digi_offset);
+        }
+        else
+        {
+            LSM303AHTR_getMag(current_buffer_ptr + digi_offset);
+        }
+        digi_offset += 6;
+    }
+    if (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_ACCEL)
+    {
+        MPU9150_getAccel(current_buffer_ptr + digi_offset);
+        digi_offset += 6;
+    }
+    if (storedConfig[NV_SENSORS2] & SENSOR_MPU9150_MAG)
+    {
+        if (preSampleMpuMag)
+        {
+            MPU9150_getMag(current_buffer_ptr + digi_offset);
+        }
+        else if (!mpuMagCount--)
+        {
+            MPU9150_getMag(current_buffer_ptr + digi_offset);
+            mpuMagCount = mpuMagFreq;
+            MPU9150_startMagMeasurement();
+        }
+        else
+        {
+            if (currentBuffer)
+            {
+                memcpy(txBuff1 + digi_offset, txBuff0 + digi_offset, 6);
+            }
+            else
+            {
+                memcpy(txBuff0 + digi_offset, txBuff1 + digi_offset, 6);
+            }
+        }
+        digi_offset += 6;
+    }
+    if (storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE)
+    {
+        if (preSampleBmpPress)
+        {
+            if (sampleBmpTemp == sampleBmpTempFreq)
+            {
+                sampleBmpTemp = 0;
+                BMPX80_getTemp(bmpVal);
+            }
+            else
+            {
+                BMPX80_getPress(bmpVal + BMPX80_TEMP_BUFF_SIZE);
+                sampleBmpTemp++;
+            }
+        }
+        else if (!bmpPressCount--)
+        {
+            if (sampleBmpTemp == sampleBmpTempFreq)
+            {
+                sampleBmpTemp = 0;
+                BMPX80_getTemp(bmpVal);
+                BMPX80_startPressMeasurement(
+                        (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x30) >> 4);
+            }
+            else
+            {
+                BMPX80_getPress(bmpVal + BMPX80_TEMP_BUFF_SIZE);
+
+                if (++sampleBmpTemp == sampleBmpTempFreq)
+                {
+                    BMPX80_startTempMeasurement();
+                }
+                else
+                {
+                    BMPX80_startPressMeasurement(
+                            (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x30) >> 4);
+                }
+            }
+            bmpPressCount = bmpPressFreq;
+        }
+        memcpy(current_buffer_ptr + digi_offset, bmpVal, BMPX80_PACKET_SIZE);
+        digi_offset += BMPX80_PACKET_SIZE;
+    }
+    if (storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
+    {
+        EXG_readData(0, 0, current_buffer_ptr + digi_offset);
+        digi_offset += 7;
+    }
+    else if (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT)
+    {
+        EXG_readData(0, 1, current_buffer_ptr + digi_offset);
+        digi_offset += 5;
+    }
+    if (storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
+    {
+        EXG_readData(1, 0, current_buffer_ptr + digi_offset);
+        if (!((*(current_buffer_ptr + digi_offset + 1) == 0x00)
+                || (*(current_buffer_ptr + digi_offset + 1) == 0xff)))
+            _NOP();
+        digi_offset += 7;
+    }
+    else if (storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT)
+    {
+        EXG_readData(1, 1, current_buffer_ptr + digi_offset);
+        digi_offset += 5;
+    }
+
+    currentBuffer = !currentBuffer;
+
+#if SKIP100MS
+        if (Skip100ms())
+        {
+            firstTsFlag = 1; // has to re collect the init_ts
+            return;
+        }
+#endif
+
+#if TS_BYTE3
+
+            memcpy(sdBuff + sdBuffLen, current_buffer_ptr + 1, digi_offset - 1);
+            sdBuffLen += digi_offset - 1;
+#else
+            memcpy(sdBuff+sdBuffLen, current_buffer_ptr+2, digi_offset-2);
+            sdBuffLen+=digi_offset-2;
+#endif
+
+            if (firstTsFlag == 2)
+            {
+                firstTsFlag = 3;
+                Timestamp0ToFirstFile();
+            }
+
+}
+*/
+
 uint8_t Skip100ms()
 {
     if (!skip100ms)
@@ -7131,36 +6683,6 @@ void BattBlinkOn()
     }
 }
 
-//void SetBattDma() {  // original SDLog function (as per v13.4)
-//	volatile unsigned char *memCtrlReg = &ADC12MCTL0;
-//
-//	ADC12CTL0 &= ~ADC12ENC;                     //ensure is off so all ADC12CTL0
-//												//and ADC12CTL1 fields can be modified
-//	ADC12CTL0 = ADC12SHT1_8 + ADC12SHT0_8 + ADC12MSC; //SHT1 and SHT0 of 256 ADC12CLK cycles,
-//													  //enable multiple sample and conversion
-//	ADC12CTL1 = ADC12SHP + ADC12CONSEQ_1;         //use sampling timer, ADC12OSC
-//												  //and sequence-of-channels mode
-//	ADC12CTL2 = ADC12TCOFF + ADC12RES_2 + ADC12SR_L; //turn off temperature sensor (saves power),
-//													 //ADC12 resolution to 12bits,
-//	ADC12CTL1 += ADC12CSTARTADD_1;                        //Start with ADC12MEM1
-//	*(++memCtrlReg) = ADC12INCH_2;
-//	*memCtrlReg += ADC12EOS;
-//
-//	DMACTL0 |= DMA0TSEL_24;                                //ADC12IFGx triggered
-//	DMACTL4 = DMARMWDIS;                             //Read-modify-write disable
-//	DMA0CTL &= ~DMAIFG;
-//	DMA0CTL = DMADT_1 + DMADSTINCR_3 + DMASRCINCR_3 + DMAIE; //block transfer, inc dst, inc src, Int enable
-//	DMA0SZ = 1;                                              //DMA0 size
-//
-//	//Writes a value to a 20-bit SFR register located at the given16/20-bit address
-//	DMA0SA = (__SFR_FARPTR) (unsigned long) &ADC12MEM1;
-//	DMA0DA = (__SFR_FARPTR) (unsigned long) battVal;
-//	DMA0_transferDoneFunction(&Dma0BatteryRead);
-//
-//	ADC12IFG = 0;
-//	DMA0CTL |= DMAEN;
-//	ADC12CTL0 |= ADC12ON + ADC12ENC + ADC12SC;
-//}
 
 void SetBattDma()
 {
@@ -7184,24 +6706,24 @@ void SetBattDma()
     {
         if (storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL)
         {
-            ADC12CTL1 += ADC12CSTARTADD_4;                //Start with ADC12MEM4
+            ADC12CTL1 += ADC12CSTARTADD_4;                /*Start with ADC12MEM4*/
             ADC12MCTL4 = ADC12INCH_2;
         }
         else
         {
-            ADC12CTL1 += ADC12CSTARTADD_1;                //Start with ADC12MEM1
+            ADC12CTL1 += ADC12CSTARTADD_1;                /*Start with ADC12MEM1*/
             ADC12MCTL1 = ADC12INCH_2;
         }
 
     }
     else
     {
-        ADC12CTL1 += ADC12CSTARTADD_0;                	  //Start with ADC12MEM0
+        ADC12CTL1 += ADC12CSTARTADD_0;                	  /*Start with ADC12MEM0*/
         ADC12MCTL0 = ADC12INCH_2;
     }
 
-    DMACTL0 |= DMA0TSEL_24;            //ADC12IFGx triggered
-    DMACTL4 = DMARMWDIS;               //Read-modify-write disable
+    DMACTL0 |= DMA0TSEL_24;            /*ADC12IFGx triggered*/
+    DMACTL4 = DMARMWDIS;               /*Read-modify-write disable*/
     DMA0CTL &= ~DMAIFG;
 
     /* DMADT_0 		- Single transfer
@@ -7229,7 +6751,7 @@ void SetBattDma()
         DMA0SA = (__SFR_FARPTR) (unsigned long) &ADC12MEM0;
     }
 
-//	Writes a value to a 20-bit SFR register located at the given16/20-bit address
+	/*Writes a value to a 20-bit SFR register located at the given16/20-bit address*/
     DMA0DA = (__SFR_FARPTR) (unsigned long) battVal;
 
     DMA0_transferDoneFunction(&Dma0BatteryRead);
@@ -7245,13 +6767,13 @@ void TB0Start()
     {
         if (clockFreq == (float) MSP430_CLOCK)
         {
-            TB0CTL = TBSSEL_1 + MC_2; //ACLK, continuous mode, clear TBR: + TBCLR
+            TB0CTL = TBSSEL_1 + MC_2; /*ACLK, continuous mode, clear TBR: + TBCLR*/
             TB0EX0 = 0;
         }
         else
         {
-            TB0CTL = TBSSEL_0 + MC_2 + ID__8; // use TBSSEL_0 for tcxo, ID__8:divider=8
-            TB0EX0 = TBIDEX__8;               // divider: 8
+            TB0CTL = TBSSEL_0 + MC_2 + ID__8; /*use TBSSEL_0 for tcxo, ID__8:divider=8*/
+            TB0EX0 = TBIDEX__8;               /*divider: 8*/
         }
     }
 }
@@ -7297,7 +6819,7 @@ void ClkAssignment()
 }
 
 uint16_t FreqProd(uint16_t num_in)
-{ // e.g. 7.5 ms: num_in=75, .25s:num_in=2500
+{ /*e.g. 7.5 ms: num_in=75, .25s:num_in=2500*/
     if (clockFreq == (float) MSP430_CLOCK)
     {
         return (uint16_t) ceil(
@@ -7312,9 +6834,6 @@ uint16_t FreqProd(uint16_t num_in)
 
 uint16_t FreqDiv(float num_in)
 {
-//    return (uint16_t) ceil(clockFreq / num_in);
-//    return (uint16_t) round(((float)clockFreq) / num_in);
-
     if (clockFreq == (float) MSP430_CLOCK)
     {
         return (uint16_t) round(((float) MSP430_CLOCK) / num_in);
@@ -7464,7 +6983,7 @@ void MPL_calibrateGo(void)
             }
             if (test_fail)
             {
-                // test fail
+                /*test fail*/
                 Board_ledOn(LED_BLUE);
                 Board_ledOff(LED_GREEN1);
                 for (cnt = 0; cnt < 50; cnt++)
@@ -7477,7 +6996,7 @@ void MPL_calibrateGo(void)
             }
 
             MPU9150_reset();
-            // Restore original configuration
+            /*Restore original configuration*/
             storedConfig[NV_SAMPLING_RATE] = stored_config_buffer[0];
             storedConfig[NV_SAMPLING_RATE + 1] = stored_config_buffer[1];
             storedConfig[NV_SENSORS3] = stored_config_buffer[2];
@@ -7489,9 +7008,11 @@ void MPL_calibrateGo(void)
             Board_ledOff(LED_BLUE);
             Board_ledOff(LED_GREEN1);
 
-            if (!sd_state)         // restore SD state if it was previously off
-                P4OUT &= ~BIT2;    // SW_FLASH set low
-            configuring = 0;       // led flag, in configuration period
+            if (!sd_state)
+            { /*restore SD state if it was previously off*/
+                P4OUT &= ~BIT2; /*SW_FLASH set low*/
+            }
+            configuring = 0;       /*led flag, in configuration period*/
             mplCalibrating = 0;
         }
     }
@@ -7510,7 +7031,7 @@ void SamplingClkAssignment(void)
         {
             clockFreq = (float) TCXO_CLOCK;
             P4OUT |= BIT6;
-            _delay_cycles(2400000); // 100ms delay for tcxo
+            _delay_cycles(2400000); /*100ms delay for tcxo*/
             P4SEL |= BIT7;
         }
     }
@@ -7526,7 +7047,7 @@ void SamplingClkAssignment(void)
 }
 
 
-// DMP related - end
+ /*DMP related - end*/
 
 // trap isr assignation - put all unused ISR vector here
 //USCI_B0_VECTOR:i2c
@@ -7537,7 +7058,7 @@ void SamplingClkAssignment(void)
     UNMI_VECTOR, USCI_B1_VECTOR,TIMER1_A1_VECTOR
 __interrupt void TrapIsr(void)
 {
-    // this is a trap ISR - check for the interrupt cause here by
-    // checking the interrupt flags, if necessary also clear the interrupt
-    // flag
+     /*this is a trap ISR - check for the interrupt cause here by
+     checking the interrupt flags, if necessary also clear the interrupt
+     flag*/
 }

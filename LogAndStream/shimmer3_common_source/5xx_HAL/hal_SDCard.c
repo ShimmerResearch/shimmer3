@@ -59,6 +59,8 @@
 #define SD_CS_OUT          P4OUT
 #define SD_CS_DIR          P4DIR
 
+extern uint8_t sensing;
+
 /***************************************************************************//**
  * @brief   Initialize SD Card
  * @param   None
@@ -104,7 +106,7 @@ void SDCard_init(void)
 void SDCard_fastMode(void)
 {
    UCB1CTL1 |= UCSWRST;                                   // Put state machine in reset
-   //UCB1BR0 = 2;                                           // f_UCxCLK = 25MHz/2 = 12.5MHz
+   //UCB1BR0 = 2;                                         // f_UCxCLK = 25MHz/2 = 12.5MHz
    UCB1BR0 = 2;                                           // f_UCxCLK = 24MHz/2 = 12MHz
    UCB1BR1 = 0;
    UCB1CTL1 &= ~UCSWRST;                                  // Release USCI state machine
@@ -136,6 +138,95 @@ void SDCard_readFrame(uint8_t *pBuffer, uint16_t size)
    //__bis_SR_register(gie);                                // Restore original GIE state
 }
 
+void SDCard_readFrame_DMA(uint8_t *pBuffer, uint16_t size)
+{
+    /* Source DMA address: the data buffer. */
+    __data16_write_addr((unsigned short) &DMA1SA, (unsigned long) &UCB1RXBUF);
+
+    /* Destination DMA address: the UART send register. */
+    __data16_write_addr((unsigned short) &DMA1DA, (unsigned long) pBuffer);
+
+    /* The size of the block to be transferred */
+    DMA1SZ = size;
+
+    /*
+     * The DMAxTSELbits should be modified only when the DMACTLx DMAEN bit is 0
+     * When selecting the trigger,the trigger must not have already occurred,
+     * or the transfer does not take place
+     */
+    DMACTL0 = 0;
+
+    /* DMA trigger is either:
+     * DMA_REQ - TSEL_0
+     *  OR
+     * USCIB1 receive - TSEL_22
+     * */
+    DMACTL0 = DMA1TSEL_0 | DMA1TSEL_22;
+
+    /* Read-modify-write disable
+     *
+     * Brief:
+     * The DMARMWDIS bit controls when the CPU is halted for DMA transfers.
+     *
+     * Detail:
+     * When DMARMWDIS = 0, the CPU is halted immediately and the transfer begins
+     * when a trigger is received. In this case, it is possible that CPU read-modify-write
+     * operations can be interrupted by a DMA transfer. When DMARMWDIS = 1,the CPU finishes
+     * the currently executing read-modify-write operation before the DMA controller halts
+     * the CPU and the transfer begins.
+     *
+     */
+    DMACTL4 = DMARMWDIS;
+
+    /* Disable any pending interrupts */
+    DMA1CTL &= ~DMAIFG;
+
+    /* Configure the DMA transfer*/
+    DMA1CTL =
+    DMADT_0 | /* Single transfer mode - should toggle DMAEN from 1->0 after transfer of DMAxSZ bytes*/
+    DMASBDB | /* Byte mode */
+    DMAEN | /* Enable DMA */
+    DMASRCBYTE | /* DMA source byte */
+    DMADSTBYTE | /* DMA destination byte */
+    DMASRCINCR_0 | /* Destination address unchanged */
+    DMADSTINCR_3;  /* Increment the source address */
+    //        DMAIE | /* Enable interrupt */
+
+    /* Clear any pending flags */
+    UCB1IFG &= ~(UCRXIFG | UCTXIFG);
+
+    /* Kick off the transfer by either:
+     * sending the first byte, the "start block" token
+     * OR
+     * forcing an interrupt where we need it
+     * OR
+     * triggering the DMAREQ bit */
+
+    /* Send the first byte */
+    //        UCB1TXBUF = pBuffer[0];
+    /* ---- OR ----*/
+    /* Force an interrupt to occur and get the ball rolling*/
+    //        UCB1IFG |= UCTXIFG;
+    /* ---- OR ----*/
+    /* Triggering the DMAREQ bit */
+    DMA1CTL |= DMAREQ;
+
+    /* If using low power mode, only go into LPM0
+     * as LPM3 disables the clock that is needed for the DMA transfer
+     * (MCLK source = DCO or XTAL) and it needs to be switched on with
+     *  the defined waiting time before the transfer can take place.  */
+    //        __bis_SR_register(LPM0_bits + GIE);//ACLK remains active
+    /* Just twiddle our thumbs until the transfer's done */
+//    while ((DMA1CTL & DMAEN) != 0)
+//    {
+//        _NOP();
+//    }
+
+    /* Should only get here if a single transfer completes
+     * and resets DMAEN to 0 */
+    _NOP();
+}
+
 /***************************************************************************//**
  * @brief   Send a frame of bytes via SPI
  * @param   pBuffer Place that holds the bytes to send
@@ -145,26 +236,127 @@ void SDCard_readFrame(uint8_t *pBuffer, uint16_t size)
 
 void SDCard_sendFrame(uint8_t *pBuffer, uint16_t size)
 {
-   //uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
+    //uint16_t gie = __get_SR_register() & GIE;              // Store current GIE state
 
-   //__disable_interrupt();                                 // Make this operation atomic
+    //__disable_interrupt();                                 // Make this operation atomic
 
-   // Clock the actual data transfer and send the bytes. Note that we
-   // intentionally not read out the receive buffer during frame transmission
-   // in order to optimize transfer speed, however we need to take care of the
-   // resulting overrun condition.
+    // Clock the actual data transfer and send the bytes. Note that we
+    // intentionally not read out the receive buffer during frame transmission
+    // in order to optimize transfer speed, however we need to take care of the
+    // resulting overrun condition.
+    _NOP();
+    while (size--)
+    {
+        while (!(UCB1IFG & UCTXIFG))
+            ;                     // Wait while not ready for TX
+        UCB1TXBUF = *pBuffer++;                            // Write byte
+    }
 
-   while (size--){
-      while (!(UCB1IFG & UCTXIFG)) ;                     // Wait while not ready for TX
-      UCB1TXBUF = *pBuffer++;                            // Write byte
-   }
-   while (UCB1STAT & UCBUSY) ;                            // Wait for all TX/RX to finish
+    while (UCB1STAT & UCBUSY)
+        ;                            // Wait for all TX/RX to finish
 
-   UCB1RXBUF;                                             // Dummy read to empty RX buffer
-                                                           // and clear any overrun conditions
+    UCB1RXBUF;                                  // Dummy read to empty RX buffer
+    _NOP();                               // and clear any overrun conditions
 
-   //__bis_SR_register(gie);                                // Restore original GIE state
+    //__bis_SR_register(gie);                                // Restore original GIE state
 }
+
+/*
+ * Experimental DMA transfer
+ */
+void SDCard_sendFrame_DMA(uint8_t *pBuffer, uint16_t size)
+{
+        /* Source DMA address: the data buffer. */
+        __data16_write_addr((unsigned short) &DMA1SA, (unsigned long) pBuffer);
+
+        /* Destination DMA address: the UART send register. */
+        __data16_write_addr((unsigned short) &DMA1DA,
+                            (unsigned long) &UCB1TXBUF);
+
+
+
+        /* DMA trigger is either:
+         * DMA_REQ - TSEL_0
+         *  OR
+         * USCIB1 transmit - TSEL_23
+         *
+         * Note:
+         * The DMAxTSELbits should be modified only when the DMACTLx DMAEN bit is 0
+         * When selecting the trigger,the trigger must not have already occurred,
+         * or the transfer does not take place
+         * */
+        DMACTL0 = DMA1TSEL_0 | DMA1TSEL_23;
+
+        /* Read-modify-write disable
+         *
+         * Brief:
+         * The DMARMWDIS bit controls when the CPU is halted for DMA transfers.
+         *
+         * Detail:
+         * When DMARMWDIS = 0, the CPU is halted immediately and the transfer begins
+         * when a trigger is received. In this case, it is possible that CPU read-modify-write
+         * operations can be interrupted by a DMA transfer. When DMARMWDIS = 1,the CPU finishes
+         * the currently executing read-modify-write operation before the DMA controller halts
+         * the CPU and the transfer begins.
+         *
+         */
+        DMACTL4 = DMARMWDIS;
+
+        /* Disable any pending interrupts */
+        DMA1CTL &= ~DMAIFG;
+
+        /* Configure the DMA transfer*/
+        DMA1CTL =
+        DMADT_0 | /* Single transfer mode - should toggle DMAEN from 1->0 after transfer of DMAxSZ bytes*/
+        DMASBDB | /* Byte mode */
+        DMAEN | /* Enable DMA */
+//        DMAIE | /* Enable interrupt */
+        DMASRCBYTE | /* DMA source byte */
+        DMADSTBYTE | /* DMA destination byte */
+        DMASRCINCR_3 | /* Increment the source address */
+        DMADSTINCR_0; /* Destination address unchanged */
+
+        _NOP();
+
+        /* The size of the block to be transferred */
+        DMA1SZ = size;
+
+        /* Clear any pending flags */
+//        UCB1IFG &= ~(UCRXIFG | UCTXIFG);
+        UCB1IFG &= ~(UCTXIFG);
+
+        /* Kick off the transfer by either:
+         * sending the first byte, the "start block" token
+         * OR
+         * forcing an interrupt where we need it
+         * OR
+         * triggering the DMAREQ bit */
+
+        /* Triggering the DMAREQ bit */
+        DMA1CTL |= DMAREQ;
+        /* ---- OR ----*/
+        /* Send the first byte */
+//        UCB1TXBUF = pBuffer[0];
+        /* ---- OR ----*/
+        /* Force an interrupt to occur and get the ball rolling*/
+        UCB1IFG |= UCTXIFG;
+
+        /* If using low power mode, only go into LPM0
+         * as LPM3 disables the clock that is needed for the DMA transfer
+         * (MCLK source = DCO or XTAL) and it needs to be switched on with
+         *  the defined waiting time before the transfer can take place.  */
+//        __bis_SR_register(LPM0_bits + GIE);
+//        __bis_SR_register(GIE);
+        /* Just twiddle our thumbs until the transfer's done */
+        while ((DMA1CTL & DMAEN) != 0);
+
+        /* Should only get here if a single transfer completes
+         * and resets DMAEN to 0 */
+        _NOP();
+//        UCB1RXBUF;
+
+}
+
 
 /***************************************************************************//**
  * @brief   Set the SD Card's chip-select signal to high

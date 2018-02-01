@@ -2,9 +2,7 @@
 # Automatically-generated file. Do not edit!
 ################################################################################
 
-SHELL = cmd.exe
-
-CG_TOOL_ROOT := C:/ti/ccsv7/tools/compiler/ti-cgt-msp430_4.4.8
+CG_TOOL_ROOT := /Applications/ti/ccsv7/tools/compiler/ti-cgt-msp430_16.9.4.LTS
 
 GEN_OPTS__FLAG := 
 GEN_CMDS__FLAG := 
@@ -48,8 +46,8 @@ $(GEN_CMDS__FLAG) \
 
 -include ../makefile.init
 
-RM := DEL /F
-RMDIR := RMDIR /S/Q
+RM := rm -rf
+RMDIR := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
@@ -196,23 +194,23 @@ all: LogAndStream.out secondary-outputs
 LogAndStream.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: MSP430 Linker'
-	"C:/ti/ccsv7/tools/compiler/ti-cgt-msp430_4.4.8/bin/cl430" -vmspx --abi=eabi --data_model=restricted -O0 --opt_for_speed=5 --use_hw_mpy=F5 --advice:power="all" --define=__MSP430F5437A__ --display_error_number --diag_warning=225 --diag_wrap=off --silicon_errata=CPU21 --silicon_errata=CPU22 --silicon_errata=CPU23 --silicon_errata=CPU40 --printf_support=minimal -z -m"LogAndStream.map" --stack_size=160 --heap_size=160 --cinit_hold_wdt=on -i"C:/ti/ccsv7/ccs_base/msp430/include" -i"C:/ti/ccsv7/tools/compiler/ti-cgt-msp430_4.4.8/lib" -i"C:/ti/ccsv7/tools/compiler/ti-cgt-msp430_4.4.8/include" -i"C:/ti/ccsv7/ccs_base/msp430/lib/5xx_6xx_FRxx" --reread_libs --warn_sections --diag_wrap=off --display_error_number --xml_link_info="LogAndStream_linkInfo.xml" --use_hw_mpy=F5 --rom_model -o "LogAndStream.out" $(ORDERED_OBJS)
+	"/Applications/ti/ccsv7/tools/compiler/ti-cgt-msp430_16.9.4.LTS/bin/cl430" -vmspx --abi=eabi --data_model=restricted -O0 --opt_for_speed=5 --use_hw_mpy=F5 --advice:power="all" --define=__MSP430F5437A__ --display_error_number --diag_warning=225 --diag_wrap=off --silicon_errata=CPU21 --silicon_errata=CPU22 --silicon_errata=CPU23 --silicon_errata=CPU40 --printf_support=minimal -z -m"LogAndStream.map" --stack_size=160 --heap_size=160 --cinit_hold_wdt=on -i"/Applications/ti/ccsv7/ccs_base/msp430/include" -i"/Applications/ti/ccsv7/tools/compiler/ti-cgt-msp430_16.9.4.LTS/lib" -i"/Applications/ti/ccsv7/tools/compiler/ti-cgt-msp430_16.9.4.LTS/include" -i"/Applications/ti/ccsv7/ccs_base/msp430/lib/5xx_6xx_FRxx" --reread_libs --warn_sections --diag_wrap=off --display_error_number --xml_link_info="LogAndStream_linkInfo.xml" --use_hw_mpy=F5 --rom_model -o "LogAndStream.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 LogAndStream.txt: $(EXE_OUTPUTS)
 	@echo 'Invoking: MSP430 Hex Utility'
-	"C:/ti/ccsv7/tools/compiler/ti-cgt-msp430_4.4.8/bin/hex430" --memwidth=8 --romwidth=8 --ti_txt -o "LogAndStream.txt" $(EXE_OUTPUTS__QUOTED)
+	"/Applications/ti/ccsv7/tools/compiler/ti-cgt-msp430_16.9.4.LTS/bin/hex430" --memwidth=8 --romwidth=8 --ti_txt -o "LogAndStream.txt" $(EXE_OUTPUTS__QUOTED)
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "main.obj" "system_pre_init.obj" "shimmer3_common_source\5xx_HAL\hal_ADC.obj" "shimmer3_common_source\5xx_HAL\hal_Board.obj" "shimmer3_common_source\5xx_HAL\hal_Button.obj" "shimmer3_common_source\5xx_HAL\hal_CRC.obj" "shimmer3_common_source\5xx_HAL\hal_DMA.obj" "shimmer3_common_source\5xx_HAL\hal_I2C.obj" "shimmer3_common_source\5xx_HAL\hal_InfoMem.obj" "shimmer3_common_source\5xx_HAL\hal_RTC.obj" "shimmer3_common_source\5xx_HAL\hal_SDCard.obj" "shimmer3_common_source\5xx_HAL\hal_TB0.obj" "shimmer3_common_source\5xx_HAL\hal_UCA0.obj" "shimmer3_common_source\5xx_HAL\hal_UCS.obj" "shimmer3_common_source\5xx_HAL\hal_UartA0.obj" "shimmer3_common_source\5xx_HAL\hal_pmm.obj" "shimmer3_common_source\BMPX80\bmpX80.obj" "shimmer3_common_source\Bluetooth_SD\RN42.obj" "shimmer3_common_source\CAT24C16\cat24c16.obj" "shimmer3_common_source\EXG\ads1292.obj" "shimmer3_common_source\EXG\exg.obj" "shimmer3_common_source\FatFs\ff.obj" "shimmer3_common_source\FatFs\mmc.obj" "shimmer3_common_source\FatFs\option\ccsbcs.obj" 
-	-$(RM) "shimmer3_common_source\FatFs\option\syscall.obj" "shimmer3_common_source\GSR\gsr.obj" "shimmer3_common_source\LSM303AHTR\lsm303ahtr.obj" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.obj" "shimmer3_common_source\MPU9150\mpu9150.obj" "shimmer3_common_source\msp430_clock\msp430_clock.obj" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.obj" 
-	-$(RM) "main.d" "system_pre_init.d" "shimmer3_common_source\5xx_HAL\hal_ADC.d" "shimmer3_common_source\5xx_HAL\hal_Board.d" "shimmer3_common_source\5xx_HAL\hal_Button.d" "shimmer3_common_source\5xx_HAL\hal_CRC.d" "shimmer3_common_source\5xx_HAL\hal_DMA.d" "shimmer3_common_source\5xx_HAL\hal_I2C.d" "shimmer3_common_source\5xx_HAL\hal_InfoMem.d" "shimmer3_common_source\5xx_HAL\hal_RTC.d" "shimmer3_common_source\5xx_HAL\hal_SDCard.d" "shimmer3_common_source\5xx_HAL\hal_TB0.d" "shimmer3_common_source\5xx_HAL\hal_UCA0.d" "shimmer3_common_source\5xx_HAL\hal_UCS.d" "shimmer3_common_source\5xx_HAL\hal_UartA0.d" "shimmer3_common_source\5xx_HAL\hal_pmm.d" "shimmer3_common_source\BMPX80\bmpX80.d" "shimmer3_common_source\Bluetooth_SD\RN42.d" "shimmer3_common_source\CAT24C16\cat24c16.d" "shimmer3_common_source\EXG\ads1292.d" "shimmer3_common_source\EXG\exg.d" "shimmer3_common_source\FatFs\ff.d" "shimmer3_common_source\FatFs\mmc.d" "shimmer3_common_source\FatFs\option\ccsbcs.d" "shimmer3_common_source\FatFs\option\syscall.d" 
-	-$(RM) "shimmer3_common_source\GSR\gsr.d" "shimmer3_common_source\LSM303AHTR\lsm303ahtr.d" "shimmer3_common_source\LSM303DLHC\lsm303dlhc.d" "shimmer3_common_source\MPU9150\mpu9150.d" "shimmer3_common_source\msp430_clock\msp430_clock.d" "shimmer3_common_source\shimmer_calibration\shimmer_calibration.d" 
+	-$(RM) "main.obj" "system_pre_init.obj" "shimmer3_common_source/5xx_HAL/hal_ADC.obj" "shimmer3_common_source/5xx_HAL/hal_Board.obj" "shimmer3_common_source/5xx_HAL/hal_Button.obj" "shimmer3_common_source/5xx_HAL/hal_CRC.obj" "shimmer3_common_source/5xx_HAL/hal_DMA.obj" "shimmer3_common_source/5xx_HAL/hal_I2C.obj" "shimmer3_common_source/5xx_HAL/hal_InfoMem.obj" "shimmer3_common_source/5xx_HAL/hal_RTC.obj" "shimmer3_common_source/5xx_HAL/hal_SDCard.obj" "shimmer3_common_source/5xx_HAL/hal_TB0.obj" "shimmer3_common_source/5xx_HAL/hal_UCA0.obj" "shimmer3_common_source/5xx_HAL/hal_UCS.obj" "shimmer3_common_source/5xx_HAL/hal_UartA0.obj" "shimmer3_common_source/5xx_HAL/hal_pmm.obj" "shimmer3_common_source/BMPX80/bmpX80.obj" "shimmer3_common_source/Bluetooth_SD/RN42.obj" "shimmer3_common_source/CAT24C16/cat24c16.obj" "shimmer3_common_source/EXG/ads1292.obj" "shimmer3_common_source/EXG/exg.obj" "shimmer3_common_source/FatFs/ff.obj" "shimmer3_common_source/FatFs/mmc.obj" "shimmer3_common_source/FatFs/option/ccsbcs.obj" 
+	-$(RM) "shimmer3_common_source/FatFs/option/syscall.obj" "shimmer3_common_source/GSR/gsr.obj" "shimmer3_common_source/LSM303AHTR/lsm303ahtr.obj" "shimmer3_common_source/LSM303DLHC/lsm303dlhc.obj" "shimmer3_common_source/MPU9150/mpu9150.obj" "shimmer3_common_source/msp430_clock/msp430_clock.obj" "shimmer3_common_source/shimmer_calibration/shimmer_calibration.obj" 
+	-$(RM) "main.d" "system_pre_init.d" "shimmer3_common_source/5xx_HAL/hal_ADC.d" "shimmer3_common_source/5xx_HAL/hal_Board.d" "shimmer3_common_source/5xx_HAL/hal_Button.d" "shimmer3_common_source/5xx_HAL/hal_CRC.d" "shimmer3_common_source/5xx_HAL/hal_DMA.d" "shimmer3_common_source/5xx_HAL/hal_I2C.d" "shimmer3_common_source/5xx_HAL/hal_InfoMem.d" "shimmer3_common_source/5xx_HAL/hal_RTC.d" "shimmer3_common_source/5xx_HAL/hal_SDCard.d" "shimmer3_common_source/5xx_HAL/hal_TB0.d" "shimmer3_common_source/5xx_HAL/hal_UCA0.d" "shimmer3_common_source/5xx_HAL/hal_UCS.d" "shimmer3_common_source/5xx_HAL/hal_UartA0.d" "shimmer3_common_source/5xx_HAL/hal_pmm.d" "shimmer3_common_source/BMPX80/bmpX80.d" "shimmer3_common_source/Bluetooth_SD/RN42.d" "shimmer3_common_source/CAT24C16/cat24c16.d" "shimmer3_common_source/EXG/ads1292.d" "shimmer3_common_source/EXG/exg.d" "shimmer3_common_source/FatFs/ff.d" "shimmer3_common_source/FatFs/mmc.d" "shimmer3_common_source/FatFs/option/ccsbcs.d" "shimmer3_common_source/FatFs/option/syscall.d" 
+	-$(RM) "shimmer3_common_source/GSR/gsr.d" "shimmer3_common_source/LSM303AHTR/lsm303ahtr.d" "shimmer3_common_source/LSM303DLHC/lsm303dlhc.d" "shimmer3_common_source/MPU9150/mpu9150.d" "shimmer3_common_source/msp430_clock/msp430_clock.d" "shimmer3_common_source/shimmer_calibration/shimmer_calibration.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

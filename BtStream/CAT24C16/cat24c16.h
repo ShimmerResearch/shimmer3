@@ -9,6 +9,11 @@
 #define BLOCK_SIZE		256
 #define READ_SIZE		128
 
+// Indices of important daughter card information
+#define DAUGHT_CARD_ID           (0x00)
+#define DAUGHT_CARD_REV          (0x01)
+#define DAUGHT_CARD_SPECIAL_REV  (0x02)
+
 
 //initialise the I2C for use with the CAT24C16
 //and also power on

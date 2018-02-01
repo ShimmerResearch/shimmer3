@@ -262,80 +262,80 @@ void ADS1292_readDataContinuousMode(uint8_t enable) {
 
 
 void ADS1292_start(uint8_t start) {
-   uint16_t gie = __get_SR_register() & GIE; //Store current GIE state
+   uint16_t gie = __get_SR_register() & GIE; /*Store current GIE state*/
 
-   __disable_interrupt();                    //Make this operation atomic
+   __disable_interrupt();                    /*Make this operation atomic*/
 
-   __delay_cycles(144);                      //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
-                                             //needed to ensure previous byte was not sent within this time period
+   __delay_cycles(144);                      /*Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+                                             needed to ensure previous byte was not sent within this time period*/
 
-   // Clock the actual data transfer and send the bytes. Note that we
-   // intentionally not read out the receive buffer during frame transmission
-   // in order to optimize transfer speed, however we need to take care of the
-   // resulting overrun condition.
-   while (!(UCA0IFG & UCTXIFG)) ;            //Wait while not ready for TX
+   /* Clock the actual data transfer and send the bytes. Note that we
+    intentionally not read out the receive buffer during frame transmission
+    in order to optimize transfer speed, however we need to take care of the
+    resulting overrun condition.*/
+   while (!(UCA0IFG & UCTXIFG)) ;            /*Wait while not ready for TX*/
    if(start)
       UCA0TXBUF = START;
    else
       UCA0TXBUF = STOP;
-   while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
+   while ( (UCA0STAT & UCBUSY) );            /*Wait for all TX/RX to finish*/
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
-                                             //and clear any overrun conditions
+   UCA0RXBUF;                                /*Dummy read to empty RX buffer
+                                             and clear any overrun conditions*/
 
-   __bis_SR_register(gie);                   //Restore original GIE state
+   __bis_SR_register(gie);                   /*Restore original GIE state*/
 }
 
 
 void ADS1292_resetRegs(void) {
-   uint16_t gie = __get_SR_register() & GIE; //Store current GIE state
+   uint16_t gie = __get_SR_register() & GIE; /*Store current GIE state*/
 
-   __disable_interrupt();                    //Make this operation atomic
+   __disable_interrupt();                    /*Make this operation atomic*/
 
-   __delay_cycles(144);                      //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
-                                             //needed to ensure previous byte was not sent within this time period
+   __delay_cycles(144);                      /*Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+                                             needed to ensure previous byte was not sent within this time period*/
 
-   // Clock the actual data transfer and send the bytes. Note that we
-   // intentionally not read out the receive buffer during frame transmission
-   // in order to optimize transfer speed, however we need to take care of the
-   // resulting overrun condition.
-   while (!(UCA0IFG & UCTXIFG)) ;            //Wait while not ready for TX
+   /* Clock the actual data transfer and send the bytes. Note that we
+    intentionally not read out the receive buffer during frame transmission
+    in order to optimize transfer speed, however we need to take care of the
+    resulting overrun condition.*/
+   while (!(UCA0IFG & UCTXIFG)) ;            /*Wait while not ready for TX*/
    UCA0TXBUF = RESET;
-   while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
+   while ( (UCA0STAT & UCBUSY) );            /*Wait for all TX/RX to finish*/
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
-                                             //and clear any overrun conditions
+   UCA0RXBUF;                                /*Dummy read to empty RX buffer
+                                             and clear any overrun conditions*/
 
-   __bis_SR_register(gie);                   //Restore original GIE state
+   __bis_SR_register(gie);                   /*Restore original GIE state*/
 
-   //takes 9f_MOD cycles (assume f_MOD is 128kHz as f_CLK is fixed to 512kHz)
-   //so 70.3125us
-   //must avoid sending other commands during this time
-   //Every other function waits 6us before sending a command
-   //so wait 65us here
-   __delay_cycles(1560);                     //wait 65us (assuming 24MHz MCLK)
+   /*takes 9f_MOD cycles (assume f_MOD is 128kHz as f_CLK is fixed to 512kHz)
+   so 70.3125us
+   must avoid sending other commands during this time
+   Every other function waits 6us before sending a command
+   so wait 65us here*/
+   __delay_cycles(1560);                     /*wait 65us (assuming 24MHz MCLK)*/
 }
 
 void ADS1292_offsetCal(void) {
-   uint16_t gie = __get_SR_register() & GIE; //Store current GIE state
+   uint16_t gie = __get_SR_register() & GIE; /*Store current GIE state*/
 
-   __disable_interrupt();                    //Make this operation atomic
+   __disable_interrupt();                    /*Make this operation atomic*/
 
-   __delay_cycles(144);                      //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
-                                             //needed to ensure previous byte was not sent within this time period
+   __delay_cycles(144);                      /*Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+                                             needed to ensure previous byte was not sent within this time period*/
 
-   // Clock the actual data transfer and send the bytes. Note that we
-   // intentionally not read out the receive buffer during frame transmission
-   // in order to optimize transfer speed, however we need to take care of the
-   // resulting overrun condition.
-   while (!(UCA0IFG & UCTXIFG)) ;            //Wait while not ready for TX
+   /* Clock the actual data transfer and send the bytes. Note that we
+    intentionally not read out the receive buffer during frame transmission
+    in order to optimize transfer speed, however we need to take care of the
+    resulting overrun condition.*/
+   while (!(UCA0IFG & UCTXIFG)) ;            /*Wait while not ready for TX*/
    UCA0TXBUF = OFFSETCAL;
-   while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
+   while ( (UCA0STAT & UCBUSY) );            /*Wait for all TX/RX to finish*/
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
-                                             //and clear any overrun conditions
+   UCA0RXBUF;                                /*Dummy read to empty RX buffer
+                                             and clear any overrun conditions*/
 
-   __bis_SR_register(gie);                   //Restore original GIE state
+   __bis_SR_register(gie);                   /*Restore original GIE state*/
 }
 
 
@@ -344,33 +344,33 @@ void ADS1292_enableInternalReference(void) {
 
    ADS1292_regWrite(ADS1x9x_REG_CONFIG2, 1, data);
 
-   __delay_cycles(2400000);                  //100ms (assuming 24MHz clock)
-                                             //for internal reference to settle
+   __delay_cycles(2400000);                  /*100ms (assuming 24MHz clock)*/
+                                             /*for internal reference to settle*/
 }
 
 void ADS1292_enableDrdyInterrupts(uint8_t mask) {
    if(mask&ADS1292_DRDY_INT_CHIP1) {
-      //enable falling edge interrupt on P2.0
-      P2IES |= BIT0; //look for falling edge
+      /*enable falling edge interrupt on P2.0*/
+      P2IES |= BIT0; /*look for falling edge*/
       P2IFG &= ~BIT0;
 
-      P2IE |= BIT0;  //enable interrupt
+      P2IE |= BIT0;  /*enable interrupt*/
    }
    if(mask&ADS1292_DRDY_INT_CHIP2) {
-      //enable falling edge interrupt on P1.4
-      P1IES |= BIT4; //look for falling edge
+      /*enable falling edge interrupt on P1.4*/
+      P1IES |= BIT4; /*look for falling edge*/
       P1IFG &= ~BIT4;
 
-      P1IE |= BIT4;  //enable interrupt
+      P1IE |= BIT4;  /*enable interrupt*/
    }
 }
 
 void ADS1292_disableDrdyInterrupts(uint8_t mask) {
    if(mask&ADS1292_DRDY_INT_CHIP1) {
-      P2IE &= ~BIT0; //disable interrupt
+      P2IE &= ~BIT0; /*disable interrupt*/
    }
    if(mask&ADS1292_DRDY_INT_CHIP2) {
-      P1IE &= ~BIT4; //disable interrupt
+      P1IE &= ~BIT4; /*disable interrupt*/
    }
 }
 
@@ -393,7 +393,7 @@ uint8_t ADS1292_readDataChip2(uint8_t *data) {
    return 1;
 }
 
-//Tell the driver that the data is ready to be read from chipX
+/*Tell the driver that the data is ready to be read from chipX*/
 void ADS1292_dataReadyChip1() {
    if(chip2ReadPending)
       chip1ReadPending = 1;
@@ -405,7 +405,7 @@ void ADS1292_dataReadyChip1() {
          } else {
             activeBuffer = chip1Buffer1;
          }
-         rxCount = UCA0RXBUF;    //Dummy Read
+         rxCount = UCA0RXBUF;    /*Dummy Read*/
          rxCount = 0;
 
          if(P6IN&BIT1) {
@@ -413,7 +413,7 @@ void ADS1292_dataReadyChip1() {
          }
 
          UCA0TXBUF = 0xFF;
-         UCA0IE |= UCRXIE;       //Enable USCI_A0 RX interrupt
+         UCA0IE |= UCRXIE;       /*Enable USCI_A0 RX interrupt*/
       }
    }
 }
@@ -429,7 +429,7 @@ void ADS1292_dataReadyChip2() {
          } else {
             activeBuffer = chip2Buffer1;
          }
-         rxCount = UCA0RXBUF;    //Dummy Read
+         rxCount = UCA0RXBUF;    /*Dummy Read*/
          rxCount = 0;
 
          if(P7IN&BIT6) {
@@ -437,17 +437,17 @@ void ADS1292_dataReadyChip2() {
          }
 
          UCA0TXBUF = 0xFF;
-         UCA0IE |= UCRXIE;       //Enable USCI_A0 RX interrupt
+         UCA0IE |= UCRXIE;       /*Enable USCI_A0 RX interrupt*/
       }
    }
 }
 
 uint8_t ads1292Uca0RxIsr(){
-   while (!(UCA0IFG&UCTXIFG));      //USCI_A0 TX buffer ready?
+   while (!(UCA0IFG&UCTXIFG));      /*USCI_A0 TX buffer ready?*/
 
    activeBuffer[rxCount++] = UCA0RXBUF;
    if ( rxCount == ADS1292_DATA_PACKET_LENGTH) {
-      UCA0IE &= ~UCRXIE;            //Disable USCI_A0 RX interrupt
+      UCA0IE &= ~UCRXIE;            /*Disable USCI_A0 RX interrupt*/
       if((activeBuffer == chip1Buffer1) || (activeBuffer == chip1Buffer2)) {
          chip1ReadPending = 0;
          if(activeBuffer == chip1Buffer1)
@@ -470,17 +470,19 @@ uint8_t ads1292Uca0RxIsr(){
          }
       }
    } else {
-      UCA0TXBUF = 0xFF;             //To get Next byte.
+      UCA0TXBUF = 0xFF;             /*To get next byte.*/
    }
    return 0;
 }
 
-uint8_t ads1292Uca0TxIsr(){ return 0;}  // to add if necessary
+uint8_t ads1292Uca0TxIsr(){ return 0;}  /* to add if necessary*/
 
-//void ADS1292_reg2Uca0(){
-//   ads1292_isr_number = UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr);
-//}
+/*
+void ADS1292_reg2Uca0(){
+   ads1292_isr_number = UCA0_isrRegister(ads1292Uca0RxIsr, ads1292Uca0TxIsr);
+}
 
-//void ADS1292_activate(){
-//   UCA0_isrActivate(ads1292_isr_number);
-//}
+void ADS1292_activate(){
+   UCA0_isrActivate(ads1292_isr_number);
+}
+*/

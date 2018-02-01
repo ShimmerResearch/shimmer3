@@ -174,16 +174,30 @@ void EXG_writeRegs(uint8_t chip, uint8_t startaddress, uint8_t size, uint8_t *wd
 void EXG_readData(uint8_t chip, uint8_t size, uint8_t *buf) {
    if(chip) {
       if(ADS1292_readDataChip2(data)) {
-         //valid data
+         /*Valid data*/
+
+          /*
+          * Computing status byte
+          * Output of ADS1292R - from the datasheet:
+          * For the ADS1292R, the number of data outputs is (24 status bits + 24 bits × 2 channels) = 72 bits.
+          * The format of the 24 status bits is: (1100 + LOFF_STAT[4:0] + GPIO[1:0] + 13 '0's).
+          *
+          * This data is broken up and concatenated into one byte such that GPIO bits are omitted
+          * and the status byte always retains a leading 1 as MSB. The byte format is as follows:
+          *  - buf[0] = [100 + LOFF_STAT[4:0]]
+          * where
+          *  - LOFF_STAT[4:0] = [RLD_STAT, IN2N_OFF, IN2P_OFF, IN1N_OFF, IN1P_OFF]
+          *
+          * */
          *buf = ((*data & 0x4F)<<1) + ((*(data+1) & 0x80)>>7);
          if(size) {
-            //16-bit
+            /*16-bit*/
             buf[1] = (uint8_t)(((data[4]>>7) & 0x01) + ((data[3]<<1) & 0x7E)) + (data[3] & 0x80);
             buf[2] = (uint8_t)(((data[5]>>7) & 0x01) + ((data[4]<<1) & 0xFE));
             buf[3] = (uint8_t)(((data[7]>>7) & 0x01) + ((data[6]<<1) & 0x7E)) + (data[6] & 0x80);
             buf[4] = (uint8_t)(((data[8]>>7) & 0x01) + ((data[7]<<1) & 0xFE));
          } else {
-            //24-bit
+            /*24-bit*/
             memcpy(buf+1, data+3, 6);
          }
       } else {
@@ -191,16 +205,16 @@ void EXG_readData(uint8_t chip, uint8_t size, uint8_t *buf) {
       }
    } else {
       if(ADS1292_readDataChip1(data)) {
-         //valid data
+         /*valid data*/
          *buf = ((*data & 0x4F)<<1) + ((*(data+1) & 0x80)>>7);
          if(size) {
-            //16-bit
+            /*16-bit*/
             buf[1] = (uint8_t)(((data[4]>>7) & 0x01) + ((data[3]<<1) & 0xFE));
             buf[2] = (uint8_t)(((data[5]>>7) & 0x01) + ((data[4]<<1) & 0xFE));
             buf[3] = (uint8_t)(((data[7]>>7) & 0x01) + ((data[6]<<1) & 0xFE));
             buf[4] = (uint8_t)(((data[8]>>7) & 0x01) + ((data[7]<<1) & 0xFE));
          } else {
-            //24-bit
+            /*24-bit*/
             memcpy(buf+1, data+3, 6);
          }
       } else {

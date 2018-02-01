@@ -38,19 +38,15 @@
  *
  * @author Mike Healy
  * @date December, 2013
+ *
+ * @modified Sam O'Mahony
+ * @date January, 2018
  */
 
 #include <stdint.h>
 #include "msp430.h"
 #include "hal_InfoMem.h"
 
-#define INFOMEM_OFFSET 0x1800
-#define INFOMEM_SIZE 512
-#define INFOMEM_SEG_SIZE 128
-#define INFOMEM_SEG_A_ADDR 0x1980
-#define INFOMEM_SEG_B_ADDR 0x1900
-#define INFOMEM_SEG_C_ADDR 0x1880
-#define INFOMEM_SEG_D_ADDR 0x1800
 
 
 //returns 1 if successful, 0 if failure

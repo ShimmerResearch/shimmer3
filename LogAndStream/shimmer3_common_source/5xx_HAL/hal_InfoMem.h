@@ -38,6 +38,9 @@
  *
  * @author Mike Healy
  * @date December, 2013
+ *
+ * @modified Sam O'Mahony
+ * @date January, 2018
  */
 
 #ifndef HAL_INFOMEM_H
@@ -50,6 +53,14 @@
 #define INFOMEM_SEG_B 0x04
 #define INFOMEM_SEG_A 0x08
 #define INFOMEM_SEG_ALL 0x0F
+
+#define INFOMEM_OFFSET 0x1800
+#define INFOMEM_SIZE     512
+#define INFOMEM_SEG_SIZE 128
+#define INFOMEM_SEG_A_ADDR 0x1980
+#define INFOMEM_SEG_B_ADDR 0x1900
+#define INFOMEM_SEG_C_ADDR 0x1880
+#define INFOMEM_SEG_D_ADDR 0x1800
 
 //returns 1 if successful, 0 if failure
 extern uint8_t InfoMem_write(uint8_t *addr, uint8_t *buf, uint16_t size);

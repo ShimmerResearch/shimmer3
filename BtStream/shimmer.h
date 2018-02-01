@@ -38,6 +38,9 @@
  *
  * @author Mike Healy
  * @date December, 2013
+ *
+ * @edited Sam O'Mahony
+ * @date September, 2017
  */
 
 
@@ -48,8 +51,15 @@
 #define DEVICE_VER      3     //Represents shimmer3
 #define FW_IDENTIFIER   1     //Two byte firmware identifier number
 #define FW_VER_MAJOR    0     //Major version number: 0-65535
-#define FW_VER_MINOR    7     //Minor version number: 0-255
-#define FW_VER_REL      8     //Release candidate version number: 0-255
+#define FW_VER_MINOR    10    //Minor version number: 0-255
+#define FW_VER_REL      0     //Release candidate version number: 0-255
+
+
+// BATTERY
+#define BATT_HIGH       0
+#define BATT_MID        1
+#define BATT_LOW        2
+#define BATT_INTERVAL  (6000) // (60*10*10)*100ms = 10 minutes
 
 
 // Packet Types
@@ -297,6 +307,8 @@
 #define NV_MPU9150_GYRO_CALIBRATION       55
 #define NV_LSM303DLHC_MAG_CALIBRATION     76
 #define NV_LSM303DLHC_ACCEL_CALIBRATION   97
+#define NV_BT_SET_PIN                     (128+103) // consistent with L&S v0.8.6 onwards
+#define NV_MAC_ADDRESS                    (128+96)   // 6bytes
 
 
 //Config byte masks
