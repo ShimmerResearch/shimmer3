@@ -1,6 +1,31 @@
 LogAndStream change log
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
+
+31 Jan 2018 - 0.11.0
+  som - fix for dock issue - docking a streaming Shimmer stopped it streaming - now resolved.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.11.0
+
+
+25 Jan 2018 - 0.10.3
+  som - added factory test for i2c functionality - RED LED remains on if i2c fault preset, otherwise extinguishes
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.3
+
+
+23 Jan 2018 - 0.10.2
+  som - fixed ADS chip 1 timing issue for internal clock usage - see page 63 of ADS1292R datasheet for program flow and timing diagrams.
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.2
+
+
+23 Jan 2018 - 0.10.1
+  som - added support for SR47-4 (and newer: >= 4) boards
+
+See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.1
+
+********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 06 Dec 2017 - 0.10.0
   som - uprev of v0.9.7
 
