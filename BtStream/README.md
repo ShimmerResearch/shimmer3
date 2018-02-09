@@ -11,7 +11,7 @@ By default this application samples the 3-axis analog accelerometer, MPU9150 gyr
 ```
 Data Packet Format:
           Packet Type | TimeStamp | chan1 | chan2 | ... | chanX
-   Byte:       0      |    1-3    |  4-5  |  6-7  | ... | chanX
+   Byte:       0      |    1-2    |  3-4  |  5-6  | ... | chanX
 ```
 
 When the application receives an Inquiry command it responds with the following packet. The value in the channel fields indicate exactly what data from which sensor is contained in this field of the data packet:
