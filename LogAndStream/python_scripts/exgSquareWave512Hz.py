@@ -27,7 +27,7 @@ exgGain = {
 * User settable variables *
 ***************************
 '''
-samplingFrequency = 512 				# frequency in Hz
+samplingFrequency = 512 		# frequency in Hz
 exgGainValue = exgconfigGain['GAIN_1'] 	# sets a gain of 1
 
 
