@@ -31,7 +31,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 18 # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel + 2byte GSR + 3x2byte MPU9150 gyro
+   framesize = 17 # 1byte packet type + 2byte timestamp + 3x2byte Analog Accel + 2byte GSR + 3x2byte MPU9150 gyro
 
    print "Packet Type,Timestamp,Analog AccelX,Analog AccelY,Analog AccelZ,GSR Range,GSR,GyroX,GyroY,GyroZ"
    try:
@@ -45,13 +45,8 @@ else:
          numbytes = len(ddata)
 
          (packettype,) = struct.unpack('B', data[0:1])
-
-         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
-
-         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
-
-         (analogacceyx, analogacceyy, analogacceyz, gsr) = struct.unpack('HHHH', data[4:12])
-         (gyrox, gyroy, gyroz) = struct.unpack('>hhh', data[12:framesize])
+         (timestamp, analogacceyx, analogacceyy, analogacceyz, gsr) = struct.unpack('HHHHH', data[1:11])
+         (gyrox, gyroy, gyroz) = struct.unpack('>hhh', data[11:framesize])
          gsrrange = (gsr & 0xC000) >> 14
          gsr &= 0xFFF
          print "0x%02x,%5d,\t%4d, %4d, %4d,\t%d, %4d,\t%4d, %4d, %4d" % (packettype, timestamp, analogacceyx, analogacceyy, analogacceyz, gsrrange, gsr, gyrox, gyroy, gyroz)

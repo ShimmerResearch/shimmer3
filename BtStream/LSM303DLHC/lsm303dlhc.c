@@ -106,21 +106,11 @@ void LSM303DLHC_getAccel(uint8_t *buf) {
    I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
+
 void LSM303DLHC_getMag(uint8_t *buf) {
-   static uint8_t last_data[7] = {0,0,0,0,0,0,0};
    I2C_Set_Slave_Address(LSM303DHLC_MAG_ADDR);
-   *buf = SR_REG_M;
-   I2C_Read_Packet_From_Sensor(buf, 1);
-   if(buf[0] & 0x01){
-      *buf = OUT_X_H_M;
-      I2C_Read_Packet_From_Sensor(buf, 6);
-      memcpy(last_data, buf, 6);
-      last_data[6] = 1;
-   }else{
-      if(last_data[6] == 1){
-         memcpy(buf,last_data, 6);
-      }
-   }
+   *buf = OUT_X_H_M;
+   I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
 

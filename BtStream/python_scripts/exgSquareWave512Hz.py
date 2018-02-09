@@ -9,9 +9,9 @@ def wait_for_ack():
    return
 
 if len(sys.argv) < 2:
-   print "no device specified"
-   print "You need to specify the serial port of the device you wish to connect to"
-   print "example:"
+   print "No device specified."
+   print "Specify the serial port of the device you wish to connect to."
+   print "Example:"
    print "   exgSquareWave512Hz.py Com12"
    print "or"
    print "   exgSquareWave512Hz.py /dev/rfcomm0"
@@ -22,13 +22,14 @@ else:
    ser.write(struct.pack('BBBB', 0x08, 0x18, 0x00, 0x00))  #exg1 and exg2
    wait_for_ack()
 # send the set sampling rate command
-#   ser.write(struct.pack('BBB', 0x05, 0x80, 0x02)) #51.2Hz (640 (0x280)). Has to be done like this for alignment reasons
-   ser.write(struct.pack('BBB', 0x05, 0x40, 0x00)) #512Hz (64 (0x0040)). Has to be done like this for alignment reasons
+   ser.write(struct.pack('BBB', 0x05, 0x40, 0x00)) #512Hz (32768/64=512Hz: 64 -> 0x0040; has to be done like this for alignment reasons.)
    wait_for_ack()
 # configure both ADS1292R chips: enable internal reference, 500 samples per second, square-wave test signal
-   ser.write(struct.pack('BBBBBBBBB', 0x61, 0x00, 0x00, 0x05, 0x02, 0xA3, 0x10, 0x05, 0x05))
+# exgtestsignalconfiguration = ["CONFIG1" = 2, "CONFIG2" = 163, "LOFF" = 16, "CH1SET" = 5, "CH2SET" = 5, "RLD_SENS" = 0, "LOFF_SENS" = 0, "LOFF_STAT" = 0, "RESP1" = 2, "RESP2" = 1]
+# write SET_EXG_REGS_COMMAND, chip identifier ('0' for chip1, '1' for chip2), starting byte, number of bytes to write, followed by the exgtestsignalconfiguration bytes 
+   ser.write(struct.pack('BBBBBBBBBBBBBB', 0x61, 0x00, 0x00, 0x0A, 0x02, 0xA3, 0x10, 0x05, 0x05, 0x00, 0x00, 0x00, 0x02, 0x01))
    wait_for_ack()
-   ser.write(struct.pack('BBBBBBBBB', 0x61, 0x01, 0x00, 0x05, 0x02, 0xA3, 0x10, 0x05, 0x05))
+   ser.write(struct.pack('BBBBBBBBBBBBBB', 0x61, 0x01, 0x00, 0x0A, 0x02, 0xA3, 0x10, 0x05, 0x05, 0x00, 0x00, 0x00, 0x02, 0x01))
    wait_for_ack()
 
 # send start streaming command
@@ -70,4 +71,4 @@ else:
 #close serial port
       ser.close()
       print
-      print "All done"
+      print "All done!"

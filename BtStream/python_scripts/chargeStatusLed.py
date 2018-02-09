@@ -10,12 +10,12 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "no device specified"
-   print "You need to specify the serial port of the device you wish to connect to"
+   print "No device specified."
+   print "Specify the serial port of the device you wish to connect to."  
    print "A second argument can be specified to change which LED is active"
    print "   Green = 0, Yellow = 1, Red = 2."
    print "If no second argument the currently selected LED setting is read and displayed"
-   print "example:"
+   print "Example:"
    print "   chargeStatusLed.py Com12"
    print "or"
    print "   chargeStatusLed.py Com12 0x02"
@@ -62,4 +62,4 @@ else:
          print "%d is not a valid charge status LED setting\nMust be between 0 and 2" % newsetting
 #close serial port
    print
-   print "All done"
+   print "All done!"

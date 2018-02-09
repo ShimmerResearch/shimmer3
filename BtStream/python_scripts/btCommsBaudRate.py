@@ -10,15 +10,15 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "no device specified"
-   print "You need to specify the serial port of the device you wish to connect to"
+   print "No device specified."
+   print "Specify the serial port of the device you wish to connect to."
    print "A second argument can be specified to change the Bluetooth communication" 
-   print "baud rate to new value"
-   print "If no second argument the current setting is read and displayed"
+   print "baud rate to new value."
+   print "If no second argument the current setting is read and displayed."
    print "There are 11 allowable ranges:"
    print "   0=115.2K(default), 1=1200, 2=2400, 3=4800, 4=9600, 5=19.2K, 6=38.4K,"
    print "   7=57.6K, 8=230.4K, 9=460.8K, 10=921.6K, else revert to default"
-   print "example:"
+   print "Example:"
    print "   btCommsBaudRate.py Com12"
    print "or"
    print "   btCommsBaudRate.py Com12 0x01"
@@ -52,10 +52,10 @@ else:
 # send set bt comms rate command
          ser.write(struct.pack('BB', 0x6A, newrate))
          wait_for_ack()
-         print "Bluetooth communication baud rate will be set to: 0x%02x (%s buad) after disconnect" % (newrate, baudrate[newrate])
+         print "Bluetooth communication baud rate will be set to: 0x%02x (%s baud) after disconnect" % (newrate, baudrate[newrate])
          ser.close()
       else:
          print "%d is not a valid rate\nMust be between 0 and 10" % newrate
 #close serial port
    print
-   print "All done"
+   print "All done!"

@@ -80,7 +80,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 61 # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel + 2byte batt voltage + 3x2byte External ADC + 4x2byte Internal ADC + 3x2byte Gyro + 3x2byte LSM Accel + 3x2byte Mag + 3x2byte MPU Accel + 3x2byte MPU mag + 2 byte BMP temp + 3 byte BMP pressure
+   framesize = 60 # 1byte packet type + 2byte timestamp + 3x2byte Analog Accel + 2byte batt voltage + 3x2byte External ADC + 4x2byte Internal ADC + 3x2byte Gyro + 3x2byte LSM Accel + 3x2byte Mag + 3x2byte MPU Accel + 3x2byte MPU mag + 2 byte BMP temp + 3 byte BMP pressure
 # write data to file
    print "Writing data to file..."
    sys.stdout = open('aLotofSensors51.2Hz.csv', 'a')
@@ -98,24 +98,16 @@ else:
          numbytes = len(ddata)
 
          (packettype) = struct.unpack('B', data[0:1])
-         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
-
-         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
-
-         (analogaccelx, analogaccely, analogaccelz, vbatt, adc7, adc6, adc15, adc12, adc13, adc14, adc1) \
-         = struct.unpack('HHHHHHHHHHH', data[4:26])
-         (gyrox, gyroy, gyroz) = struct.unpack('>hhh', data[26:32])
-         (lsmaccelx, lsmaccely, lsmaccelz) = struct.unpack('hhh', data[32:38])
-         (magx, magz, magy, mpuaccelx, mpuaccely, mpuaccelz) = struct.unpack('>hhhhhh', data[38:50])
-         (mpumagx, mpumagy, mpumagz) = struct.unpack('hhh', data[50:56])
-         (UT,) = struct.unpack('>H', data[56:58])
-         (msb, lsb, xlsb) =struct.unpack('BBB', data[58:framesize])
+         (timestamp, analogaccelx, analogaccely, analogaccelz, vbatt, adc7, adc6, adc15, adc12, adc13, adc14, adc1) = struct.unpack('HHHHHHHHHHHH', data[1:25])
+         (gyrox, gyroy, gyroz) = struct.unpack('>hhh', data[25:31])
+         (lsmaccelx, lsmaccely, lsmaccelz) = struct.unpack('hhh', data[31:37])
+         (magx, magz, magy, mpuaccelx, mpuaccely, mpuaccelz) = struct.unpack('>hhhhhh', data[37:49])
+         (mpumagx, mpumagy, mpumagz) = struct.unpack('hhh', data[49:55])
+         (UT,) = struct.unpack('>H', data[55:57])
+         (msb, lsb, xlsb) =struct.unpack('BBB', data[57:framesize])
          UP = ((msb<<16) + (lsb<<8) + xlsb)>>(8-OSS)
          (T, p) = bmp180_calc_compensated_vals(UT, UP)
-         print "0x%02x,%5d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%0.1f,%d" \
-         % (packettype[0], timestamp, analogaccelx, analogaccely, analogaccelz, vbatt, adc7, adc6, adc15, adc12, \
-            adc13, adc14, adc1, gyrox, gyroy, gyroz, lsmaccelx, lsmaccely, lsmaccelz, mpuaccelx, mpuaccely, mpuaccelz, \
-            magx, magz, magy, mpumagx, mpumagy, mpumagz, T/10.0, p)
+         print "0x%02x,%5d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%0.1f,%d" % (packettype[0], timestamp, analogaccelx, analogaccely, analogaccelz, vbatt, adc7, adc6, adc15, adc12, adc13, adc14, adc1, gyrox, gyroy, gyroz, lsmaccelx, lsmaccely, lsmaccelz, mpuaccelx, mpuaccely, mpuaccelz, magx, magz, magy, mpumagx, mpumagy, mpumagz, T/10.0, p)
 
    except KeyboardInterrupt:
 #send stop streaming command

@@ -10,12 +10,12 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "no device specified"
-   print "You need to specify the serial port of the device you wish to connect to"
+   print "No device specified."
+   print "Specify the serial port of the device you wish to connect to."
    print "A second argument can be specified to set or clear the internal expansion"
-   print "power enable pin"
-   print "If no second argument the current seting is read and displayed"
-   print "example:"
+   print "power enable pin."
+   print "If no second argument the current seting is read and displayed."
+   print "Example:"
    print "   internalExpPowerEnable.py Com12"
    print "or"
    print "   internalExpPowerEnable.py Com12 0x01"
@@ -54,4 +54,4 @@ else:
          print "%d is not a valid setting\nMust be between 0 and 1" % newsetting
 #close serial port
    print
-   print "All done"
+   print "All done!"

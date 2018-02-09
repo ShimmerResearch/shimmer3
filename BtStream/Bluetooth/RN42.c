@@ -734,7 +734,11 @@ void BT_disable() {
    //Turn off power (SW_BT P4.3 on Shimmer3)
    P4OUT &= ~BIT3;
 }
-/*
+
+
+//write data to be transmitted to the Bluetooth module
+//returns 0 if fails, else 1
+//will only fail if a previous BT_write is still in progress
 uint8_t BT_write(uint8_t *buf, uint8_t len) {
    if(messageInProgress)
       return 0;   //fail
@@ -750,38 +754,6 @@ uint8_t BT_write(uint8_t *buf, uint8_t len) {
    } else {
       return 0;   //fail
    }
-}
-*/
-//write data to be transmitted to the Bluetooth module
-//returns 0 if fails, else 1
-//will only fail if write buffer (256 bytes) is full
-uint8_t BT_write(uint8_t *buf, uint8_t len) {
-   if(messageInProgress) {
-      //need to disable interrupts in here to prevent race condition
-      if(len+messageLength <= 255)
-      {
-         uint16_t gie = __get_SR_register() & GIE; //Store current GIE state
-         __disable_interrupt();                    //Make this operation atomic
-         memcpy(messageBuffer+messageLength, buf, len);
-         messageLength += len;
-         __bis_SR_register(gie);                   //Restore original GIE state
-      } else {
-         return 0;   //fail
-      }
-   } else {
-      charsSent = 0;
-      memcpy(messageBuffer, buf, len);
-      messageLength = len;
-
-      if(!transmissionOverflow) {
-         messageInProgress = 1;
-         sendNextChar();
-         return 1;   //success
-      } else {
-         return 0;   //fail
-      }
-   }
-   return 0;
 }
 
 
@@ -939,7 +911,6 @@ void BT_setTempBaudRate(char * baudRate) {
       //So instead of reading response and then continuing, wait 200ms and then continue
       //("U,XXXX\r" and "AOK\r\n" is 12 characters = 120 bit @ 1200baud = 100ms
       //Double this for some processing margin)
-      //TODO
       if(slowRate) {
          UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
          writeCommandNoRsp(commandbuf);

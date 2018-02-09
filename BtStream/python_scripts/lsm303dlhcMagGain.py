@@ -10,10 +10,10 @@ def wait_for_ack():
 
 
 if len(sys.argv) < 2:
-   print "no device specified"
-   print "You need to specify the serial port of the device you wish to connect to"
-   print "A second argument can be specified to change LSM303DLHC Mag gain to new value"
-   print "If no second argument the current range is read and displayed"
+   print "No device specified."
+   print "Specify the serial port of the device you wish to connect to."
+   print "A second argument can be specified to change LSM303DLHC Mag gain to new value."
+   print "If no second argument the current range is read and displayed."
    print "example:"
    print "   lsm303dlhcMagGain.py Com12"
    print "or"
@@ -50,7 +50,7 @@ else:
          print "LSM303DLHC Mag gain set to: 0x%02x" % (newgain)
          ser.close()
       else:
-         print "%d is not a valid LSM303DLHC Mag gain\nMust be between 1 and 7" % newgain
+         print "%d is not a valid LSM303DLHC Mag gain.\nMag gain must be between 1 and 7." % newgain
 #close serial port
    print
-   print "All done"
+   print "All done!"

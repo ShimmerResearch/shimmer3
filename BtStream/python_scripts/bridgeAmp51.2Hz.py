@@ -31,7 +31,7 @@ else:
 # read incoming data
    ddata = ""
    numbytes = 0
-   framesize = 8 # 1byte packet type + 3byte timestamp + 2x2byte bridge amplifier
+   framesize = 7 # 1byte packet type + 2byte timestamp + 2x2byte bridge amplifier
 
    print "Packet Type,Timestamp,Bridge Amp High,Bridge Amp Low,"
    try:
@@ -45,12 +45,7 @@ else:
          numbytes = len(ddata)
 
          (packettype) = struct.unpack('B', data[0:1])
-
-         (timestamp0, timestamp1, timestamp2) = struct.unpack('BBB', data[1:4])
-
-         timestamp = timestamp0 + timestamp1*256 + timestamp2*65536
-
-         (bridgeamphigh, bridgeamplow) = struct.unpack('HH', data[4:framesize])
+         (timestamp, bridgeamphigh, bridgeamplow) = struct.unpack('HHH', data[1:framesize])
          print "0x%02x,%5d,\t%4d,%4d" % (packettype[0], timestamp, bridgeamphigh, bridgeamplow)
 
    except KeyboardInterrupt:
