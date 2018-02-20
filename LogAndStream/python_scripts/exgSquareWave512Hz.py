@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import sys, struct, serial
+import sys, struct, serial, time
 
 # ExG configuration parameters
 exgconfigGain = {
@@ -22,13 +22,17 @@ exgGain = {
 	'GAIN_12': 12
 }
 
+exg_24bit = [0x18, 0x00, 0x00]
+exg_16bit = [0x00, 0x00, 0x18]
+
 '''
 ***************************
 * User settable variables *
 ***************************
 '''
-samplingFrequency = 512 		# frequency in Hz
-exgGainValue = exgconfigGain['GAIN_1'] 	# sets a gain of 1
+samplingFrequency 	= 512 						# frequency in Hz
+exgRes_24bit 		= True						# 24bit if True, else 16bit
+exgGainValue 		= exgconfigGain['GAIN_1'] 	# sets a gain of 1
 
 
 # The internal sampling rate of the ADS1292R chips needs to be set based on the Shimmers sampling rate
@@ -139,7 +143,19 @@ else:
 	* Send ExG config bytes *
 	*************************
 	'''
-	exgCalFactor = (((2.42*1000)/exgGain['GAIN_1'])/(pow(2,23)-1))
+	# firstly - send the set sensors command - disable all
+	if exgRes_24bit:
+		sensors = [0x08] + exg_24bit
+	else:
+		sensors = [0x08] + exg_16bit
+	ser.write(sensors)
+	wait_for_ack()
+	time.sleep(2)
+
+	if exgRes_24bit:
+		exgCalFactor = (((2.42*1000)/exgGain['GAIN_1'])/(pow(2,23)-1))
+	else:
+		exgCalFactor = (((2.42*1000)/(exgGain['GAIN_1']*2))/(pow(2,15)-1))
 
 	if(srNumber == 47 and srRev >= 4):
 		chip1Config[1] |= 8 # Config byte for CHIP1 in SR47-4
@@ -164,7 +180,7 @@ else:
 	# read incoming data
 	ddata = ""
 	numbytes = 0
-	framesize = 18 # 1byte packet type + 3byte timestamp + 14byte ExG data
+	framesize = (18 if exgRes_24bit else 14) # 1byte packet type + 3byte timestamp + 14byte ExG data
 
 	print "Packet Type,\tTimestamp, \tChip1 Status, \tChip1 Channel 1,2 (mv), \tChip2 Status, \tChip2 Channel 1,2 (mV)"
 	try:
@@ -184,12 +200,28 @@ else:
 			timestamp = ts0 + ts1*256 + ts2*65536
 			# 24-bit signed values MSB values are tricky, as struct only supports 16-bit or 32-bit
 			# pad with zeroes at LSB end and then shift the result
-			c1ch1 = struct.unpack('>i', (data[5:8] + '\0'))[0] >> 8
-			c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
+			if exgRes_24bit:
+				# chip 1
+				c1ch1 = struct.unpack('>i', (data[5:8]  + '\0'))[0] >> 8
+				c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
 
-			(c2status,) = struct.unpack('B', data[11])
-			c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
-			c2ch2 = struct.unpack('>i', (data[15:18] + '\0'))[0] >> 8
+				# status byte
+				(c2status,) = struct.unpack('B', data[11:12])
+
+				# chip 2
+				c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
+				c2ch2 = struct.unpack('>i', (data[15:framesize] + '\0'))[0] >> 8
+			else:
+				# chip 1
+				c1ch1 = struct.unpack('>h', data[5:7])[0]
+				c1ch2 = struct.unpack('>h', data[7:9])[0]
+
+				# status byte
+				(c2status,) = struct.unpack('B', data[9:10])
+
+				# chip 2
+				c2ch1 = struct.unpack('>h', data[10:12])[0]
+				c2ch2 = struct.unpack('>h', data[12:framesize])[0]
 
 			# Calibrate exg channels:
 			c1ch1 *= exgCalFactor
