@@ -6,37 +6,26 @@ SDLog.txt firmware change log per version:
   som - Added support for SR47-4 ExG device (ADS clock lines tied).
   som - Known bug in firmware - see Github Release notes for more info
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.19.0
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 06 Dec 2017 - 0.18.0
   som - uprev of v0.17.4
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.18.0
-
 01 Dec 2017 - 0.17.4
   som - update: revert to old GSR values (pre SDLog_v0.17.2)
-
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.17.4
 
 28 Nov 2017 - 0.17.3
   som - bug-fix: undock-start bugfix ported from StroKare firmware
   som - update: low-battery autostop feature - configurable via infomem/sdlog.cfg
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.17.3
-
 03 Nov 2017 - 0.17.2
   som - update: Applied Prakash's newly calcluated GSR values
-
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.17.2
 
 
 16 Oct 2017 - 0.17.1
   bug fix: For Shimmer units using the BMP280 device, bmp180 was still being written to sdlog.cfg file. Now writes text based on current on-board sensor.
   bug fix: Wide range accel not sampling correctly above 1024Hz. Fix applied in LSM303AHTR driver to apply settings correctly for samplingRate > 7. To be tested internally
   new feature: None.
-
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer3_v0.17.1
 
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
@@ -45,13 +34,9 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_Shimmer
   UPREV FOR MAJOR RELEASE
   new feature: None.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.17.0
-
 17Aug2017 0.16.1
   bug fix: BMP280 code changed to match L&S exactly
   new feature: None.
-
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.16.1
 
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
@@ -61,7 +46,6 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.16.1
   bug fix: BMP280 sensory parameters are obtained properly
   new feature: None.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.16.0
 
 27Jul2017 0.15.1
   bug fix: TCXO functionality not working as expected
@@ -69,54 +53,44 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.16.0
   new feature: Default calibration bytes written for blank shimmer
   new feature: Default name changed from "idXXXX" to "Shimmer_XXXX"
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.15.1
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 
 24May2017 0.15.0
   UPREV FOR MAJOR RELEASE
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.15.0
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 
 23May2017 0.14.1
   bug fix: est_exp_len not assigned value correctly in "sdlog.cfg" file. User would instead see "est_exp_len=" with no parameter after the "=". sprintf now uses %d instead of %u.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.14.1
-
 
 19May2017 0.14.0
   UPREV FOR MAJOR RELEASE = 0.13.8
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.14.0
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.15.0 - major release was shortly replaced due to bug - no github release made for v0.14.0
 
 15May2017 0.13.8
   bug fix: FreqDiv function set to use round(clockFreq / num_in) instead of floor(clockFreq / num_in) - was changing sampling rate between sessions as result of FreqDiv did not match that set by Consensys.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.13.8
 
 08May2017 0.13.7
   bug fix: RTC error not shown on startup due to previous code change attempting to fix SD card error when programming firmware with "reload configuration" box un-ticked - see v0.13.6 below
   new feature: differentiate sd error from rtc error with RED/YELLOW led flashing
   new feature: startup now matches duration of LogAndStream - was much faster but now takes longer to allow voltages to settle before operation.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.13.7
 
 28Apr2017 0.13.6
   Bug fix: Incorrect battery voltage given in 0.13.5 - now resolved.
   Bug fix: After reloading SDLog firmware onto Shimmer (via Consensys) with "reload configuration" box un-ticked, some Shimmers repeatedly gave SD card error. TaskSet(TASK_SETUP_DOCK); now removed during initialization in main().
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.13.6
 
 14Apr2017 0.13.5
   Bug fix: All ExG boards (SR37, SR47 and SR59) - Normal P2.0 output conflicting with DRY on ADS chips. Changed to input for these boards.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.13.5
 
 12Apr2017 0.13.4 
   new feature: First "Release" version of SDLog with optimized compiler settings - also reduces code size.
@@ -124,7 +98,6 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/SDLog_v0.13.5
   new feature: Added WatchDog Timer (WDT) functionality
   bug fix: Improved SetBattDma() and ADC_init() functions to combat noise on ADC lines
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.13.4 for more information.
 
 07Mar2017 0.13.3
    new feature: Battery LED lights on user press, new task started on button release - offers better user feedback.
