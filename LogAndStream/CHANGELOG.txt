@@ -5,127 +5,101 @@ LogAndStream change log
 31 Jan 2018 - 0.11.0
   som - fix for dock issue - docking a streaming Shimmer stopped it streaming - now resolved.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.11.0
 
 
 25 Jan 2018 - 0.10.3
   som - added factory test for i2c functionality - RED LED remains on if i2c fault preset, otherwise extinguishes
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.3
 
 
 23 Jan 2018 - 0.10.2
   som - fixed ADS chip 1 timing issue for internal clock usage - see page 63 of ADS1292R datasheet for program flow and timing diagrams.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.2
 
 
 23 Jan 2018 - 0.10.1
   som - added support for SR47-4 (and newer: >= 4) boards
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.1
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 06 Dec 2017 - 0.10.0
   som - uprev of v0.9.7
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.10.0
 
 01 Dec 2017 - 0.9.7
   som - update: revert to old GSR values (pre L&S_v0.9.3)
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.7
 
 28 Nov 2017 - 0.9.6
   som - bug-fix: undock-start bugfix ported from StroKare firmware
   som - update: low-battery autostop feature - configurable via infomem/sdlog.cfg
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.6
 
 23 Nov 2017 - 0.9.5
   SOM: Bug fix - Device freezing when TCXO enabled - was down to timeout in i2c driver assuming 32Khz clock. Modified to match 32kHz clock timing if tcxo enabled
   SOM: new feature - factory firmware (FACTORY_TEST) now includes offset of 200 in special rev number for easier identification (like that in BtStream v0.7.8 onwards).
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.5
 
 21 Nov 2017 - 0.9.4
   Update: Board Id updated via UART and BT , removed factory restriction on programming daughter ID (for Proto mini and SR31-7 conflicts)
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.4
 
 03 Nov 2017 - 0.9.3
   Update: Applied Prakash's newly calcluated GSR values
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.3
 
 16 Oct 2017 - 0.9.2
   Bug fix: For Shimmer units using the BMP280 device, bmp180 was still being written to sdlog.cfg file. Now writes text based on current on-board sensor.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.2
 
 04 Oct 2017 - 0.9.1
   Bug fix: LSM303AHTR (new chip) wide range accel settings not being set correctly for sampling rates > 1024 Hz - fix applied.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.1
 
 ********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 
 02Aug2017 0.9.0
   UPREV of v0.8.6 for public release
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.9.0
-
 27Jul2017 0.8.6
   Bug fix: Updated TCXO to use correct clock frequency
   new feature: Default name changed from "idXXXX" to "Shimmer_XXXX"
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.6
 
 21Jul2017 0.8.5
   Bug fix: Shimmer now writes default calibration parameters for a blank Shimmer device (all 0xFF's).
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.5
 
 18Jul2017 0.8.4
   Bug fix: Shimmer caught in startup loop due to incorrect BT initialisation
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.4
 
 18Jul2017 0.8.3
   Bug fix: Incorrect daughter card ID over Bluetooth - resolved
   Bug fix: BMP280 calib response interrupting BT comms - resolved
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.3
-
 18Jul2017 0.8.2
   New feature: Much improved TCXO functionality
   New feature: Several changes to match new software API's for new sensors
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.2
-
 10Jul2017 0.8.1
   New feature: features necessary for factory tests at RTT - BT name write, SR number write, SD card test, BMP280 calibration get/response commands
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.1
 
 **************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************
 19May2017 0.8.0
   New Feature: Added rtc set/not set bit to in-stream status byte.
   UPREV of v0.7.14 for public release
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.8.0
-
 15May2017 0.7.14
   bug fix: GSR range configuration not retained after power cycle - also present in LogAndStream_v0.7.0
   bug fix: FreqDiv function set to use round(clockFreq / num_in) instead of ceil(clockFreq / num_in) - was changing sampling rate between sessions as the resulting output of FreqDiv() did not match that set by Consensys.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.14
 
 11May2017 0.7.13
   bug fix: SD Error LED infomem bit not being updated when configured over bluetooth - now added
   bug fix: "rtc_error_enable" not being written to sdlog.cfg file - now resolved
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.13
 
 10May2017 0.7.12
   new feature: SD Error LED flashing is now configurable via infomem bit SDH_SDERROR_EN in NV_SD_TRIAL_CONFIG0, corresponding bit is also stored in sdlog.cfg file
@@ -133,14 +107,11 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.13
 
   fw change: set DMAEN bit true based on isLogging || isStreaming && GSR enabled. This is in keeping with the GSR fix applied recently and applies specifically to that scenario.
 
-Mistake when committing this rev - changes were made since to create new 7.13 and thus 7.12 was never committed. Changes are instead documented in: https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.13
 
 08May2017 0.7.11
   new feature: SD error LED sequence (RED/YELLOW) now added to indicate SD error whenever access is requested during use
   new feature: Infomem config and calibration bytes now stored correctly even if SD error is present, this mimics BtStream operation and mirrors the functionality where no SD card is present.
   bug fix: SD card error in stream status bits 
-
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.11
 
 
 28Apr2017 0.7.10
@@ -151,18 +122,15 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.11
   New Feature: SD card error and red LED status bits added to in-stream status byte (as in GQ).
   New feature: Ignore UART comms (dock or otherwise) while "initialize" state is true.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.10
 
 14Apr2017 0.7.9
   Bug fix: All ExG boards (SR37, SR47 and SR59) - Normal P2.0 output conflicting with DRY on ADS chips. Changed to input for these boards.
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/LogAndStream_v0.7.9
 
 12Apr2017 0.7.8 
   new feature: Added WatchDog Timer (WDT) functionality
   bug fix: Improved SetBattDma() and ADC_init() functions to combat noise on ADC lines
 
-See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.8 for more information.
 
 06Apr2017 0.7.7
    This release improves upon/fixes several areas/issues including:
@@ -173,8 +141,6 @@ See https://github.com/ShimmerEngineering/FW_Shimmer3/releases/tag/v0.7.8 for mo
 	    * Support for BMP280 device
 	- Compiler Optimization
 	    * Experimenting with different compiler optimization parameters
-
-   See https://github.com/ShimmerEngineering/FW_Shimmer3/releases with tag v0.7.7 for more info.
 
 07Mar2017 0.7.6
    new feature: Battery LED lights on user press, new task started on button release - offers better user feedback.
