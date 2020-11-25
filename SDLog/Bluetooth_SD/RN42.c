@@ -1,6 +1,6 @@
 #include "msp430.h"
 #include "RN42.h"
-#include "../5XX_hal/hal_DMA.h"
+#include "../5XX_HAL/hal_DMA.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
