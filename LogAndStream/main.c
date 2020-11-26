@@ -8523,7 +8523,7 @@ void UartSendRsp()
         *(uartRespBuf + uart_resp_len++) = uartInfoMemLength + 2;
         *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
         *(uartRespBuf + uart_resp_len++) = UART_PROP_INFOMEM;
-        if ((uartDcMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
+        if ((uartInfoMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
         {
             InfoMem_read((void*) uartInfoMemOffset, uartRespBuf + uart_resp_len,
                          uartInfoMemLength);
