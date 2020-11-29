@@ -4404,7 +4404,7 @@ void SendResponse(void)
         *(resPacket + packet_length++) = crc_value & 0xFF;
         *(resPacket + packet_length++) = (crc_value & 0xFF00) >> 8;
     }
-    BT_write(resPacket, packet_length);
+    BT_write_busy(resPacket, packet_length);
 }
 
 //void OpenFirstFile(){

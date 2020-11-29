@@ -34,6 +34,7 @@ extern void BT_startDone_cb(void (*cb)(void));
 //returns 0 if fails, else 1
 //will only fail if a previous BT_write is still in progress
 extern uint8_t BT_write(uint8_t *buf, uint8_t len);
+extern uint8_t BT_write_busy(uint8_t *buf, uint8_t len);
 
 extern uint8_t BT_append(uint8_t *buf, uint8_t len);
 //connect to a specific device that was previously discovered

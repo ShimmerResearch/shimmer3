@@ -742,6 +742,12 @@ void BT_disable()
     starting = 0;
 }
 
+uint8_t BT_write_busy(uint8_t *buf, uint8_t len)
+{
+    while (BT_write(buf, len) == 0);
+    return 1;
+}
+
 //write data to be transmitted to the Bluetooth module
 //returns 0 if fails, else 1
 //will only fail if a previous BT_write is still in progress
