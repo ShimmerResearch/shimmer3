@@ -43,7 +43,7 @@
 #include "ads1292.h"
 #include "msp430.h"
 #include <string.h>
-#include "../5XX_hal/hal_UCA0.h"
+#include "../5XX_HAL/hal_UCA0.h"
 
 //uint8_t exgOrUart;
 

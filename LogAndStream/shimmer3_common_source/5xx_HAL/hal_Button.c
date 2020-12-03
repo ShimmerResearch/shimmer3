@@ -38,7 +38,7 @@
  ******************************************************************************/
 
 #include "msp430.h"
-#include "HAL_Button.h"
+#include "hal_Button.h"
 #include "../msp430_clock/msp430_clock.h"
 
 
