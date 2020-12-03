@@ -1462,11 +1462,10 @@ void BtsdSelfcmd()
 {
     if (btIsConnected)
     {
-        uint8_t selfcmd[4];         //i=0,
-        selfcmd[0] = ACK_COMMAND_PROCESSED;
-        selfcmd[1] = INSTREAM_CMD_RESPONSE;
-        selfcmd[2] = STATUS_RESPONSE;
-        selfcmd[3] = ((toggleLedRed & 0x01) << 7) + ((SD_ERROR & 0x01) << 6)
+        uint8_t selfcmd[3];         //i=0,
+        selfcmd[0] = INSTREAM_CMD_RESPONSE;
+        selfcmd[1] = STATUS_RESPONSE;
+        selfcmd[2] = ((toggleLedRed & 0x01) << 7) + ((SD_ERROR & 0x01) << 6)
                 + ((SD_IN_SLOT & 0x01) << 5) + ((isStreaming & 0x01) << 4)
                 + ((isLogging & 0x01) << 3)
                 + ((((rwcConfigTime64 > 0) ? 1 : 0) & 0x01) << 2)
@@ -1475,7 +1474,7 @@ void BtsdSelfcmd()
         //while((!BT_write(selfcmd, 4)) && (i++<10)){
         //   _delay_cycles(240000);
         //}
-        BT_append(selfcmd, 4);
+        BT_append(selfcmd, 3);
     }
 }
 
