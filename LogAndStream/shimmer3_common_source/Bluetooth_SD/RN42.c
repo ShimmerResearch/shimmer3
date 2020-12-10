@@ -780,11 +780,12 @@ uint8_t BT_append(uint8_t *buf, uint8_t len)
 {
     if (messageInProgress)
     {
-        if (len + messageLength <= 135)
-            messageLength += len;
-        else
+        if (len + messageLength > 135)
             return 0;
-        memcpy(messageBuffer + charsSent, buf, len);
+
+        memcpy(messageBuffer + messageLength, buf, len);
+        messageLength += len;
+        return 1;
     }
     else
     {
