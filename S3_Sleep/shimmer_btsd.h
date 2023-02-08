@@ -712,18 +712,18 @@ typedef uint8_t error_t;
 #define RC_WINDOW_N     13
 #define RC_WINDOW_C     27
 #define RC_INT_N        27
-#define RC_INT_C        54//240
+#define SYNC_INT_C        54//240
 #define RC_CLK_N        16384   //16384=2hz;//32768=1hz;8192=4hz
 #define RC_CLK_C        8192   //16384=2hz;//32768=1hz;8192=4hz
 #define RC_FACTOR_N     32768/RC_CLK_N   //16384=2hz;//32768=1hz;8192=4hz
 #define RC_FACTOR_C     32768/RC_CLK_C   //16384=2hz;//32768=1hz;8192=4hz
 
 //routine communication response text - ack:flag:time4:time3:time2:time1
-#define RCT_SIZE        6
-#define RCT_ACK         0
-#define RCT_FLG         1
-#define RCT_TIME        2
-#define RCT_TIME_SIZE   4
+#define SYNC_PACKET_MAX_SIZE        6
+#define SYNC_PACKET_ACK_IDX         0
+#define SYNC_PACKET_FLG_IDX         1
+#define SYNC_PACKET_TIME_IDX        2
+#define SYNC_PACKET_TIME_SIZE   4
 
 // sd card write buffer size
 #define SDBUFF_SIZE_MAX 4096 //4095  255

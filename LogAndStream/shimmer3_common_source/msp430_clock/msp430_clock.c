@@ -19,7 +19,9 @@
  *               	reference.
  */
 
+#include "stdio.h"
 #include "string.h"
+#include "stdio.h"
 #include "msp430.h"
 #include "msp430_clock.h"
 #include <math.h>
@@ -164,15 +166,15 @@ int msp430_delay_ms(unsigned long num_ms)
 }
 
 inline uint16_t GetTA1(void) {
-   register uint16_t t0, t1;
-   uint8_t ie;
-   if(ie=(__get_SR_register()&0x0008))   //interrupts enabled?
-      __disable_interrupt();
-   t1 =TA1R;
-   do {t0=t1; t1=TA1R;} while(t0!=t1);
-   if(ie)
-      __enable_interrupt();
-   return t1;
+    register uint16_t t0, t1;
+//    uint8_t ie;
+//    if (ie = (__get_SR_register() & GIE))   //interrupts enabled?
+//        __disable_interrupt();
+    t1 =TA1R;
+    do {t0=t1; t1=TA1R;} while(t0!=t1);
+//    if(ie)
+//        __enable_interrupt();
+    return t1;
 }
 
 int msp430_register_timer_cb(void (*timer_cb)(void), unsigned long num_ms, uint8_t exit_lpm)

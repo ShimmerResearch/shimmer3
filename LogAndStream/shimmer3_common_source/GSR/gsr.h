@@ -90,4 +90,7 @@ uint8_t GSR_smoothTransition(uint8_t *dummy_active_resistor, uint32_t sampling_p
 //returns the smoothed resistance. Returns 0xFFFFFFFF if transient sample
 uint32_t GSR_smoothSample(uint32_t resistance, uint8_t active_resistor);
 
+//The SR48-4 was designed with the GSR range control lines swapped
+void setGsrRangePinsAreReversed(uint8_t state);
+
 #endif //GSR_H

@@ -87,6 +87,8 @@ extern void UART_config();
 // the last activated one works
 extern void UART_activate();
 
+void UART_setState(uint8_t state);
+
 // reset p6.1 and p7.6 back to sel+input
 extern void UART_deactivate();
 

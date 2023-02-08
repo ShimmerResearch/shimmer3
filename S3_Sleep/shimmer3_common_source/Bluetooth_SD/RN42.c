@@ -1,6 +1,6 @@
 #include "msp430.h"
 #include "RN42.h"
-#include "../5XX_hal/hal_DMA.h"
+#include "../5xx_HAL/hal_DMA.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -12,7 +12,7 @@
 uint16_t secondTry, starting;
 void (*runSetCommands_cb)(void);
 
-uint8_t messageInProgress, transmissionOverflow, messageLength, txie_reg;
+uint8_t messageInProgress, txOverflow, messageLength, txie_reg;
 uint8_t messageBuffer[135]; //131+4
 uint8_t receiveBuffer[8];
 char  expectedCommandResponse[8], newName[17], newAutoMaster[13], newPIN[17],
@@ -24,7 +24,7 @@ uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
 uint8_t bt_setbaudrate_step, bt_setbaudrate_start;
-char userBaudRate[5];
+char btBaudRateToUse[5];
 
 uint8_t radioMode, charsSent, charsReceived;
 
@@ -550,7 +550,7 @@ uint8_t runMasterCommands()
     return 0;
 }
 
-uint8_t runSetTempBaudRate()
+uint8_t runSetBaudRate()
 {
     if (!bt_setbaudrate_start)
     {
@@ -572,7 +572,7 @@ uint8_t runSetTempBaudRate()
         if (bt_setbaudrate_step == 1)
         {
             bt_setbaudrate_step++;
-            sprintf(commandbuf, "U,%s,N\r", userBaudRate);
+            sprintf(commandbuf, "U,%s,N\r", btBaudRateToUse);
             if (slowRate)
             {
                 //UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
@@ -595,9 +595,9 @@ uint8_t runSetTempBaudRate()
             bt_setbaudrate_step = 0;
             bt_setbaudrate_start = 0;
             //change MSP430 UART to use new baud rate
-            setupUART(userBaudRate);
-            if (!strncmp(userBaudRate, "1200", 4)
-                    || !strncmp(userBaudRate, "2400", 4))
+            setupUART(btBaudRateToUse);
+            if (!strncmp(btBaudRateToUse, "1200", 4)
+                    || !strncmp(btBaudRateToUse, "2400", 4))
             {
                 slowRate = 1;
             }
@@ -623,8 +623,8 @@ void BT_setTempBaudRate(char * baudRate)
                     || !strncmp(baudRate, "460K", 4)
                     || !strncmp(baudRate, "921K", 4)))
     {
-        strcpy(userBaudRate, baudRate);
-        runSetTempBaudRate();
+        strcpy(btBaudRateToUse, baudRate);
+        runSetBaudRate();
     }
 }
 
@@ -637,7 +637,7 @@ void BT_setGoodCommand()
     if (bt_runmastercommands_start)
         runMasterCommands();
     if (bt_setbaudrate_start)
-        runSetTempBaudRate();
+        runSetBaudRate();
 }
 void sendNextChar()
 {
@@ -655,7 +655,7 @@ void sendNextChar()
 
 void BT_init()
 {
-    messageInProgress = transmissionOverflow = 0;
+    messageInProgress = txOverflow = 0;
 
     //Turn on power (SW_BT P4.3 on SR30 and newer)
     P4OUT |= BIT3;
@@ -760,7 +760,7 @@ uint8_t BT_write(uint8_t *buf, uint8_t len)
         return 0;
     memcpy(messageBuffer, buf, len);
 
-    if (!transmissionOverflow)
+    if (!txOverflow)
     {
         messageInProgress = 1;
         sendNextChar();
@@ -797,7 +797,7 @@ uint8_t BT_append(uint8_t *buf, uint8_t len)
         memcpy(messageBuffer, buf, len);
     }
 
-    if (!transmissionOverflow)
+    if (!txOverflow)
     {
         messageInProgress = 1;
         sendNextChar();
@@ -948,15 +948,15 @@ void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data))
     dataAvailableFuncPtr = receiveFuncPtr;
 }
 
-void BT_connectionInterrupt(uint8_t value)
+void setBtIsConnected(uint8_t value)
 {
     btConnected = value;
 }
 
 void BT_rtsInterrupt(uint8_t value)
 {
-    transmissionOverflow = value;
-    if (transmissionOverflow)
+    txOverflow = value;
+    if (txOverflow)
     {   //in disabling sending
         txie_reg = UCA1IE & UCTXIE;
         UCA1IE &= ~UCTXIE;
@@ -1007,7 +1007,7 @@ __interrupt void USCI_A1_ISR(void)
     case 2:                              		   // Vector 2 - RXIFG
         break;
     case 4:                                      // Vector 4 - TXIFG
-        if (!transmissionOverflow)
+        if (!txOverflow)
         {
             sendNextChar();
         }

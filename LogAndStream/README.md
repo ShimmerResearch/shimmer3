@@ -1,5 +1,13 @@
-# LogAndStream
-This is a general purpose configurable application to be used with shimmer3 and any add-on daughter-cards supplied by Shimmer.
+# LogAndStream/SDLog
+This is a general purpose, configurable application to be used with Shimmer3 and any add-on daughter-cards supplied by Shimmer. 
+- LogAndStream supports on-board logging and real-time streaming over Bluetooth. 
+- SDLog support on-board logging and, if enabled, real-time clock syncing between Shimmer units over Bluetooth while logging.
+
+### Compiling firmware:
+To compile the LogAndStream firmware, set the following define as 1 inside "shimmer3_common_source/Bluetooth_SD/RN4X.h". To compile as SDLog, change it to 0.
+   ```
+	#define FW_IS_LOGANDSTREAM 1
+   ```
 
 ### Changelog
 For notes on changes in the development of this firmware, please see ```CHANGELOG.txt``` for reference.
@@ -194,6 +202,22 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
       - GET_CONFIGTIME_COMMAND
       - GET_DIR_COMMAND
       - SET_CRC_COMMAND
+      - SET_INFOMEM_COMMAND
+      - GET_INFOMEM_COMMAND
+      - SET_RWC_COMMAND
+      - GET_RWC_COMMAND
+      - START_LOGGING_COMMAND
+      - STOP_LOGGING_COMMAND
+      - GET_VBATT_COMMAND
+      - DUMMY_COMMAND
+      - STOP_SDBT_COMMAND
+      - SET_CALIB_DUMP_COMMAND
+      - GET_CALIB_DUMP_COMMAND
+      - UPD_CALIB_DUMP_COMMAND
+      - UPD_SDLOG_CFG_COMMAND
+      - GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND
+      - GET_BT_VERSION_STR_COMMAND
+      - SET_SD_SYNC_COMMAND
    ```
 
    The format of the configuration bytes (as returned by the inquiry command):

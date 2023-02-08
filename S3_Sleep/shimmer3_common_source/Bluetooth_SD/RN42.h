@@ -94,7 +94,7 @@ extern void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data));
 //this function needs to be called from within the BT_PIO ISR
 //in order to inform the RN42 driver about the state change
 //value needs to be 1 if interrupt was low to high else 0
-extern void BT_connectionInterrupt(uint8_t value);
+extern void setBtIsConnected(uint8_t value);
 
 //this function needs to be called from within the BT_RTS ISR
 //in order to inform the RN42 driver about the state change

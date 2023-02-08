@@ -25,9 +25,8 @@
 uint8_t shimmerCalib_ram[SHIMMER_CALIB_RAM_MAX], shimmerCalib_macId[5],
         shimmerCalib_ramTemp[SHIMMER_CALIB_RAM_MAX];
 uint16_t shimmerCalib_ramLen, shimmerCalib_ramTempLen, shimmerCalib_ramTempMax;
-extern uint64_t rwcTimeDiff64;
 extern uint8_t mac[14];
-extern uint8_t lsmInUse, bmpInUse;
+extern uint8_t lsmInUse, bmpInUse, substituteWrAccelAndMag;
 
 uint8_t ShimmerCalib_findLength(sc_t* sc1)
 {
@@ -191,7 +190,7 @@ uint8_t ShimmerCalib_singleSensorWrite(const sc_t* sc1)
     uint16_t cnt = SC_OFFSET_FIRST_SENSOR;
     uint8_t ts[8], sensor_found = 0;   //temp_len,
 
-    *(uint64_t*) ts = rwcTimeDiff64 + RTC_get64();
+    *(uint64_t*) ts = getRwcTime();
     shimmerCalib_ramLen = min(*(uint16_t* )shimmerCalib_ram,
                               SHIMMER_CALIB_RAM_MAX-2);
 
@@ -348,7 +347,7 @@ void ShimmerCalib_default(uint8_t sensor)
         {
             bias = 2047;
             sensitivity = 83;
-            if ((lsmInUse == LSM303AHTR_IN_USE) && (bmpInUse == BMP280_IN_USE))
+            if ((lsmInUse == LSM303AHTR_IN_USE || substituteWrAccelAndMag) && (bmpInUse == BMP280_IN_USE))
             {
                 // Assuming here that new bmp and lsm infer new low-noise accel used
                 bias = 2253;

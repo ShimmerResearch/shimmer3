@@ -4,7 +4,7 @@ import sys, struct, serial
 BT_COMMS_BAUD_RATE_RESPONSE  =  0x6B
 GET_BT_COMMS_BAUD_RATE       =  0x6C
 
-baudRates = [115200, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 230400, 460800, 921600]
+baudRates = [115200, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 230400, 460800, 921600, 1000000]
 
 def wait_for_ack():
    ddata = ""

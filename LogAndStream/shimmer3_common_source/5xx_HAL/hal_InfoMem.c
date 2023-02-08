@@ -61,7 +61,7 @@ uint8_t InfoMem_write(uint8_t *addr, uint8_t *buf, uint16_t size) {
    //why?
    //see comment in MSP430F55xx_flashwrite_01.c (example code form TI) which states:
    //5xx Workaround: Disable global interrupt while erasing
-   if(ie=(__get_SR_register()&0x0008))    //interrupts enabled?
+    if (ie = (__get_SR_register() & GIE))    //interrupts enabled?
       __disable_interrupt();
 
    FCTL3 = FWKEY;                         //Clear Lock bit

@@ -36,7 +36,7 @@
  ******************************************************************************/
 
 #include "msp430.h"
-#include "HAL_Board.h"
+#include "hal_Board.h"
 
 #define XT1_PORT_DIR             P7DIR
 #define XT1_PORT_OUT             P7OUT
@@ -89,12 +89,14 @@ void Board_init(void) {
    //Battery voltage ADC pin as input
    P6DIR &= ~BIT2;
 
-   //RN42 ports
+   //RN42 & RN4678 ports
    //BT power
    P4OUT &= ~BIT3;            //set low
    P4DIR |= BIT3;             //set as output
-   //UART_RTS and connect indication as input
-   P1DIR &= ~(BIT0 + BIT3);   //input
+   //connect indication as input
+   P1DIR &= ~BIT0;   //input
+   //UART_RTS as input
+   P1DIR &= ~BIT3;   //input
    //UART_CTS
    P2OUT &= ~BIT2;            //set low
    P2DIR |= BIT2;             //output
@@ -204,6 +206,28 @@ void Board_init(void) {
    P8DIR |= BIT5;            //set as output
 }
 
+void Board_init_for_revision(uint8_t srId, uint8_t srRev, uint8_t srRevSpecial)
+{
+    /*
+     * ADS1292R chip issue workaround
+     * Requires GPIO_INTERNAL1 to be an input (default is output)
+     * Issues affects boards SR37, SR47 & SR59 at present.
+     */
+    if ((srId == EXP_BRD_EXG)
+            || (srId == EXP_BRD_EXG_UNIFIED)
+            || (srId == SHIMMER_ECG_MD))
+    {
+        P2DIR &= ~BIT0;                  //EXG_DRDY as input
+    }
+
+    // RN4678 Operational mode pins
+    if (srId == EXP_BRD_BR_AMP_UNIFIED && srRev >= 3)
+    {
+        P4DIR |= BIT6;   // P2_0
+        P4DIR |= BIT7;   // P2_4
+        P8DIR |= BIT5;   // EAN
+    }
+}
 
 /***************************************************************************//**
  * @brief  Turn on LEDs

@@ -9,10 +9,18 @@
 #define BLOCK_SIZE		256
 #define READ_SIZE		128
 
+#define EEPROM_MAX_SIZE_IN_BYTES (2048U)
+
 // Indices of important daughter card information
 #define DAUGHT_CARD_ID           (0x00)
 #define DAUGHT_CARD_REV          (0x01)
 #define DAUGHT_CARD_SPECIAL_REV  (0x02)
+
+enum EEPROM_RW
+{
+    EEPROM_READ = 0,
+    EEPROM_WRITE = 1,
+};
 
 //initialise the I2C for use with the CAT24C16
 //and also power on

@@ -59,8 +59,6 @@
 #define SD_CS_OUT          P4OUT
 #define SD_CS_DIR          P4DIR
 
-extern uint8_t sensing;
-
 /***************************************************************************//**
  * @brief   Initialize SD Card
  * @param   None
@@ -255,7 +253,7 @@ void SDCard_sendFrame(uint8_t *pBuffer, uint16_t size)
     while (UCB1STAT & UCBUSY)
         ;                            // Wait for all TX/RX to finish
 
-    UCB1RXBUF;                                  // Dummy read to empty RX buffer
+    UCB1RXBUF;                                  // Dummy read to empty RX buffer // @suppress("Statement has no effect")
     _NOP();                               // and clear any overrun conditions
 
     //__bis_SR_register(gie);                                // Restore original GIE state

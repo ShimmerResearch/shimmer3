@@ -43,7 +43,7 @@
 #include "ads1292.h"
 #include "msp430.h"
 #include <string.h>
-#include "../5XX_hal/hal_UCA0.h"
+#include "../5xx_HAL/hal_UCA0.h"
 
 //uint8_t exgOrUart;
 
@@ -125,7 +125,7 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata) {
    UCA0TXBUF = size-1;
    while ((UCA0STAT & UCBUSY));              //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
    UCA0IFG &= ~UCRXIFG;                      //Ensure RXIFG is clear
 
@@ -166,7 +166,7 @@ void ADS1292_regWrite(uint8_t startaddress, uint8_t size, uint8_t *wdata) {
 
    while ((UCA0STAT & UCBUSY));              //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
    __bis_SR_register(gie);                   //Restore original GIE state
 }
@@ -254,7 +254,7 @@ void ADS1292_readDataContinuousMode(uint8_t enable) {
       UCA0TXBUF = SDATAC;
    while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
 
    __bis_SR_register(gie);                   //Restore original GIE state
@@ -280,7 +280,7 @@ void ADS1292_start(uint8_t start) {
       UCA0TXBUF = STOP;
    while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
 
    __bis_SR_register(gie);                   //Restore original GIE state
@@ -303,7 +303,7 @@ void ADS1292_resetRegs(void) {
    UCA0TXBUF = RESET;
    while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
 
    __bis_SR_register(gie);                   //Restore original GIE state
@@ -332,7 +332,7 @@ void ADS1292_offsetCal(void) {
    UCA0TXBUF = OFFSETCAL;
    while ( (UCA0STAT & UCBUSY) );            //Wait for all TX/RX to finish
 
-   UCA0RXBUF;                                //Dummy read to empty RX buffer
+   UCA0RXBUF;                                //Dummy read to empty RX buffer // @suppress("Statement has no effect")
                                              //and clear any overrun conditions
 
    __bis_SR_register(gie);                   //Restore original GIE state
@@ -374,24 +374,43 @@ void ADS1292_disableDrdyInterrupts(uint8_t mask) {
    }
 }
 
-uint8_t ADS1292_readDataChip1(uint8_t *data) {
-   if(chip1CurrentFullBuffer == 1) {
-      memcpy(data, chip1Buffer1, 9);
-   } else if (chip1CurrentFullBuffer == 2) {
-      memcpy(data, chip1Buffer2, 9);
-   } else
-      return 0;
-   return 1;
+
+uint8_t ADS1292_readDataChip1(uint8_t *data)
+{
+    uint8_t chip1BufferVal = chip1CurrentFullBuffer;
+    if (chip1BufferVal == 1U)
+    {
+        memcpy(data, chip1Buffer1, 9U);
+    }
+    else if (chip1BufferVal == 2U)
+    {
+        memcpy(data, chip1Buffer2, 9U);
+    }
+    else
+    {
+        return 0U;
+    }
+    return 1U;
 }
-uint8_t ADS1292_readDataChip2(uint8_t *data) {
-   if(chip2CurrentFullBuffer == 1) {
-      memcpy(data, chip2Buffer1, 9);
-   } else if (chip2CurrentFullBuffer == 2) {
-      memcpy(data, chip2Buffer2, 9);
-   } else
-      return 0;
-   return 1;
+
+uint8_t ADS1292_readDataChip2(uint8_t *data)
+{
+    uint8_t chip2BufferVal = chip2CurrentFullBuffer;
+    if (chip2BufferVal == 1U)
+    {
+        memcpy(data, chip2Buffer1, 9U);
+    }
+    else if (chip2BufferVal == 2U)
+    {
+        memcpy(data, chip2Buffer2, 9U);
+    }
+    else
+    {
+        return 0U;
+    }
+    return 1U;
 }
+
 
 //Tell the driver that the data is ready to be read from chipX
 void ADS1292_dataReadyChip1() {

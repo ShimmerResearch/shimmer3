@@ -38,7 +38,7 @@
  */
 /*
  * @author Weibo Pan
- * @date Mar, 20143
+ * @date Mar, 2014
  *
  * @edited Sam O'Mahony
  * @date January, 2018
@@ -49,10 +49,17 @@
 
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
+#if FW_IS_LOGANDSTREAM
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Major version number: 0-65535
-#define FW_VER_MINOR          11     //Minor version number: 0-255
+#define FW_VER_MINOR          15     //Minor version number: 0-255
 #define FW_VER_REL            0      //internal version number: 0-255
+#else
+#define FW_IDENTIFIER         2     //Two byte firmware identifier number: always 2 for SDLog
+#define FW_VER_MAJOR          0     //Major version number: 0-65535
+#define FW_VER_MINOR          21    //Minor version number: 0-255
+#define FW_VER_REL            0     //internal version number: 0-255
+#endif
 
 typedef uint8_t bool;
 #define TRUE    (1)
@@ -93,6 +100,7 @@ typedef uint8_t error_t;
 #define UART_COMP_DAUGHTER_CARD     0x03
 #define UART_COMP_D_ACCEL           0x04
 #define UART_COMP_GSR               0x05
+#define UART_COMP_BT                0x0A
 //================= WP uart 3.0: property names ==============
 // component == UART_COMP_SHIMMER:
 #define UART_PROP_ENABLE            0x00 // this is for all sensors
@@ -136,166 +144,10 @@ typedef uint8_t error_t;
 #define UART_CMD_RDT 7
 #define UART_CMD_TIM 8
 
-
-// Packet Types// Packet Types
-#define DATA_PACKET                                   0x00
-#define INQUIRY_COMMAND                               0x01
-#define INQUIRY_RESPONSE                              0x02
-#define GET_SAMPLING_RATE_COMMAND                     0x03
-#define SAMPLING_RATE_RESPONSE                        0x04
-#define SET_SAMPLING_RATE_COMMAND                     0x05
-#define TOGGLE_LED_COMMAND                            0x06
-#define START_STREAMING_COMMAND                       0x07  //maintain compatibility with Shimmer2/2r BtStream
-#define SET_SENSORS_COMMAND                           0x08
-#define SET_LSM303DLHC_ACCEL_RANGE_COMMAND            0x09
-#define LSM303DLHC_ACCEL_RANGE_RESPONSE               0x0A
-#define GET_LSM303DLHC_ACCEL_RANGE_COMMAND            0x0B
-#define SET_CONFIG_SETUP_BYTES_COMMAND                0x0E
-#define CONFIG_SETUP_BYTES_RESPONSE                   0x0F
-#define GET_CONFIG_SETUP_BYTES_COMMAND                0x10
-#define SET_A_ACCEL_CALIBRATION_COMMAND               0x11
-#define A_ACCEL_CALIBRATION_RESPONSE                  0x12
-#define GET_A_ACCEL_CALIBRATION_COMMAND               0x13
-#define SET_MPU9150_GYRO_CALIBRATION_COMMAND          0x14
-#define MPU9150_GYRO_CALIBRATION_RESPONSE             0x15
-#define GET_MPU9150_GYRO_CALIBRATION_COMMAND          0x16
-#define SET_LSM303DLHC_MAG_CALIBRATION_COMMAND        0x17
-#define LSM303DLHC_MAG_CALIBRATION_RESPONSE           0x18
-#define GET_LSM303DLHC_MAG_CALIBRATION_COMMAND        0x19
-#define SET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND      0x1A
-#define LSM303DLHC_ACCEL_CALIBRATION_RESPONSE         0x1B
-#define GET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND      0x1C
-#define STOP_STREAMING_COMMAND                        0x20  //maintain compatibility with Shimmer2/2r BtStream
-#define SET_GSR_RANGE_COMMAND                         0x21
-#define GSR_RANGE_RESPONSE                            0x22
-#define GET_GSR_RANGE_COMMAND                         0x23
-#define DEPRECATED_GET_DEVICE_VERSION_COMMAND         0x24  //maintain compatibility with Shimmer2/2r BtStream
-                                                            //deprecated because 0x24 ('$' ASCII) as a command
-                                                            //is problematic if remote config is enabled in
-                                                            //RN42 Bluetooth module. Replaced with 0x3F command
-#define DEVICE_VERSION_RESPONSE                       0x25  //maintain compatibility with Shimmer2/2r BtStream
-#define GET_ALL_CALIBRATION_COMMAND                   0x2C
-#define ALL_CALIBRATION_RESPONSE                      0x2D
-#define GET_FW_VERSION_COMMAND                        0x2E  //maintain compatibility with Shimmer2/2r BtStream
-#define FW_VERSION_RESPONSE                           0x2F  //maintain compatibility with Shimmer2/2r BtStream
-#define SET_CHARGE_STATUS_LED_COMMAND                 0x30
-#define CHARGE_STATUS_LED_RESPONSE                    0x31
-#define GET_CHARGE_STATUS_LED_COMMAND                 0x32
-#define BUFFER_SIZE_RESPONSE                          0x35
-#define GET_BUFFER_SIZE_COMMAND                       0x36
-#define SET_LSM303DLHC_MAG_GAIN_COMMAND               0x37
-#define LSM303DLHC_MAG_GAIN_RESPONSE                  0x38
-#define GET_LSM303DLHC_MAG_GAIN_COMMAND               0x39
-#define SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND      0x3A
-#define LSM303DLHC_MAG_SAMPLING_RATE_RESPONSE         0x3B
-#define GET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND      0x3C
-#define UNIQUE_SERIAL_RESPONSE                        0x3D
-#define GET_UNIQUE_SERIAL_COMMAND                     0x3E
-#define GET_DEVICE_VERSION_COMMAND                    0x3F
-#define SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND    0x40
-#define LSM303DLHC_ACCEL_SAMPLING_RATE_RESPONSE       0x41
-#define GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND    0x42
-#define SET_LSM303DLHC_ACCEL_LPMODE_COMMAND           0x43
-#define LSM303DLHC_ACCEL_LPMODE_RESPONSE              0x44
-#define GET_LSM303DLHC_ACCEL_LPMODE_COMMAND           0x45
-#define SET_LSM303DLHC_ACCEL_HRMODE_COMMAND           0x46
-#define LSM303DLHC_ACCEL_HRMODE_RESPONSE              0x47
-#define GET_LSM303DLHC_ACCEL_HRMODE_COMMAND           0x48
-#define SET_MPU9150_GYRO_RANGE_COMMAND                0x49
-#define MPU9150_GYRO_RANGE_RESPONSE                   0x4A
-#define GET_MPU9150_GYRO_RANGE_COMMAND                0x4B
-#define SET_MPU9150_SAMPLING_RATE_COMMAND             0x4C
-#define MPU9150_SAMPLING_RATE_RESPONSE                0x4D
-#define GET_MPU9150_SAMPLING_RATE_COMMAND             0x4E
-#define SET_MPU9150_ACCEL_RANGE_COMMAND               0x4F
-#define MPU9150_ACCEL_RANGE_RESPONSE                  0x50
-#define GET_MPU9150_ACCEL_RANGE_COMMAND               0x51
-#define SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND    0x52
-#define BMPX80_PRES_OVERSAMPLING_RATIO_RESPONSE       0x53
-#define GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND    0x54
-#define BMP180_CALIBRATION_COEFFICIENTS_RESPONSE      0x58
-#define GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND   0x59
-#define RESET_TO_DEFAULT_CONFIGURATION_COMMAND        0x5A
-#define RESET_CALIBRATION_VALUE_COMMAND               0x5B
-#define MPU9150_MAG_SENS_ADJ_VALS_RESPONSE            0x5C
-#define GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND         0x5D
-#define SET_INTERNAL_EXP_POWER_ENABLE_COMMAND         0x5E
-#define INTERNAL_EXP_POWER_ENABLE_RESPONSE            0x5F
-#define GET_INTERNAL_EXP_POWER_ENABLE_COMMAND         0x60
-#define SET_EXG_REGS_COMMAND                          0x61
-#define EXG_REGS_RESPONSE                             0x62
-#define GET_EXG_REGS_COMMAND                          0x63
-#define SET_DAUGHTER_CARD_ID_COMMAND                  0x64
-#define DAUGHTER_CARD_ID_RESPONSE                     0x65
-#define GET_DAUGHTER_CARD_ID_COMMAND                  0x66
-#define SET_DAUGHTER_CARD_MEM_COMMAND                 0x67
-#define DAUGHTER_CARD_MEM_RESPONSE                    0x68
-#define GET_DAUGHTER_CARD_MEM_COMMAND                 0x69
-#define SET_BT_COMMS_BAUD_RATE                        0x6A     //11 allowable options: 0=115.2K(default), 1=1200, 2=2400, 3=4800,
-                                                               //4=9600, 5=19.2K, 6=38.4K, 7=57.6K, 8=230.4K, 9=460.8K, 10=921.6K
-                                                               //Need to disconnect BT connection before change is active
-#define BT_COMMS_BAUD_RATE_RESPONSE                   0x6B
-#define GET_BT_COMMS_BAUD_RATE                        0x6C
-#define SET_DERIVED_CHANNEL_BYTES                     0x6D
-#define DERIVED_CHANNEL_BYTES_RESPONSE                0x6E
-#define GET_DERIVED_CHANNEL_BYTES                     0x6F
-#define START_SDBT_COMMAND                            0x70
-#define STATUS_RESPONSE                               0x71
-#define GET_STATUS_COMMAND                            0x72
-#define SET_TRIAL_CONFIG_COMMAND                      0x73
-#define TRIAL_CONFIG_RESPONSE                         0x74
-#define GET_TRIAL_CONFIG_COMMAND                      0x75
-#define SET_CENTER_COMMAND                            0x76
-#define CENTER_RESPONSE                               0x77
-#define GET_CENTER_COMMAND                            0x78
-#define SET_SHIMMERNAME_COMMAND                       0x79
-#define SHIMMERNAME_RESPONSE                          0x7a
-#define GET_SHIMMERNAME_COMMAND                       0x7b
-#define SET_EXPID_COMMAND                             0x7c
-#define EXPID_RESPONSE                                0x7d
-#define GET_EXPID_COMMAND                             0x7e
-#define SET_MYID_COMMAND                              0x7F
-#define MYID_RESPONSE                                 0x80
-#define GET_MYID_COMMAND                              0x81
-#define SET_NSHIMMER_COMMAND                          0x82
-#define NSHIMMER_RESPONSE                             0x83
-#define GET_NSHIMMER_COMMAND                          0x84
-#define SET_CONFIGTIME_COMMAND                        0x85
-#define CONFIGTIME_RESPONSE                           0x86
-#define GET_CONFIGTIME_COMMAND                        0x87
-#define DIR_RESPONSE                                  0x88
-#define GET_DIR_COMMAND                               0x89
-#define INSTREAM_CMD_RESPONSE                         0x8A
-#define SET_CRC_COMMAND                               0x8B
-#define SET_INFOMEM_COMMAND                           0x8C
-#define INFOMEM_RESPONSE                              0x8D
-#define GET_INFOMEM_COMMAND                           0x8E
-#define SET_RWC_COMMAND                               0x8F
-#define RWC_RESPONSE                                  0x90
-#define GET_RWC_COMMAND                               0x91
-#define START_LOGGING_COMMAND                         0x92
-#define STOP_LOGGING_COMMAND                          0x93
-#define VBATT_RESPONSE                                0x94
-#define GET_VBATT_COMMAND                             0x95
-#define DUMMY_COMMAND                                 0x96
-#define STOP_SDBT_COMMAND                             0x97
-#define SET_CALIB_DUMP_COMMAND                        0x98
-#define RSP_CALIB_DUMP_COMMAND                        0x99
-#define GET_CALIB_DUMP_COMMAND                        0x9A
-#define UPD_CALIB_DUMP_COMMAND                        0x9B
-#define UPD_SDLOG_CFG_COMMAND                         0x9C
-//#define ROUTINE_COMMUNICATION                         0xE0
-#define BMP280_CALIBRATION_COEFFICIENTS_RESPONSE      0x9F
-#define GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND   0xA0
-#define ACK_COMMAND_PROCESSED                         0xFF
-
-
-
-
 //SENSORS0
 #define SENSOR_A_ACCEL                 0x80
-#define SENSOR_MPU9150_GYRO            0x40
-#define SENSOR_LSM303DLHC_MAG          0x20
+#define SENSOR_MPU9X50_ICM20948_GYRO   0x40
+#define SENSOR_LSM303XXXX_MAG              0x20
 #define SENSOR_EXG1_24BIT              0x10
 #define SENSOR_EXG2_24BIT              0x08
 #define SENSOR_GSR                     0x04
@@ -305,15 +157,15 @@ typedef uint8_t error_t;
 #define SENSOR_STRAIN                  0x80
 //#define SDH_SENSOR_HR                0x40
 #define SENSOR_VBATT                   0x20
-#define SENSOR_LSM303DLHC_ACCEL        0x10
+#define SENSOR_LSM303XXXX_ACCEL        0x10
 #define SENSOR_EXT_A15                 0x08
 #define SENSOR_INT_A1                  0x04
 #define SENSOR_INT_A12                 0x02
 #define SENSOR_INT_A13                 0x01
 //SENORS2
 #define SENSOR_INT_A14                 0x80
-#define SENSOR_MPU9150_ACCEL           0x40
-#define SENSOR_MPU9150_MAG             0x20
+#define SENSOR_MPU9X50_ICM20948_ACCEL  0x40
+#define SENSOR_MPU9X50_ICM20948_MAG    0x20
 #define SENSOR_EXG1_16BIT              0x10
 #define SENSOR_EXG2_16BIT              0x08
 #define SENSOR_BMPX80_PRESSURE         0x04
@@ -322,10 +174,10 @@ typedef uint8_t error_t;
 #define MAX_COMMAND_ARG_SIZE     131   //maximum number of arguments for any command sent
                                        //(daughter card mem write)
 //#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
-#define MAX_NUM_CHANNELS         28    //3xanalogAccel + 3xdigiGyro + 3xdigiMag +
+#define MAX_NUM_CHANNELS         45    //3xanalogAccel + 3xdigiGyro + 3xdigiMag +
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +
                                        //BMPX80TEMP + BMPX80PRESS + batteryVoltage +
-                                       //3xexternalADC + 4xinternalADC
+                                       //3xexternalADC + 4xinternalADC + (ExG)
 #define DATA_PACKET_SIZE         84    //3 + (MAX_NUM_CHANNELS * 2) + 1 + 6 (+1 as BMPX80
                                        //pressure requires 3 bytes, +6 for 4 (3 byte) ExG
                                        //channels plus 2 status bytes instead of
@@ -383,6 +235,7 @@ typedef uint8_t error_t;
 #define NV_NUM_SD_BYTES                   37
 #define NV_TOTAL_NUM_CONFIG_BYTES         384//NV_NUM_SETTINGS_BYTES + NV_NUM_CALIBRATION_BYTES + NV_NUM_SD_BYTES
 #define NV_NUM_RWMEM_BYTES                512
+#define NV_NUM_BYTES_SYNC_CENTER_NODE_ADDRS 126
 
 #define NV_SAMPLING_RATE                  0
 #define NV_BUFFER_SIZE                    2
@@ -453,8 +306,8 @@ typedef uint8_t error_t;
 #define NV_BT_SET_PIN                     (128+103)
 #define NV_TEMP_PRES_CALIBRATION          (128+104) // +22 bytes, till 128+125
 
-#define NV_NODE0                          (128+128+0)
-
+#define NV_CENTER                         (128+128+0)
+#define NV_NODE0                          (128+128+6)
 
 //Config byte masks
 //Config Byte0
@@ -703,26 +556,6 @@ typedef uint8_t error_t;
 #define TCXO_CLOCK      (255765.625)
 #define MSP430_CLOCK    (32768.0)
 
-// BT routine communication
-// all node time must *2 in use
-// all center time must *4 in use
-#define RC_AHD          3
-#define RC_WINDOW_N     13
-#define RC_WINDOW_C     27
-#define RC_INT_N        27
-#define RC_INT_C        54//240
-#define RC_CLK_N        16384   //16384=2hz;//32768=1hz;8192=4hz
-#define RC_CLK_C        8192   //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_N     (32768/RC_CLK_N)   //16384=2hz;//32768=1hz;8192=4hz
-#define RC_FACTOR_C     (32768/RC_CLK_C)   //16384=2hz;//32768=1hz;8192=4hz
-
-//routine communication response text - ack:flag:time4:time3:time2:time1
-#define RCT_SIZE        6
-#define RCT_ACK         0
-#define RCT_FLG         1
-#define RCT_TIME        2
-#define RCT_TIME_SIZE   4
-
 // sd card write buffer size
 #define SDBUFF_SIZE_MAX 4096 //4095  255
 #define SDBUFF_SIZE     512 //4095  512
@@ -734,6 +567,7 @@ typedef uint8_t error_t;
 #define BATT_INTERVAL   1966080  // 19660800 = 10min interval
 #define BATT_INTERVAL_D 65535
 
+#define MAX_NODES       20
 #define MAX_CHARS       13
 #define UINT32_LEN      11 // 10+1, where the last byte should be 0x00
 #define UINT64_LEN      21 // 20+1, where the last byte should be 0x00
@@ -752,5 +586,30 @@ typedef uint8_t error_t;
 #define CALIB_SYNC_SOURCE_INFOMEM            2
 #define CALIB_SYNC_SOURCE_SD_FILE            3
 #define CALIB_SYNC_SOURCE_CALIBRAM           4
+
+// Shimmer obsolescence identifier
+#define MPU9x50_IN_USE                    (0x01)
+#define ICM20948_IN_USE                   (0x02)
+
+typedef enum
+{
+   TASK_SETUP_DOCK          = (0x00000001UL << 0U),
+   TASK_BATT_READ           = (0x00000001UL << 1U),
+   TASK_DOCK_PROCESS_CMD    = (0x00000001UL << 2U),
+   TASK_DOCK_RESPOND        = (0x00000001UL << 3U),
+   TASK_BT_PROCESS_CMD      = (0x00000001UL << 4U),
+   TASK_CFGCH               = (0x00000001UL << 5U),
+   TASK_BT_RESPOND          = (0x00000001UL << 6U),
+   TASK_RCCENTERR1          = (0x00000001UL << 7U),
+   TASK_RCNODER10           = (0x00000001UL << 8U),
+   TASK_SAMPLE_MPU9150_MAG  = (0x00000001UL << 9U),
+   TASK_SAMPLE_BMPX80_PRESS = (0x00000001UL << 10U),
+   TASK_STREAMDATA          = (0x00000001UL << 11U),
+   TASK_SDLOG_CFG_UPDATE    = (0x00000001UL << 12U),
+//   TASK_STOPSENSING         = (0x00000001UL << 13U),
+   TASK_STARTSENSING        = (0x00000001UL << 14U),
+   TASK_WR2SD               = (0x00000001UL << 15U)
+} TASK_FLAGS;
+#define TASK_SIZE    32
 
 #endif

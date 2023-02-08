@@ -122,6 +122,26 @@ def bmp180_calib(uTemp, uPress):
 
    return T/10.0, P
 
+def compareVersion (thisMajor, thisMinor, thisInternal, compMajor, compMinor, compInternal):
+	
+	if ((thisMajor==compMajor and thisMinor>compMinor)or
+		(thisMajor==compMajor and thisMinor==compMinor and thisInternal>=compInternal)):
+		return True
+	else:
+		return False
+
+def checkFor2ndGenIMU (expIdMajor, expIdMinor, expIdInternal):
+	
+	if (compareVersion(expIdMajor, expIdMinor, expIdInternal, 47, 3,0) or 
+	   compareVersion(expIdMajor, expIdMinor, expIdInternal, 48, 3,0) or
+	   compareVersion(expIdMajor, expIdMinor, expIdInternal, 49, 2,0) or
+	   compareVersion(expIdMajor, expIdMinor, expIdInternal, 31, 6,0) or
+	   compareVersion(expIdMajor, expIdMinor, expIdInternal, 38, 3,0) or
+	   compareVersion(expIdMajor, expIdMinor, expIdInternal, 36, 3,0) or
+	   expIdInternal == 171):
+	   return True
+	else:
+		return False
 
 if len(sys.argv) < 2:
    print "no device specified"
@@ -135,24 +155,20 @@ else:
    ser.flushInput()
 
 #get the daughter card ID byte (SR number)
+   ddaughterCardId = ""
+   memLength = 5  # Byte Format: daughter CardID|length|major|minor|Internal
    print("Requesting Daughter Card ID...")
-   ser.write(struct.pack('BBB', 0x66, 0x01, 0x00))
+   ser.write(struct.pack('BBB', 0x66, 0x03, 0x00))
    wait_for_ack()
-   srNumber = struct.unpack('BBB', ser.read(3))[2] # get third byte (0,1,2..)
-   print("Daughter card ID: 0x%02x" % srNumber)
 
-   bmp280 = True
-   if(srNumber >= 59 and srNumber != 255):
-      bmp280 = True
-      framesize = 24
-   else:
-      bmp280 = False
-      framesize = 22
-   
-   bmp280 = True
-   framesize = 24
 
-   print "srNumber: %d" % srNumber
+   ddaughterCardId += ser.read(memLength)
+   daughterCardId = ddaughterCardId[2:memLength]
+   (srMajor, srMinor, srInternal) = struct.unpack('BBB', daughterCardId[0:3])
+   print("srMajor=%d,srMinor=%d,srInternal=%d" % (srMajor, srMinor, srInternal))
+   bmp280 = checkFor2ndGenIMU(srMajor, srMinor, srInternal)
+   print "Using BMP%d80" % (2 if bmp280 else 1)
+   framesize = (24 if bmp280 else 22)
 
 # read the calibration coefficients
    ser.write(struct.pack('B', (0xA0 if bmp280 else 0x59)))
@@ -170,20 +186,17 @@ else:
       numbytes = len(ddata)
    data = ddata[0:framesize]
 
-   print "Using BMP%d80" % (2 if bmp280 else 1)
-
-
    if(bmp280):
       # h is for signed
       # H is for unsigned
       # < is for little endian (format is LSB, MSB, LSB, MSB etc...)
       # > is for big endian (format is MSB, LSB, MSB, LSB etc...)
-      (T1, T2, T3, P1, P2, P3, P4, P5, P6, P7, P8, P9) = struct.unpack('<HhhHhhhhhhhh', data);
+      (T1, T2, T3, P1, P2, P3, P4, P5, P6, P7, P8, P9) = struct.unpack('<HhhHhhhhhhhh', data)
       print "Calibration coefficients:\n\tT1: %d\n\tT2: %d\n\tT3: %d\n\tP1: " \
             "%d\n\tP2: %d\n\tP3: %d\n\tP4: %d\n\tP5: %d\n\tP6: %d\n\tP7: %d\n\t" \
             "P8: %d\n\tP9: %d\n" % (T1, T2, T3, P1, P2, P3, P4, P5, P6, P7, P8, P9)
    else:
-      (AC1, AC2, AC3, AC4, AC5, AC6, B1, B2, MB, MC, MD) = struct.unpack('>hhhHHHhhhhh', data);
+      (AC1, AC2, AC3, AC4, AC5, AC6, B1, B2, MB, MC, MD) = struct.unpack('>hhhHHHhhhhh', data)
       print "Calibration coefficients:\n\tAC1: %d\n\tAC2: %d\n\tAC3: %d\n\tAC4: %d\n\tAC5: %d\n\tAC6: " \
              "%d\n\t B1: %d\n\t B2: %d\n\t MB: %d\n\t MC: %d\n\t MD: %d\n" \
              % (AC1, AC2, AC3, AC4, AC5, AC6, B1, B2, MB, MC, MD)
@@ -202,12 +215,11 @@ else:
    '''
     sampling_freq = 32768 / clock_wait = X Hz
    '''
-   sampling_freq = 2
+   sampling_freq = 2 # desired sampling freq. in Hz
    clock_wait = (2 << 14) / sampling_freq
 
    ser.write(struct.pack('<BH', 0x05, clock_wait))
 
-   # ser.write(struct.pack('BBB', 0x05, 0x40, 0x01)) #102.4Hz (320 (0x0140)). Has to be done like this for alignment reasons
    wait_for_ack()
 
 # send start streaming command

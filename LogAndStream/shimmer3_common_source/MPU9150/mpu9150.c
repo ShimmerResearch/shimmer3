@@ -68,7 +68,7 @@ void MPU9150_init(void) {
 uint8_t MPU9150_getId(void) {
    uint8_t buf;
    I2C_Set_Slave_Address(MPU9150_ADDR);
-   buf = MPU9150_WHO_AM_I;
+   buf = MPU9X50_WHO_AM_I_REG;
    I2C_Read_Packet_From_Sensor(&buf, 1);
    return buf;
 }

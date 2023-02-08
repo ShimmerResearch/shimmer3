@@ -47,7 +47,24 @@
 #define LED_BLUE	0x10
 #define LED_ALL		0xFF
 
+enum SR_BOARD_CODES
+{
+    EXP_BRD_BR_AMP              = 8,
+    EXP_BRD_GSR                 = 14,
+    SHIMMER3_IMU                = 31,
+    EXP_BRD_PROTO3_MINI         = 36,
+    EXP_BRD_EXG                 = 37,
+    EXP_BRD_PROTO3_DELUXE       = 38,
+    EXP_BRD_ADXL377_ACCEL_200G  = 44,
+    EXP_BRD_EXG_UNIFIED         = 47,
+    EXP_BRD_GSR_UNIFIED         = 48,
+    EXP_BRD_BR_AMP_UNIFIED      = 49,
+    EXP_BRD_H3LIS331DL_ACCEL_HIGH_G     = 55,
+    SHIMMER_ECG_MD              = 59
+};
+
 extern void Board_init(void);
+void Board_init_for_revision(uint8_t srId, uint8_t srRev, uint8_t srRevSpecial);
 extern void Board_ledOn(uint8_t ledMask);
 extern void Board_ledOff(uint8_t ledMask);
 extern void Board_ledToggle(uint8_t ledMask);

@@ -58,13 +58,13 @@ inline void StopTB0(void) {
 //read TB0 counter while timer is running
 inline uint16_t GetTB0(void) {
    register uint16_t t0, t1;
-   uint8_t ie;
-   if(ie=(__get_SR_register()&0x0008)) //interrupts enabled?
-      __disable_interrupt();
+//   uint8_t ie;
+//    if (ie = (__get_SR_register() & GIE)) //interrupts enabled?
+//      __disable_interrupt();
    t1 = TB0R;
    do {t0=t1; t1=TB0R;} while(t0!=t1);
-   if(ie)
-      __enable_interrupt();
+//   if(ie)
+//      __enable_interrupt();
    return t1;
 }
 

@@ -67,6 +67,12 @@ void UART_config(){
    UARTCTL0 = 0;
    UARTCTL1 |= UCSSEL_2;                     // SMCLK
 
+   /* 1000000 baud would be a better setting compared with 115200 (even clock
+    * divider) but Consensys is currently set to use 115200 baud */
+//   UARTBR0 = 24;                          //24MHz 1000000
+//   UARTMCTL = 0;                           //24MHz 1000000
+//   UCA1MCTL = UCBRS_0 + UCBRF_0; //Modln UCBRSx=0, UCBRFx=0, no over sampling
+
    //UARTBR0 = 0x03;                           // 24MHz 460800
    //UARTBR1 = 0;
    //UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
@@ -119,6 +125,18 @@ uint8_t uartUca0RxIsr(){
    if(uartCallbackFunc)
       return uartCallbackFunc(rx_char);
    return 0;
+}
+
+void UART_setState(uint8_t state)
+{
+    if(state)
+    {
+        UART_activate();
+    }
+    else
+    {
+        UART_deactivate();
+    }
 }
 
 void UART_deactivate(){

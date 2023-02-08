@@ -315,14 +315,15 @@ uint8_t TI_USCI_I2C_slave_present(uint8_t slave_address) {
 	UCB0I2CSA = slave_address; // set slave address
 	UCB0IE &= ~(UCTXIE + UCRXIE); // no RX or TX interrupts
 
-	__disable_interrupt();
+	uint16_t gie = __get_SR_register() & GIE; //Store current GIE state
+    __disable_interrupt();
 
 	UCB0CTL1 |= UCTR + UCTXSTT + UCTXSTP; // I2C TX, start condition
 	while (UCB0CTL1 & UCTXSTP)
 		; // wait for STOP condition
 	returnValue = !(UCB0IFG & UCNACKIFG);
 
-	__enable_interrupt();
+	__bis_SR_register(gie);                   //Restore original GIE state
 
 	UCB0I2CSA = slave_add; // restore old slave address
 	UCB0IE = ucie; // restore old UCB0CTL1

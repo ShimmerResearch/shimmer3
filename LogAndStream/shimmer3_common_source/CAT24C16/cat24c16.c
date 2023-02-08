@@ -34,7 +34,8 @@ void CAT24C16_powerOff(void)
 
 void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
 {
-    if ((!length) || (length > 2048) || (address + length > 2048))
+    if ((!length) || (length > EEPROM_MAX_SIZE_IN_BYTES)
+            || (address + length > EEPROM_MAX_SIZE_IN_BYTES))
         return;
 
     I2C_Set_Slave_Address(CAT24C16_ADDR | (address >> 8));
@@ -56,7 +57,8 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
 //1024 bytes writing: 351 ms
 void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
 {
-    if ((!length) || (length > 2048) || (address + length > 2048))
+    if ((!length) || (length > EEPROM_MAX_SIZE_IN_BYTES)
+            || (address + length > EEPROM_MAX_SIZE_IN_BYTES))
         return;
 
     uint8_t final_addr;

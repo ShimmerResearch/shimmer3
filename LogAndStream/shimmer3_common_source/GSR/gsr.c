@@ -97,6 +97,7 @@
 uint8_t last_active_resistor, transient_active_resistor, got_first_sample;
 uint16_t transient_sample, transient_smoothing_samples, max_resistance_step;
 uint32_t last_resistance;
+uint8_t gsrRangePinsAreReversed;
 
 void GSR_init(void) {
    // configure pins
@@ -113,28 +114,46 @@ void GSR_init(void) {
    GSR_initSmoothing(HW_RES_40K);
 }
 
-void GSR_setRange(uint8_t range) {
-   switch(range) {
-   case HW_RES_40K:
-      P1OUT &= ~BIT4;
-      P2OUT &= ~BIT1;
-      break;
+void GSR_setRange(uint8_t range)
+{
+    switch (range)
+    {
+    case HW_RES_40K:
+        P1OUT &= ~BIT4;
+        P2OUT &= ~BIT1;
+        break;
 
-   case HW_RES_287K:
-      P1OUT |= BIT4;
-      P2OUT &= ~BIT1;
-      break;
+    case HW_RES_287K:
+        if (gsrRangePinsAreReversed)
+        {
+            P1OUT &= ~BIT4;
+            P2OUT |= BIT1;
+        }
+        else
+        {
+            P1OUT |= BIT4;
+            P2OUT &= ~BIT1;
+        }
+        break;
 
-   case HW_RES_1M:
-      P1OUT &= ~BIT4;
-      P2OUT |= BIT1;
-      break;
+    case HW_RES_1M:
+        if (gsrRangePinsAreReversed)
+        {
+            P1OUT |= BIT4;
+            P2OUT &= ~BIT1;
+        }
+        else
+        {
+            P1OUT &= ~BIT4;
+            P2OUT |= BIT1;
+        }
+        break;
 
-   case HW_RES_3M3:
-      P1OUT |= BIT4;
-      P2OUT |= BIT1;
-      break;
-   }
+    case HW_RES_3M3:
+        P1OUT |= BIT4;
+        P2OUT |= BIT1;
+        break;
+    }
 }
 
 uint64_t multiply(uint64_t no1, uint64_t no2) {
@@ -159,8 +178,9 @@ uint32_t GSR_calcResistance(uint16_t ADC_val, uint8_t active_resistor) {
       conductance = ( ( (HW_RES_1M_CONSTANT_A)* ADC_val) + (HW_RES_1M_CONSTANT_B) );
       break;
    case HW_RES_3M3:
-      conductance = ( ( (HW_RES_3M3_CONSTANT_A)* ADC_val) + (HW_RES_3M3_CONSTANT_B) );
-   default:;
+   default:
+       conductance = ( ( (HW_RES_3M3_CONSTANT_A)* ADC_val) + (HW_RES_3M3_CONSTANT_B) );
+       break;
    }
    //Resistance = 1e6/Conductance (in ohms)
    return (uint32_t)(1000000.0/conductance);
@@ -284,4 +304,9 @@ uint32_t GSR_smoothSample(uint32_t resistance, uint8_t active_resistor) {
    }
 
    return resistance;
+}
+
+void setGsrRangePinsAreReversed(uint8_t state)
+{
+    gsrRangePinsAreReversed = state;
 }
