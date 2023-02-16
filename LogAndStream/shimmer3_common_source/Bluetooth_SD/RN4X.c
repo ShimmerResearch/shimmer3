@@ -72,17 +72,22 @@ volatile uint8_t messageInProgress, txOverflow;
 uint8_t txie_reg;
 uint8_t receiveBuffer[8];
 
-char expectedCommandResponse[62U], advertisingName[17], newAutoMaster[13], pinCode[17],
-        newSvcClass[5], newDevClass[5], newSvcName[17],
-        inquiryScanWindow[5], pagingTime[5], btMode[2],
-        rn4678FastMode[5], rn4678TxPower[2], rn4678BleConnectionParameters[20],
-        rn4678BleSwRevision[5], rn4678BleManufacturer[8], rn4xRemoteConfigurationTimer[4];
+char expectedCommandResponse[62U], advertisingName[17], newAutoMaster[13],
+        pinCode[17], newSvcClass[5], newDevClass[5], newSvcName[17],
+        inquiryScanWindow[5], pagingTime[5], btMode[2], rn4678FastMode[5],
+        rn4678BleConnectionParameters[20], rn4678BleSwRevision[5],
+        rn4678BleManufacturer[8], rn4xRemoteConfigurationTimer[4],
+        bleCompleteLocalName[21];
 char commandbuf[32];
+
+rn4678TxPower_et rn4678TxPower;
+rn42TxPowerPreAug2012_et rn42TxPowerPreAug2012;
+rn42TxPowerPostAug2012_et rn42TxPowerPostAug2012;
 
 uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
-uint8_t bt_setbaudrate_step, bt_setbaudrate_start;
+uint8_t bt_setbaudrate_step, bt_setbaudrate_start, useSpecificAdvertisingName;
 uint8_t btBaudRateToUse, charsReceived;
 btOperatingMode radioMode;
 
@@ -104,6 +109,8 @@ uint8_t (*dataAvailableFuncPtr)(uint8_t data) = 0;
 uint8_t slowRate;
 
 rn4678OperationalMode rn4678OpMode;
+
+rn4678ConnectionType rn4678ConnectionState;
 
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
@@ -131,12 +138,71 @@ volatile uint8_t command_mode_active;
 uint8_t btIsStarting;
 #endif
 
-volatile uint8_t rn4678SampleSetBufferSize;
+volatile uint8_t rn4678ClassicBtSampleSetBufferSize;
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
 volatile uint8_t rn4678RtsLockDetected;
 #endif
 
 char *daughtCardIdStrPtrForBle;
+
+uint8_t macIdStr[14], macIdBytes[6];
+
+const char * const hex = "0123456789ABCDEF";
+
+const char * const rn4678TxPower_str[] =
+{
+    [RN4678_TX_POWER_MINUS_20_DBM] =    "0\0",
+    [RN4678_TX_POWER_MINUS_7_DBM] =     "1\0",
+    [RN4678_TX_POWER_MINUS_2_DBM]  =    "2\0",
+    [RN4678_TX_POWER_0_DBM]  =          "3\0",
+    [RN4678_TX_POWER_PLUS_2_DBM]  =     "4\0"
+};
+
+const char * const rn42TxPowerPreAug2012_set_str[] =
+{
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_12_DBM] =  "0004\0",
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_6_DBM] =   "0000\0",
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_2_DBM] =   "FFFC\0",
+    [RN42_TX_POWER_PRE_AUG_2012_0_DBM] =        "FFF8\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_5_DBM] =  "FFF4\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_10_DBM] = "FFF0\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_20_DBM] = "FFE8\0"
+};
+
+const char * const rn42TxPowerPreAug2012_get_str[] =
+{
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_12_DBM] =  "4\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_6_DBM] =   "0\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_PLUS_2_DBM] =   "fffc\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_0_DBM] =        "fff8\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_5_DBM] =  "fff4\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_10_DBM] = "fff0\x0d\x0a\0",
+    [RN42_TX_POWER_PRE_AUG_2012_MINUS_20_DBM] = "ffe8\x0d\x0a\0"
+};
+
+const char * const rn42PostAug2012TxPower_set_str[] =
+{
+    [RN42_TX_POWER_POST_AUG_2012_PLUS_16_DBM] =     "0010\0",
+    [RN42_TX_POWER_POST_AUG_2012_PLUS_12_DBM] =     "000C\0",
+    [RN42_TX_POWER_POST_AUG_2012_PLUS_8_DBM] =      "0008\0",
+    [RN42_TX_POWER_POST_AUG_2012_PLUS_4_DBM] =      "0004\0",
+    [RN42_TX_POWER_POST_AUG_2012_0_DBM] =           "0000\0",
+    [RN42_TX_POWER_POST_AUG_2012_MINUS_4_DBM] =     "FFFC\0",
+    [RN42_TX_POWER_POST_AUG_2012_MINUS_8_DBM] =     "FFF8\0",
+    [RN42_TX_POWER_POST_AUG_2012_MINUS_12_DBM] =    "FFF4\0"
+};
+
+const char * const rn42PostAug2012TxPower_get_str[] =
+{
+     [RN42_TX_POWER_POST_AUG_2012_PLUS_16_DBM] =     "TX Power=10\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_PLUS_12_DBM] =     "TX Power=C\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_PLUS_8_DBM] =      "TX Power=8\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_PLUS_4_DBM] =      "TX Power=4\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_0_DBM] =           "TX Power=0\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_MINUS_4_DBM] =     "TX Power=fffC\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_MINUS_8_DBM] =     "TX Power=fff8\x0d\x0a\0",
+     [RN42_TX_POWER_POST_AUG_2012_MINUS_12_DBM] =    "TX Power=fff4\x0d\x0a\0"
+};
 
 void BT_startDone_cb(void (*cb)(void))
 {
@@ -562,6 +628,8 @@ void runSetCommands(void)
             if (doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
+                BT_useSpecificAdvertisingName(0U);
+
                 // NOTE: LogAndStream uses "S-," command here to set the BT friendly name. "SN," sets the device name.
                 /* Not sure what the difference is and whether this distinction is needed. "S-" looks like it might be a legacy command. */
 #if FW_IS_LOGANDSTREAM
@@ -720,10 +788,73 @@ void runSetCommands(void)
             }
         }
 
+        if (bt_setcommands_step == GET_BT_POWER_LEVEL)
+        {
+            bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+            setDmaWaitForReturnNewLine();
+#endif
+            /* GY seems to be working in RN42 v4.77 but broken in RN42 v6.15.
+             * This could also be the case with other versions. Therefore we
+             * must fetch the TX Power from the "Other Settings" using 'O' */
+            if (btFwVer == RN42_V6_15)
+            {
+                writeCommandNoRsp("O\r");
+            }
+            else
+            {
+                writeCommandNoRsp("GY\r");
+            }
+            return;
+        }
+
+        if (bt_setcommands_step == SET_BT_POWER_LEVEL)
+        {
+#if BT_DMA_USED_FOR_RX
+            /* For the RN42 v6.15, we need to parse through each line of the
+             * "other settings" until we get to TX Power. Note, after factory
+             * reset, tx power always reports 0 until it is changed. */
+            if (btFwVer == RN42_V6_15)
+            {
+                if(strstr(btRxFullResponse, RN42_OTHER_SETTINGS_TX_POWER))
+                {
+                    parseRnGetResponse("Y", btRxFullResponse);
+                    setDmaWaitForReturnNewLine();
+                    return;
+                }
+                /* Role swith is the last line in the "Other Settings "*/
+                else if(strstr(btRxFullResponse, RN42_OTHER_SETTINGS_ROLE_SWCH))
+                {
+                    bt_setcommands_step++;
+                }
+                else
+                {
+                    setDmaWaitForReturnNewLine();
+                    return;
+                }
+            }
+            else
+            {
+                bt_setcommands_step++;
+                parseRnGetResponse("Y", btRxFullResponse);
+            }
+#else
+            bt_setcommands_step++;
+#endif
+
+            if (doesBtConfigNeedUpdating)
+            {
+                doesBtConfigNeedUpdating = 0;
+                sprintf(commandbuf, "SY,%s\r", BT_getDesiredRnTxPowerForBtVerSetCmd());
+                writeCommandBufAndExpectAok();
+                return;
+            }
+        }
+
         if (isBtDeviceRn41orRN42())
         {
             /* Skip to next stage */
-            if (bt_setcommands_step == SET_PAGING_TIME + 1)
+            if (bt_setcommands_step == SET_BT_POWER_LEVEL + 1)
             {
                 bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
             }
@@ -779,34 +910,9 @@ void runSetCommands(void)
                 }
             }
 
-            if (bt_setcommands_step == RN4678_GET_BT_POWER_LEVEL)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                setDmaWaitForReturnNewLine();
-#endif
-                writeCommandNoRsp("GY\r");
-                return;
-            }
-
-            if (bt_setcommands_step == RN4678_SET_BT_POWER_LEVEL)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                parseRnGetResponse("Y", btRxFullResponse);
-#endif
-                if (doesBtConfigNeedUpdating)
-                {
-                    doesBtConfigNeedUpdating = 0;
-                    sprintf(commandbuf, "SY,%s\r", rn4678TxPower);
-                    writeCommandBufAndExpectAok();
-                    return;
-                }
-            }
-
 #if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
             /* Skip to next stage */
-            if (bt_setcommands_step == RN4678_SET_BT_POWER_LEVEL + 1)
+            if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
             {
                 bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
             }
@@ -1056,7 +1162,7 @@ void runSetCommands(void)
             }
         }
 
-        if (bt_setcommands_step == CMD_MODE_STOP)
+        if (bt_setcommands_step == REBOOT)
         {
             bt_setcommands_step++;
             if (btRebootRequired)
@@ -1078,11 +1184,80 @@ void runSetCommands(void)
                 {
                     writeCommand(commandbuf, "Rebooting\r\n%REBOOT%");
                 }
+                setCommandModeActive(0);
                 setRebootRequired(0);
                 return;
             }
+        }
+
+#if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
+        /* Skip to next stage */
+        if (bt_setcommands_step == REBOOT + 1)
+        {
+            bt_setcommands_step = CMD_MODE_STOP;
+        }
+#else
+        /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
+        if (btFwVer == RN4678_V1_23_0)
+        {
+            if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
+            {
+                bt_setcommands_step++;
+                if (!isRnCommandModeActive())
+                {
+                    btCmdModeStart();
+                    return;
+                }
+            }
+
+            if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
+            {
+                bt_setcommands_step++;
+                /* Append MAC ID to end of BLE advertising name */
+
+                /* Note: We were using sprintf with "%02x" to make this a
+                 * one-liner but that requires full print support which
+                 * increases flash requirements by 6KB */
+                bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
+                bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
+                bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
+                bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
+                bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
+                bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
+                bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
+                bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
+                bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
+                bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
+                bleCompleteLocalName[20U] = 0;
+
+                sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
+                writeCommandBufAndExpectAok();
+                return;
+            }
+
+            /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
+//            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
+//            {
+//                bt_setcommands_step++;
+//                sprintf(commandbuf, "IA,19,0540\r"); //0x0540 Generic Sensor
+//                writeCommandBufAndExpectAok();
+//                return;
+//            }
+        }
+        else
+        {
+            if (bt_setcommands_step == REBOOT + 1)
+            {
+                bt_setcommands_step = CMD_MODE_STOP;
+            }
+        }
+#endif
+
+        if (bt_setcommands_step == CMD_MODE_STOP)
+        {
+            bt_setcommands_step++;
             // exit command mode
-            else if (isRnCommandModeActive())
+            if (isRnCommandModeActive())
             {
                 btCmdModeStop();
                 return;
@@ -1543,6 +1718,8 @@ void BT_init(void)
 {
     messageInProgress = txOverflow = 0;
 
+    setRn4678ConnectionState(RN4678_DISCONNECTED);
+
     //Turn on power (SW_BT P4.3 on SR30 and newer)
     setBtModulePower(1);
 
@@ -1580,6 +1757,7 @@ void BT_init(void)
     // connect/disconnect commands
     deviceConn = 0;
     setBtIsConnected(0);
+    BT_useSpecificAdvertisingName(0U);
 
     clearExpectedResponseBuf();
     charsReceived = 0;
@@ -1625,8 +1803,10 @@ void BT_init(void)
     // Enable fast mode with HW flow control enabled
     BT_setRn4678FastMode("9000");
 
-    // Set the power level to maximum for the RN4678 (+2dBm). The RN42 by default uses the highest power option (i.e., +12dBm or +16dBm depending on the generation)
-    BT_setRn4678TxPower("4");
+    // Set the power level to maximum for all BT modules that Shimmer uses
+    BT_setRn4678TxPower(RN4678_TX_POWER_PLUS_2_DBM);
+    BT_setRn42TxPowerPreAug2012(RN42_TX_POWER_PRE_AUG_2012_PLUS_12_DBM);
+    BT_setRn42TxPowerPostAug2012(RN42_TX_POWER_POST_AUG_2012_PLUS_16_DBM);
 
     /* Sets the connection parameters for BLE connection
      Field 1 = Minimum connection interval = 0x0001 = 1*1.25ms = 1.25ms
@@ -1635,6 +1815,8 @@ void BT_init(void)
      Field 4 = Supervision timeout = 0x0200 = 512*10ms = 5.12s (default setting)
      */
     BT_setRn4678BleConnectionParameters("0001,001C,0000,0200");
+
+    BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
 }
 
 void BT_start(void)
@@ -1709,9 +1891,21 @@ void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
     /* If it's the RN4678 and 1Mbps isn't supported, only allow a fixed number of sensor data packets to be in the TX buffer */
+    BT_write_rn4678_with_buf(buf, len, responseType, rn4678ClassicBtSampleSetBufferSize);
+}
+
+void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
+{
+    /* If it's BLE, try to fill as many bytes as possible into the available MTU size */
+    BT_write_rn4678_with_buf(buf, len, responseType, BLE_MTU_SIZE);
+}
+
+void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
+{
+    /* Buffer before sending to the BT module */
     if (getSpaceInBtTxBuf() <= len
             || (responseType == SENSOR_DATA
-                    && (getUsedSpaceInBtTxBuf() >= rn4678SampleSetBufferSize || messageInProgress || isBtModuleOverflowPinHigh())))
+                    && (getUsedSpaceInBtTxBuf() >= sampleSetBufferSize || messageInProgress || isBtModuleOverflowPinHigh())))
     {
         return; //fail
     }
@@ -1725,12 +1919,11 @@ void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseTy
     }
 #endif
 
-    /* If it's an RN4678 that doesn't support 1Mbps and a sensor data packet,
-     * wait until the local buffer has reached a certain size before sending to
+    /* Wait until the local buffer has reached a certain size before sending to
      * the Bluetooth module - grouping the bytes was found to help to reduce
      * packet loss */
     if (responseType != SENSOR_DATA
-            || (getUsedSpaceInBtTxBuf() >= rn4678SampleSetBufferSize))
+            || ((getUsedSpaceInBtTxBuf() + len) > sampleSetBufferSize))
     {
         sendNextCharIfNotInProgress();
     }
@@ -1776,6 +1969,9 @@ void BT_disconnect(void)
 void BT_setGetMacAddress(uint8_t val)
 {
     getMacAddress = val;
+
+    memset(macIdStr, 0x00, sizeof(macIdStr) / sizeof(macIdStr[0]));
+    memset(macIdBytes, 0x00, sizeof(macIdBytes) / sizeof(macIdBytes[0]));
 }
 
 void BT_setGetVersion(uint8_t val)
@@ -1784,7 +1980,6 @@ void BT_setGetVersion(uint8_t val)
     if (getVersion)
     {
         setBtFwVersion(BT_FW_VER_UNKNOWN);
-        updateBtWriteFunctionPtrFromBtVer();
     }
 }
 
@@ -1849,7 +2044,6 @@ void BT_setEncryption(uint8_t enc)
  * 2 - SSP "just works" mode (default)
  * 3 - SSP Pin Code Input mode
  * 4 - Legacy Pin Code mode
- *
  */
 void BT_setAuthentication(uint8_t auth)
 {
@@ -1859,6 +2053,11 @@ void BT_setAuthentication(uint8_t auth)
 void BT_setAdvertisingName(char *name)
 {
     snprintf(advertisingName, 17, "%s", name);
+}
+
+void BT_useSpecificAdvertisingName(uint8_t val)
+{
+    useSpecificAdvertisingName = val;
 }
 
 void BT_setPIN(char *PIN)
@@ -1935,10 +2134,59 @@ void BT_setRn4678BleConnectionParameters(char *hexval_time)
     snprintf(rn4678BleConnectionParameters, sizeof(rn4678BleConnectionParameters), "%s", hexval_time);
 }
 
-// https://microchipsupport.force.com/s/article/Wireless-SY-0-4--command-clarifications-for-RN4678
-void BT_setRn4678TxPower(char *hexval_time)
+void BT_setRn4678BleCompleteLocalName(char *hexval_name)
 {
-    snprintf(rn4678TxPower, sizeof(rn4678TxPower), "%s", hexval_time);
+    string2hexString(hexval_name, bleCompleteLocalName);
+}
+
+char * BT_getDesiredRnTxPowerForBtVerSetCmd(void)
+{
+    if(isBtDeviceRn4678())
+    {
+        return rn4678TxPower_str[rn4678TxPower];
+    }
+    /* Note: Leading zeros are not returned for 'GY' in the RN4X */
+    else if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+    {
+        return rn42TxPowerPreAug2012_set_str[rn42TxPowerPreAug2012];
+    }
+    else
+    {
+        return rn42PostAug2012TxPower_set_str[rn42TxPowerPostAug2012];
+    }
+}
+
+char * BT_getDesiredRnTxPowerForBtVerGetCmd(void)
+{
+    if(isBtDeviceRn4678())
+    {
+        return rn4678TxPower_str[rn4678TxPower];
+    }
+    /* Note: Leading zeros are not returned for 'GY' in the RN4X */
+    else if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+    {
+        return rn42TxPowerPreAug2012_get_str[rn42TxPowerPreAug2012];
+    }
+    else
+    {
+        return rn42PostAug2012TxPower_get_str[rn42TxPowerPostAug2012];
+    }
+}
+
+// https://microchipsupport.force.com/s/article/Wireless-SY-0-4--command-clarifications-for-RN4678
+void BT_setRn4678TxPower(rn4678TxPower_et newValue)
+{
+    rn4678TxPower = newValue;
+}
+
+void BT_setRn42TxPowerPreAug2012(rn42TxPowerPreAug2012_et newValue)
+{
+    rn42TxPowerPreAug2012 = newValue;
+}
+
+void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue)
+{
+    rn42TxPowerPostAug2012 = newValue;
 }
 
 /* Set RN4678 to use dual Bluetooth mode
@@ -2306,6 +2554,9 @@ uint8_t doesBtDeviceSupport1Mbps(void)
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
 {
     btFwVer = btFwVerNew;
+
+    /* Write function needs to be updated depending BT FW version */
+    updateBtWriteFunctionPtr();
 }
 
 enum BT_FIRMWARE_VERSION getBtFwVersion(void)
@@ -2330,9 +2581,13 @@ enum BT_HARDWARE_VERSION getBtHwVersion(void)
     return BT_HW_VER_UNKNOWN;
 }
 
-void updateBtWriteFunctionPtrFromBtVer(void)
+void updateBtWriteFunctionPtr(void)
 {
-    if (doesBtDeviceSupport1Mbps())
+    if(isRn4678ConnectionBle())
+    {
+        BT_write = &BT_write_rn4678_ble;
+    }
+    else if (doesBtDeviceSupport1Mbps())
     {
         BT_write = &BT_write_rn4678_1M;
     }
@@ -2433,7 +2688,27 @@ void setRn4678OperationalModePins(rn4678OperationalMode mode)
     }
 }
 
-void calculateBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateTicks)
+uint8_t isRn4678ConnectionEstablished(void)
+{
+    return (rn4678ConnectionState != RN4678_DISCONNECTED);
+}
+
+uint8_t isRn4678ConnectionBle(void)
+{
+    return (rn4678ConnectionState == RN4678_CONNECTED_BLE);
+}
+
+void setRn4678ConnectionState(rn4678ConnectionType state)
+{
+    rn4678ConnectionState = state;
+
+    /* Write function needs to be updated depending on whether BLE is connected
+     * or not in order to optimise how many bytes are transferred per BLE
+     * packet */
+    updateBtWriteFunctionPtr();
+}
+
+void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateTicks)
 {
     uint8_t sampleSetsToBuffer = 1U;
     /* If sampling rate is <= 256 Hz (i.e., 32768Hz/256Hz = 128ticks), use double buffer*/
@@ -2444,7 +2719,7 @@ void calculateBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateTicks)
     /* Len + 1U for DATA_PACKET bytes header.
      * *sampleSetsToBuffer for X number of sample sets in buffer */
     /* Note: this doesn't include CRC bytes*/
-    rn4678SampleSetBufferSize = ((len + 1U) * sampleSetsToBuffer);
+    rn4678ClassicBtSampleSetBufferSize = ((len + 1U) * sampleSetsToBuffer);
 }
 
 uint8_t getDefaultBaudForBtVersion(void)
@@ -2669,7 +2944,14 @@ void checkFastMode(char *rxBufPtr)
 
 void checkTransmitPower(char *rxBufPtr)
 {
-    doesBtConfigNeedUpdating = strstr(rxBufPtr, rn4678TxPower) ? 0 : 1;
+    if(isBtDeviceRn4678())
+    {
+        doesBtConfigNeedUpdating = strstr(rxBufPtr, BT_getDesiredRnTxPowerForBtVerGetCmd()) ? 0 : 1;
+    }
+    else
+    {
+        doesBtConfigNeedUpdating = strcmp(rxBufPtr, BT_getDesiredRnTxPowerForBtVerGetCmd()) ? 1 : 0;
+    }
 }
 
 void checkBleConnectionParameters(char *rxBufPtr)
@@ -2704,18 +2986,62 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr)
 
 void checkAdvertisingName(char *rxBufPtr)
 {
-#if ADVERTISING_NAME_IS_OUTPUT
-    doesBtConfigNeedUpdating = strstr(rxBufPtr, advertisingName) ? 0 : 1;
-#else
-    doesBtConfigNeedUpdating = (strstr(rxBufPtr, advertisingName)
-            || strstr(rxBufPtr, ADVERTISING_NAME_OUTPUT)
-            || strstr(rxBufPtr, ADVERTISING_NAME_SHIMMER3)) ? 0 : 1;
-#endif
+    if (useSpecificAdvertisingName)
+    {
+        doesBtConfigNeedUpdating = strstr(rxBufPtr, advertisingName) ? 0 : 1;
+    }
+    else
+    {
+        doesBtConfigNeedUpdating = (strstr(rxBufPtr, advertisingName)
+                || strstr(rxBufPtr, ADVERTISING_NAME_OUTPUT)
+                || strstr(rxBufPtr, ADVERTISING_NAME_SHIMMER3)) ? 0 : 1;
+    }
 }
 
 void checkPin(char *rxBufPtr)
 {
-    doesBtConfigNeedUpdating = strstr(rxBufPtr, pinCode ) ? 0 : 1;
+    doesBtConfigNeedUpdating = strstr(rxBufPtr, pinCode) ? 0 : 1;
+}
+
+void string2hexString(char* input, char* output)
+{
+    uint8_t loop;
+    uint8_t i;
+
+    i=0;
+    loop=0;
+
+    while(input[loop] != '\0')
+    {
+        *(output + i++) = hex[(uint8_t)((input[loop] >> 4) & 0xF)];
+        *(output + i++) = hex[(uint8_t)(input[loop] & 0xF)];
+        loop+=1;
+    }
+    //insert NULL at the end of the output string
+    output[i++] = '\0';
+}
+
+void bt_setMacId(uint8_t *buf)
+{
+    memcpy(macIdStr, buf, 14);
+    uint8_t i, pchar[3];
+    pchar[2] = 0;
+    for (i = 0; i < 6; i++)
+    {
+        pchar[0] = macIdStr[i * 2];
+        pchar[1] = macIdStr[i * 2 + 1];
+        macIdBytes[i] = strtoul((char*) pchar, 0, 16);
+    }
+}
+
+uint8_t* getMacIdStrPtr(void)
+{
+    return &macIdStr[0];
+}
+
+uint8_t* getMacIdBytesPtr(void)
+{
+    return &macIdBytes[0];
 }
 
 #if !BT_DMA_USED_FOR_RX

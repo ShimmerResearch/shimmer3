@@ -21,11 +21,11 @@
 #include "../LSM303DLHC/lsm303dlhc.h"
 #include "../LSM303AHTR/lsm303ahtr.h"
 #include "../BMPX80/bmpX80.h"
+#include "../Bluetooth_SD/RN4X.h"
 
 uint8_t shimmerCalib_ram[SHIMMER_CALIB_RAM_MAX], shimmerCalib_macId[5],
         shimmerCalib_ramTemp[SHIMMER_CALIB_RAM_MAX];
 uint16_t shimmerCalib_ramLen, shimmerCalib_ramTempLen, shimmerCalib_ramTempMax;
-extern uint8_t mac[14];
 extern uint8_t lsmInUse, bmpInUse, substituteWrAccelAndMag;
 
 uint8_t ShimmerCalib_findLength(sc_t* sc1)
@@ -63,7 +63,7 @@ void ShimmerCalib_init(void)
 {
     shimmerCalib_ramLen = 8;
 
-    memcpy(shimmerCalib_macId, mac + 8, 4);
+    memcpy(shimmerCalib_macId, getMacIdStrPtr() + 8, 4);
     shimmerCalib_macId[4] = 0;
 
     memset(shimmerCalib_ram, 0, SHIMMER_CALIB_RAM_MAX);

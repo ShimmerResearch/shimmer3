@@ -9,6 +9,7 @@
 #define SHIMMER3_COMMON_SOURCE_BLUETOOTH_SD_SHIMMER_BT_COMMS_H_
 
 #include <stdint.h>
+#include "../../shimmer_btsd.h"
 #include "../5xx_HAL/hal_CRC.h"
 
 // Packet Types// Packet Types
@@ -204,9 +205,7 @@ void btCommsProtocolInit(uint8_t (*newBtCmdToProcessCb)(void),
                          void (*setMacIdCb)(uint8_t *),
                          uint8_t * actionPtr,
                          uint8_t * argsPtr);
-uint8_t isBtConnectionEstablished(void);
-void setBtConnectionEstablished(uint8_t state);
-void triggerBtRfCommStateChangeCallback(uint8_t state);
+void triggerBtRfCommStateChangeCallback(bool state);
 void triggerShimmerErrorState(void);
 uint8_t getBtVerStrLen(void);
 char * getBtVerStrPtr(void);

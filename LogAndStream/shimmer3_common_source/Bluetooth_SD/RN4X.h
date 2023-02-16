@@ -31,6 +31,8 @@
 #define ADVERTISING_NAME_OUTPUT "OUTPUT\0"
 #define ADVERTISING_NAME_SHIMMER3 "Shimmer3\0"
 
+#define BLE_ADVERTISING_NAME_SHIMMER3 "S3BLE\0"
+
 typedef enum
 {
     /* Default mode (SM,0)  In this mode, other Bluetooth devices can discover
@@ -100,6 +102,38 @@ enum BT_BAUD_RATE
     BAUD_NO_CHANGE_NEEDED = 0xFF,
 };
 
+typedef enum
+{
+    RN4678_TX_POWER_MINUS_20_DBM = 0,
+    RN4678_TX_POWER_MINUS_7_DBM,
+    RN4678_TX_POWER_MINUS_2_DBM,
+    RN4678_TX_POWER_0_DBM,
+    RN4678_TX_POWER_PLUS_2_DBM
+} rn4678TxPower_et;
+
+typedef enum
+{
+    RN42_TX_POWER_PRE_AUG_2012_PLUS_12_DBM = 0,
+    RN42_TX_POWER_PRE_AUG_2012_PLUS_6_DBM,
+    RN42_TX_POWER_PRE_AUG_2012_PLUS_2_DBM,
+    RN42_TX_POWER_PRE_AUG_2012_0_DBM,
+    RN42_TX_POWER_PRE_AUG_2012_MINUS_5_DBM,
+    RN42_TX_POWER_PRE_AUG_2012_MINUS_10_DBM,
+    RN42_TX_POWER_PRE_AUG_2012_MINUS_20_DBM,
+} rn42TxPowerPreAug2012_et;
+
+typedef enum
+{
+    RN42_TX_POWER_POST_AUG_2012_PLUS_16_DBM = 0,
+    RN42_TX_POWER_POST_AUG_2012_PLUS_12_DBM,
+    RN42_TX_POWER_POST_AUG_2012_PLUS_8_DBM,
+    RN42_TX_POWER_POST_AUG_2012_PLUS_4_DBM,
+    RN42_TX_POWER_POST_AUG_2012_0_DBM,
+    RN42_TX_POWER_POST_AUG_2012_MINUS_4_DBM,
+    RN42_TX_POWER_POST_AUG_2012_MINUS_8_DBM,
+    RN42_TX_POWER_POST_AUG_2012_MINUS_12_DBM
+} rn42TxPowerPostAug2012_et;
+
 enum BT_SET_COMMAND_STAGES
 {
     WAIT_FOR_BOOT,
@@ -126,12 +160,12 @@ enum BT_SET_COMMAND_STAGES
     SET_INQUIRY_SCAN_WINDOW,
     GET_PAGING_TIME,
     SET_PAGING_TIME,
+    GET_BT_POWER_LEVEL,
+    SET_BT_POWER_LEVEL,
     RN4678_GET_BT_MODE,
     RN4678_SET_BT_MODE,
     RN4678_GET_FAST_MODE,
     RN4678_SET_FAST_MODE,
-    RN4678_GET_BT_POWER_LEVEL,
-    RN4678_SET_BT_POWER_LEVEL,
     RN4678_GET_MODEL_STRING,
     RN4678_SET_MODEL_STRING,
     RN4678_GET_MANUFACTURER_STRING,
@@ -146,6 +180,10 @@ enum BT_SET_COMMAND_STAGES
     UPDATE_BAUD_RATE_2,
     UPDATE_BAUD_RATE_3,
     RN42_REENTER_CMD_MODE,
+    REBOOT,
+    RN4678_REENTER_CMD_MODE,
+    RN4678_SET_BLE_LOCAL_ADV_NAME,
+//    RN4678_SET_BLE_APPEARANCE,
     CMD_MODE_STOP,
     FINISH
 };
@@ -231,8 +269,13 @@ enum BT_SET_COMMAND_STAGES
 #define BT_RX_BUF_SIZE                  (256UL)              /* serial buffer in bytes (power 2)   */
 #define BT_RX_BUF_MASK                  (BT_RX_BUF_SIZE-1UL)  /* buffer size mask                   */
 #endif
+#define BLE_MTU_SIZE                    157U
 
 #define INSTREAM_STATUS_RESPONSE_LEN    4U
+
+#define RN42_OTHER_SETTINGS_TX_POWER    "TX Power=\0"
+#define RN42_OTHER_SETTINGS_ROLE_SWCH    "RoleSwch=\0"
+
 
 typedef struct{
     uint8_t data[BT_TX_BUF_SIZE];
@@ -261,6 +304,13 @@ typedef enum
     RN4678_OP_MODE_APPLICATION,
     RN4678_OP_MODE_DISABLE
 } rn4678OperationalMode;
+
+typedef enum
+{
+    RN4678_DISCONNECTED,
+    RN4678_CONNECTED_CLASSIC,
+    RN4678_CONNECTED_BLE
+} rn4678ConnectionType;
 
 // set a callback function cb that runs when Bt is successfully started
 void BT_startDone_cb(void (*cb)(void));
@@ -324,6 +374,8 @@ void BT_disable(void);
 extern void (*BT_write)(uint8_t *buf, uint8_t len, btResponseType responseType);
 void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType);
 void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType);
+void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType);
+void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize);
 void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 //connect to a specific device that was previously discovered
@@ -345,6 +397,7 @@ void BT_setDiscoverable(uint8_t disc);
 void BT_setEncryption(uint8_t enc);
 void BT_setAuthentication(uint8_t auth);
 void BT_setAdvertisingName(char *name); // max 16 chars
+void BT_useSpecificAdvertisingName(uint8_t val);
 void BT_setPIN(char *name); // max 16 chars
 void BT_setServiceClass(char *serviceClass); // max 4 chars (hex word)
 void BT_setServiceName(char *name); // max 16 chars
@@ -358,7 +411,12 @@ void BT_setPagingTime(char *hexvalTime); // max 4 chars (hex word)
 void BT_setInquiryScanWindow(char *hexvalTime); // max 4 chars (hex word)
 void BT_setRn4678FastMode(char *hexval_time);
 void BT_setRn4678BleConnectionParameters(char *hexval_time);
-void BT_setRn4678TxPower(char *hexval_time);
+void BT_setRn4678BleCompleteLocalName(char *hexval_name);
+char * BT_getDesiredRnTxPowerForBtVerSetCmd(void);
+char * BT_getDesiredRnTxPowerForBtVerGetCmd(void);
+void BT_setRn4678TxPower(rn4678TxPower_et newValue);
+void BT_setRn42TxPowerPreAug2012(rn42TxPowerPreAug2012_et newValue);
+void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue);
 void BT_setRn4678BtMode(char *hexval_time);
 void BT_setRn4xRemoteConfigurationTimer(char *hexval_time);
 void BT_resetDefaults(void);
@@ -424,7 +482,7 @@ uint8_t doesBtDeviceSupport1Mbps(void);
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew);
 enum BT_FIRMWARE_VERSION getBtFwVersion(void);
 enum BT_HARDWARE_VERSION getBtHwVersion(void);
-void updateBtWriteFunctionPtrFromBtVer(void);
+void updateBtWriteFunctionPtr(void);
 uint8_t getCurrentBtBaudRate(void);
 void setBtRxFullResponsePtr(char *ptr);
 uint8_t getBtClearTxBufFlag(void);
@@ -437,7 +495,10 @@ void clearBtCmdBuf(void);
 void clearExpectedResponseBuf(void);
 void setRn4678OperationalMode(rn4678OperationalMode mode);
 void setRn4678OperationalModePins(rn4678OperationalMode mode);
-void calculateBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateTicks);
+uint8_t isRn4678ConnectionEstablished(void);
+uint8_t isRn4678ConnectionBle(void);
+void setRn4678ConnectionState(rn4678ConnectionType state);
+void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateTicks);
 uint8_t getDefaultBaudForBtVersion(void);
 void setBleDeviceInformation(char *daughtCardIdStrPtr, uint8_t fwVerMajorNew, uint8_t fwVerMinorNew, uint8_t fwVerRelNew);
 uint8_t parseRnGetResponse(char *cmdPtr, char *responsePtr);
@@ -457,6 +518,10 @@ void checkSoftwareRevision(char *rxBufPtr);
 void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
+void string2hexString(char* input, char* output);
+void bt_setMacId(uint8_t *buf);
+uint8_t* getMacIdStrPtr(void);
+uint8_t* getMacIdBytesPtr(void);
 #if !BT_DMA_USED_FOR_RX
 RingFifoRx_t *getRxFifoPtr(void);
 void readByteFromBtRxBuf(uint8_t *buf);

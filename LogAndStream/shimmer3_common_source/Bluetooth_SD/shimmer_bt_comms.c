@@ -15,8 +15,8 @@
 #include "../5xx_HAL/hal_board.h"
 #include "../5xx_HAL/hal_RTC.h"
 #include "../5xx_HAL/hal_CRC.h"
-#if BT_DMA_USED_FOR_RX
 #include "../../shimmer_btsd.h"
+#if BT_DMA_USED_FOR_RX
 #include "../5xx_HAL/hal_DMA.h"
 #endif
 #include "sd_sync.h"
@@ -46,8 +46,6 @@ volatile char btVerStrResponse[BT_VER_RESPONSE_LARGEST+1U]; /* +1 to always have
 uint8_t (*newBtCmdToProcess_cb)(void);
 void (*handleBtRfCommStateChange_cb)(uint8_t);
 void (*setMacId_cb)(uint8_t *);
-
-uint8_t btConnectionEstablished;
 
 uint16_t numBytesInBtRxBufWhenLastProcessed = 0;
 uint16_t indexOfFirstEol;
@@ -251,7 +249,6 @@ uint8_t Dma2ConversionDone(void)
             else
             {
                 setBtFwVersion(btFwVerNew);
-                updateBtWriteFunctionPtrFromBtVer();
 
                 /* When storing the BT version, ignore from "\r" onwards */
                 uint8_t btVerLen = strlen(btRxBuffFullResponse);
@@ -385,14 +382,14 @@ uint8_t Dma2ConversionDone(void)
                             /* "%CONNECT,001BDC06A3D5%" - RN4678 */
                             if (btStatusStr[21U]=='%')
                             {
-                                btConnectionEstablished = 1;
+                                setRn4678ConnectionState(RN4678_CONNECTED_CLASSIC);
                             }
                             /* "%CONNECT" for RN42 v4.77 or "%CONNECT,001BDC06A3D5," - RN42 v6.15 */
                             else if ((btFwVer == RN41_V4_77 && btStatusStr[7U]=='T')
                                     || (btFwVer == RN42_V4_77 && btStatusStr[7U]=='T')
                                     || (btFwVer == RN42_V6_15 && btStatusStr[21U]==','))
                             {
-                                HandleBtRfCommStateChange(TRUE);
+                                triggerBtRfCommStateChangeCallback(TRUE);
                                 bringUcOutOfSleep = 1U;
                             }
                             else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
@@ -435,16 +432,16 @@ uint8_t Dma2ConversionDone(void)
                              * Bluetooth connections. */
                             if (isBtConnected())
                             {
-                                HandleBtRfCommStateChange(FALSE);
+                                triggerBtRfCommStateChangeCallback(FALSE);
                                 bringUcOutOfSleep = 1U;
                             }
 
-                            btConnectionEstablished = 0;
+                            setRn4678ConnectionState(RN4678_DISCONNECTED);
                         }
                         /* "%DISCONNECT" -> RN42 */
                         else if (btStatusStr[10U]=='T')
                         {
-                            HandleBtRfCommStateChange(FALSE);
+                            triggerBtRfCommStateChangeCallback(FALSE);
                             bringUcOutOfSleep = 1U;
                         }
                         /* "%DISCON" - Read outstanding bytes */
@@ -563,8 +560,11 @@ uint8_t Dma2ConversionDone(void)
                             /* "%LCONNECT,001BDC06A3D5,1%" - RN4678 BLE mode */
                             if (btStatusStr[24U]=='%')
                             {
-                                btConnectionEstablished = 1;
-                                HandleBtRfCommStateChange(TRUE);
+                                setRn4678ConnectionState(RN4678_CONNECTED_BLE);
+
+                                /* RN4678 seems to assume charactertic is advice once BLE connected */
+                                triggerBtRfCommStateChangeCallback(TRUE);
+
                                 bringUcOutOfSleep = 1U;
                             }
                             else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
@@ -667,7 +667,7 @@ uint8_t Dma2ConversionDone(void)
                                 /* "%RFCOMM_CLOSE%" */
                                 if (btStatusStr[13U]=='%')
                                 {
-                                    HandleBtRfCommStateChange(FALSE);
+                                    triggerBtRfCommStateChangeCallback(FALSE);
                                     bringUcOutOfSleep = 1U;
                                 }
                                 /* "%RFCOMM_CLOSE" - Read outstanding bytes */
@@ -679,7 +679,7 @@ uint8_t Dma2ConversionDone(void)
                             /* "%RFCOMM_OPEN%" */
                             else if (btStatusStr[12U]=='%')
                             {
-                                HandleBtRfCommStateChange(TRUE);
+                                triggerBtRfCommStateChangeCallback(TRUE);
                                 bringUcOutOfSleep = 1U;
                             }
                             /* "%RFCOMM" - Read outstanding bytes */
@@ -1083,11 +1083,11 @@ void handleBtRxTimeout(void)
     }
     else if ((numberOfCharToRemove = isBtRxBufLike("%CONNECT,XXXXXXXXXXXX%", 1)) > 0)
     {
-        setBtConnectionEstablished(1U);
+        setRn4678ConnectionState(RN4678_CONNECTED_CLASSIC);
     }
     else if ((numberOfCharToRemove = isBtRxBufLike("%DISCONN%", 1)) > 0)
     {
-        setBtConnectionEstablished(0);
+        setRn4678ConnectionState(RN4678_DISCONNECTED);
     }
     else
     {
@@ -1221,7 +1221,7 @@ uint8_t processStatusString(void)
         if (numBytesInBtRxBufWhenLastProcessed >= BT_STAT_STR_LEN_RN4678_CONNECT
                 && getRxByteAtIndex(21U)=='%')
         {
-            setBtConnectionEstablished(1U);
+            setRn4678ConnectionState(RN4678_CONNECTED_CLASSIC);
             numberOfCharToRemove = BT_STAT_STR_LEN_RN4678_CONNECT;
         }
         /* "%CONNECT" for RN42 v4.77 or "%CONNECT,001BDC06A3D5," - RN42 v6.15 */
@@ -1253,7 +1253,7 @@ uint8_t processStatusString(void)
         if (numBytesInBtRxBufWhenLastProcessed >= BT_STAT_STR_LEN_RN4678_DISCONN
                 && getRxByteAtIndex(8U)=='%')
         {
-            setBtConnectionEstablished(0);
+            setRn4678ConnectionState(RN4678_DISCONNECTED);
             numberOfCharToRemove = BT_STAT_STR_LEN_RN4678_DISCONN;
         }
         /* "%DISCONNECT" -> RN42 */
@@ -1417,10 +1417,7 @@ uint8_t processStatusString(void)
                 if (numBytesInBtRxBufWhenLastProcessed >= BT_STAT_STR_LEN_RFCOMM_CLOSE
                         && getRxByteAtIndex(13U)=='%')
                 {
-                    if(handleBtRfCommStateChange_cb)
-                    {
-                        handleBtRfCommStateChange_cb(0);
-                    }
+                    triggerBtRfCommStateChangeCallback(0);
                     numberOfCharToRemove = BT_STAT_STR_LEN_RFCOMM_CLOSE;
                 }
             }
@@ -1428,10 +1425,7 @@ uint8_t processStatusString(void)
             else if (numBytesInBtRxBufWhenLastProcessed >= BT_STAT_STR_LEN_RFCOMM_OPEN
                     && getRxByteAtIndex(12U)=='%')
             {
-                if(handleBtRfCommStateChange_cb)
-                {
-                    handleBtRfCommStateChange_cb(1U);
-                }
+                triggerBtRfCommStateChangeCallback(1U);
                 numberOfCharToRemove = BT_STAT_STR_LEN_RFCOMM_OPEN;
             }
         }
@@ -1618,7 +1612,6 @@ uint8_t processRnCmdResponse(void)
 
 
         setBtFwVersion(btFwVerNew);
-        updateBtWriteFunctionPtrFromBtVer();
 
         responseParsed = 1;
     }
@@ -2130,8 +2123,6 @@ void btCommsProtocolInit(uint8_t (*newBtCmdToProcessCb)(void),
                          uint8_t * actionPtr,
                          uint8_t * argsPtr)
 {
-    setBtConnectionEstablished(0);
-
     setBtCrcMode(CRC_OFF);
     numBytesInBtRxBufWhenLastProcessed = 0;
     indexOfFirstEol = 0;
@@ -2174,17 +2165,7 @@ void btCommsProtocolInit(uint8_t (*newBtCmdToProcessCb)(void),
     memset(btVerStrResponse, 0x00, sizeof(btVerStrResponse) / sizeof(btVerStrResponse[0]));
 }
 
-uint8_t isBtConnectionEstablished(void)
-{
-    return btConnectionEstablished;
-}
-
-void setBtConnectionEstablished(uint8_t state)
-{
-    btConnectionEstablished = state;
-}
-
-void triggerBtRfCommStateChangeCallback(uint8_t state)
+void triggerBtRfCommStateChangeCallback(bool state)
 {
     if (handleBtRfCommStateChange_cb)
     {

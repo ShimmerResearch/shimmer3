@@ -196,7 +196,7 @@ uint32_t maxLen, maxLenCnt;
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
 
 uint8_t sdlogReady, btstreamReady, enableSdlog, enableBtstream;
-uint8_t mac[14], macAddr[6], fwInfo[7], ackStr[4],
+uint8_t fwInfo[7], ackStr[4],
         storedConfig[NV_NUM_RWMEM_BYTES], channelContents[MAX_NUM_CHANNELS],
         configuring, nbrAdcChans, nbrDigiChans, infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
@@ -714,8 +714,6 @@ void Init(void)
     lastGsrVal = 0;
     setGsrRangePinsAreReversed(0);
 
-    memset(mac, 0, sizeof(mac) / sizeof(mac[0]));
-
     sendAck = 0;
     inquiryResponse = 0;
     samplingRateResponse = 0;
@@ -795,8 +793,6 @@ void Init(void)
     uartCrc2Wait = 0;
     substituteWrAccelAndMag = 0;
 
-    memset(mac, 0x00, sizeof(mac) / sizeof(mac[0]));
-    memset(macAddr, 0x00, sizeof(macAddr) / sizeof(macAddr[0]));
     memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
 
     SD_ERROR = SD_IN_SLOT = FALSE;
@@ -1169,7 +1165,7 @@ void InitialiseBt(void)
     /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
      * always used for Classic Bluetooth so we're just disabling the passkey
      * altogether here */
-    BT_setAuthentication(2);
+    BT_setAuthentication(2U);
     setBleDeviceInformation(&daughtCardIdStr[0], FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 #endif
 
@@ -1178,6 +1174,7 @@ void InitialiseBt(void)
 #endif
 
 #if FACTORY_TEST
+    BT_useSpecificAdvertisingName(1U);
     /* This used to be used to trigger reset of the Bluetooth advertising name
      * and pin code but is no longer needed due to BT driver updates. Leaving
      * the remaining code in here just to reset the infomem bit but it isn't
@@ -2120,7 +2117,7 @@ void ConfigureChannels(void)
         isIcm20948AccelEn = TRUE;
     }
 
-    calculateBtTxSampleSetBufferSize(blockLen, (*(uint16_t*) (storedConfig + NV_SAMPLING_RATE)));
+    calculateClassicBtTxSampleSetBufferSize(blockLen, (*(uint16_t*) (storedConfig + NV_SAMPLING_RATE)));
 }
 
 uint8_t CheckOnDefault()
@@ -2246,7 +2243,8 @@ __interrupt void Port1_ISR(void)
         if (((P1IN & BIT0) & isBtDeviceRn41orRN42())
                 || ((!(P1IN & BIT0)) & isBtDeviceRn4678()))
         {   //BT is connected
-            if(!areBtStatusStringsEnabled())
+            /* BLE relies on this pin to know when the UART service is open/not */
+            if(!areBtStatusStringsEnabled() || isRn4678ConnectionBle())
             {
                 HandleBtRfCommStateChange(TRUE);
             }
@@ -2659,7 +2657,7 @@ __interrupt void TIMER0_B1_ISR(void)
                             Board_ledOn(LED_BLUE);
                             Board_ledOff(LED_GREEN1);     // nothing to show
                         }
-                        else if (isBtConnectionEstablished())
+                        else if (isRn4678ConnectionEstablished())
                         {
                             /* BT connection established but RFComm not open */
                             if (P1OUT & BIT2)
@@ -3095,17 +3093,9 @@ uint8_t Dma0ConversionDone(void)
 
 void setMacId(uint8_t *buf)
 {
-    memcpy(mac, buf, 14);
-    uint8_t i, pchar[3];
-    pchar[2] = 0;
-    for (i = 0; i < 6; i++)
-    {
-        pchar[0] = mac[i * 2];
-        pchar[1] = mac[i * 2 + 1];
-        macAddr[i] = strtoul((char*) pchar, 0, 16);
-    }
-    InfoMem_write((uint8_t*) NV_MAC_ADDRESS, macAddr, 6);
-    memcpy(storedConfig + NV_MAC_ADDRESS, macAddr, 6);
+    bt_setMacId(buf);
+    InfoMem_write((uint8_t*) NV_MAC_ADDRESS, getMacIdBytesPtr(), 6);
+    memcpy(storedConfig + NV_MAC_ADDRESS, getMacIdBytesPtr(), 6);
 }
 
 void ProcessCommand(void)
@@ -3952,7 +3942,7 @@ void ProcessCommand(void)
             if (infomemOffset == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
             {
                 /* Read MAC address so it is not forgotten */
-                InfoMem_read((uint8_t*) NV_MAC_ADDRESS, macAddr, 6);
+                InfoMem_read((uint8_t*) NV_MAC_ADDRESS, getMacIdBytesPtr(), 6);
             }
             if (infomemOffset == (INFOMEM_SEG_D_ADDR - INFOMEM_OFFSET))
             {
@@ -3979,7 +3969,7 @@ void ProcessCommand(void)
             if (infomemOffset == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
             {
                 /* Re-write MAC address to Infomem */
-                InfoMem_write((uint8_t*) NV_MAC_ADDRESS, macAddr, 6);
+                InfoMem_write((uint8_t*) NV_MAC_ADDRESS, getMacIdBytesPtr(), 6);
             }
 
             InfoMem_read((uint8_t*) infomemOffset, storedConfig + infomemOffset,
@@ -5450,7 +5440,7 @@ void SetDefaultConfiguration(void)
     /* sd config */
     /* shimmername */
     strcpy((char*) (storedConfig + NV_SD_SHIMMER_NAME), "Shimmer_XXXX");
-    memcpy((storedConfig + NV_SD_SHIMMER_NAME) + 8, mac + 8, 4);
+    memcpy((storedConfig + NV_SD_SHIMMER_NAME) + 8, getMacIdStrPtr() + 8, 4);
     memcpy(shimmerName, (storedConfig + NV_SD_SHIMMER_NAME), 6);
     shimmerName[6] = 0;
 
@@ -5491,7 +5481,7 @@ void SetShimmerName()
     else
     {
         strcpy((char*) (storedConfig + NV_SD_SHIMMER_NAME), "Shimmer_XXXX");
-        memcpy((storedConfig + NV_SD_SHIMMER_NAME) + 8, mac + 8, 4);
+        memcpy((storedConfig + NV_SD_SHIMMER_NAME) + 8, getMacIdStrPtr() + 8, 4);
         strcpy((char*) shimmerName, (char*) (storedConfig + NV_SD_SHIMMER_NAME));
     }
 }
@@ -8701,7 +8691,7 @@ void UartProcessCmd()
                                     == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
                             {
                                 /* Read MAC address so it is not forgotten */
-                                InfoMem_read((uint8_t*) NV_MAC_ADDRESS, macAddr,
+                                InfoMem_read((uint8_t*) NV_MAC_ADDRESS, getMacIdBytesPtr(),
                                              6);
                             }
                             if (uartInfoMemOffset
@@ -8735,7 +8725,7 @@ void UartProcessCmd()
                             {
                                 /* Re-write MAC address to Infomem */
                                 InfoMem_write((uint8_t*) NV_MAC_ADDRESS,
-                                              macAddr, 6);
+                                              getMacIdBytesPtr(), 6);
                             }
                             /* Reload latest infomem bytes to RAM */
                             InfoMem_read((uint8_t*) uartInfoMemOffset,
@@ -8861,7 +8851,7 @@ void UartSendRsp()
         *(uartRespBuf + uart_resp_len++) = 8;
         *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
         *(uartRespBuf + uart_resp_len++) = UART_PROP_MAC;
-        memcpy(uartRespBuf + uart_resp_len, macAddr, 6);
+        memcpy(uartRespBuf + uart_resp_len, getMacIdBytesPtr(), 6);
         uart_resp_len += 6;
     }
     else if (uartSendRspVer)
