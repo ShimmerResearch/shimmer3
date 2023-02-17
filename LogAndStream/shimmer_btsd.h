@@ -53,7 +53,7 @@
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Major version number: 0-65535
 #define FW_VER_MINOR          15     //Minor version number: 0-255
-#define FW_VER_REL            3      //internal version number: 0-255
+#define FW_VER_REL            4      //internal version number: 0-255
 #else
 #define FW_IDENTIFIER         2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR          0     //Major version number: 0-65535
