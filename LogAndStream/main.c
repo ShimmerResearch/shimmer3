@@ -222,7 +222,8 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         nshimmerResponse, myIDResponse, configTimeResponse, dirResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
-        btVbattResponse, skip65ms, calibRamResponse, btVerResponse;
+        btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
+        useAckPrefixForInstreamResponses;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
 uint8_t resPacket[RESPONSE_PACKET_SIZE + 2]; //+2 for crc checksum bytes;
@@ -792,6 +793,7 @@ void Init(void)
     uartArg2Wait = 0;
     uartCrc2Wait = 0;
     substituteWrAccelAndMag = 0;
+    useAckPrefixForInstreamResponses = 1U;
 
     memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
 
@@ -1816,9 +1818,10 @@ void BtsdSelfcmd()
         uint8_t i = 0;
         uint8_t selfcmd[6]; /* max is 6 bytes */
 
-#if BT_USE_ACK_PREFIX_FOR_INSTREAM_RESPONSES
-        selfcmd[i++] = ACK_COMMAND_PROCESSED;
-#endif
+        if (useAckPrefixForInstreamResponses)
+        {
+            selfcmd[i++] = ACK_COMMAND_PROCESSED;
+        }
         selfcmd[i++] = INSTREAM_CMD_RESPONSE;
         selfcmd[i++] = STATUS_RESPONSE;
         selfcmd[i++] = ((toggleLedRed & 0x01) << 7)
@@ -2213,6 +2216,8 @@ void HandleBtRfCommStateChange(bool isOpen)
         clearBtTxBuf(0);
 #endif
         setBtCrcMode(CRC_OFF);
+        /* Revert to default state if changed */
+        useAckPrefixForInstreamResponses = 1U;
     }
 #if FW_IS_LOGANDSTREAM
     TaskSet(TASK_SDLOG_CFG_UPDATE);
@@ -3161,6 +3166,10 @@ void ProcessCommand(void)
         break;
     case SET_CRC_COMMAND:
         setBtCrcMode(args[0]);
+        break;
+
+    case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+        useAckPrefixForInstreamResponses = args[0];
         break;
 
     case STOP_STREAMING_COMMAND:

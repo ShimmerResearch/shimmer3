@@ -6,9 +6,7 @@
 /* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
 #define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
-#define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
-/* The ACK at the start of INSTREAM responses makes parsing code on the receiving end untidy but it is needed for Shimmer applications */
-#define BT_USE_ACK_PREFIX_FOR_INSTREAM_RESPONSES 1
+#define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 0
 
 /********** Defines created when testing Bluetooth driver - Start ***********/
 /* This toggles the CTS pin whenever the DMA interrupt is being processed to tell the BT module to stop sending bytes while the MCU is not in a position to recieve them */

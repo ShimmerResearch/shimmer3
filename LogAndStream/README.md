@@ -217,6 +217,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
       - UPD_SDLOG_CFG_COMMAND
       - GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND
       - GET_BT_VERSION_STR_COMMAND
+      - SET_INSTREAM_STATUS_HEADER_STATE_COMMAND
       - SET_SD_SYNC_COMMAND
    ```
 
