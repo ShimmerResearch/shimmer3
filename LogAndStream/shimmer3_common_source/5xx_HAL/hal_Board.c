@@ -47,7 +47,6 @@
 #define XT1_ENABLE               (BIT0 + BIT1)
 #define XT2_ENABLE               (BIT2 + BIT3)
 
-
 /***************************************************************************//**
  * @brief  Initialize the board - configure ports
  * @param  None
@@ -157,12 +156,6 @@ void Board_init(void) {
    //EXP_RESET_N
    P3DIR &= ~BIT3;            //set as input
 
-   //TCXO power
-   P4OUT &= ~BIT6;            //set low
-   P4DIR |= BIT6;             //set as output
-   //TCXO_CLK_R
-   P4DIR &= ~BIT7;            //set as input
-
    //External ADC expansion ports
    P6DIR &= ~(BIT6 + BIT7);   //A6 and A7 as input
    P6SEL |= BIT6 + BIT7;
@@ -183,10 +176,6 @@ void Board_init(void) {
    P3OUT &= ~BIT0;            //set low
    P3DIR |= BIT0;             //set as output
 
-   //GPIO_INTERNAL1
-   P2OUT &= ~BIT0;            //set low
-   P2DIR |= BIT0;             //set as output
-
    //GPIO_INTERNAL
    P1DIR &= ~BIT4;
    //GPIO_INTERNAL2
@@ -200,33 +189,6 @@ void Board_init(void) {
    //SW_I2C
    P8OUT &= ~BIT4;           //set low
    P8DIR |= BIT4;            //set as output
-
-   //Not connected
-   P8OUT &= ~BIT5;           //set low
-   P8DIR |= BIT5;            //set as output
-}
-
-void Board_init_for_revision(uint8_t srId, uint8_t srRev, uint8_t srRevSpecial)
-{
-    /*
-     * ADS1292R chip issue workaround
-     * Requires GPIO_INTERNAL1 to be an input (default is output)
-     * Issues affects boards SR37, SR47 & SR59 at present.
-     */
-    if ((srId == EXP_BRD_EXG)
-            || (srId == EXP_BRD_EXG_UNIFIED)
-            || (srId == SHIMMER_ECG_MD))
-    {
-        P2DIR &= ~BIT0;                  //EXG_DRDY as input
-    }
-
-    // RN4678 Operational mode pins
-    if (srId == EXP_BRD_BR_AMP_UNIFIED && srRev >= 3)
-    {
-        P4DIR |= BIT6;   // P2_0
-        P4DIR |= BIT7;   // P2_4
-        P8DIR |= BIT5;   // EAN
-    }
 }
 
 /***************************************************************************//**
@@ -273,3 +235,47 @@ inline void Board_ledToggle(uint8_t ledMask) {
 /***************************************************************************//**
  * @}
  ******************************************************************************/
+
+void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAndCmdModeSupport)
+{
+    /*
+     * ADS1292R chip issue workaround
+     * Requires GPIO_INTERNAL1 to be an input (default is output)
+     * Issues affects boards SR37, SR47 & SR59 at present.
+     */
+    if (ads1292IsPresent)
+    {
+        P2DIR &= ~BIT0;            //EXG_DRDY as input
+    }
+    else
+    {
+        //GPIO_INTERNAL1
+        P2OUT &= ~BIT0;            //set low
+        P2DIR |= BIT0;             //set as output
+    }
+
+    // RN4678 Operational mode pins
+    if (rn4678IsPresentAndCmdModeSupport)
+    {
+        // RN4678_OP_MODE_DISABLE
+        P4OUT &= ~BIT6; // P2_0
+        P4OUT &= ~BIT7; // P2_4
+        P8OUT &= ~BIT5; // EAN
+
+        P4DIR |= BIT6;   // P2_0
+        P4DIR |= BIT7;   // P2_4
+        P8DIR |= BIT5;   // EAN
+    }
+    else
+    {
+        //TCXO power
+        P4OUT &= ~BIT6;            //set low
+        P4DIR |= BIT6;             //set as output
+        //TCXO_CLK_R
+        P4DIR &= ~BIT7;            //set as input
+
+        //Not connected
+        P8OUT &= ~BIT5;           //set low
+        P8DIR |= BIT5;            //set as output
+    }
+}

@@ -53,7 +53,7 @@
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Major version number: 0-65535
 #define FW_VER_MINOR          15     //Minor version number: 0-255
-#define FW_VER_REL            4      //internal version number: 0-255
+#define FW_VER_REL            5      //internal version number: 0-255
 #else
 #define FW_IDENTIFIER         2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR          0     //Major version number: 0-65535
@@ -586,10 +586,6 @@ typedef uint8_t error_t;
 #define CALIB_SYNC_SOURCE_INFOMEM            2
 #define CALIB_SYNC_SOURCE_SD_FILE            3
 #define CALIB_SYNC_SOURCE_CALIBRAM           4
-
-// Shimmer obsolescence identifier
-#define MPU9x50_IN_USE                    (0x01)
-#define ICM20948_IN_USE                   (0x02)
 
 typedef enum
 {

@@ -93,8 +93,6 @@
 #define BMP180_IN_USE					(0x01)
 #define BMP280_IN_USE				 	(0x02)
 
-#define BMP280_BOARD_REV_NO				(0x3B) // SR-59
-
 #define	BMP180_CALIB_DATA_SIZE			(0x16) // 22
 #define	BMP280_CALIB_DATA_SIZE			(0x18) // 24
 #define BMP280_CALIB_XTRA_BYTES			(0x02)
@@ -189,22 +187,6 @@
 
 #define BMP280_ULTRAHIGHRESOLUTION_OVERSAMP_PRESSURE    BMP280_OVERSAMP_16X
 #define BMP280_ULTRAHIGHRESOLUTION_OVERSAMP_TEMPERATURE BMP280_OVERSAMP_2X
-
-/**************************************************************/
-/**\name	FUNCTION FOR BMP DRIVER SETUP    */
-/**************************************************************/
-/*!
- * @brief Function for setting up which BMP is in use
- *
- * @param bmp_in_use : Toggles which BMP driver to use
- *
- *    value    | Description
- *  -----------|---------------
- *     1       | BMP180 in use
- *     2       | BMP280 in use
- *
- */
-void BMPX80_setup(uint8_t bmp_in_use);
 
 
 /**************************************************************/
@@ -352,5 +334,23 @@ void BMPX80_getCalibCoeff(uint8_t *res);
 */
 void BMPX80_setWorkMode(uint8_t v_work_mode_u8);
 
+/**************************************************************/
+/**\name    FUNCTION FOR BMP DRIVER SETUP    */
+/**************************************************************/
+/*!
+ * @brief Function for setting up which BMP is in use
+ *
+ * @param bmp_in_use : Toggles which BMP driver to use
+ *
+ *    value    | Description
+ *  -----------|---------------
+ *     1       | BMP180 in use
+ *     2       | BMP280 in use
+ *
+ */
+void setBmpInUse(uint8_t bmp_in_use);
+
+uint8_t isBmp180InUse(void);
+uint8_t isBmp280InUse(void);
 
 #endif //BMPX80_H

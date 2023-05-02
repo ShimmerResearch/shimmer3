@@ -48,8 +48,6 @@
 #define LSM303AHTR_ACCEL_ADDR  0x1D // 7 bit address of the LSM303DHLC's accelerometer
 #define LSM303AHTR_MAG_ADDR    0x1E // 7 bit address of the LSM303DHLC's magnetometer
 
-#define LSM303AHTR_IN_USE      0x02
-
 //registers
 /* Reserved 0x00 - 0x0B */
 #define Module_8bit_A          0x0C

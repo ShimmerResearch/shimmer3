@@ -32,5 +32,6 @@
 #include "shimmer_calibration/shimmer_calibration.h"
 #include "Bluetooth_SD/shimmer_bt_comms.h"
 #include "Bluetooth_SD/sd_sync.h"
+#include "shimmer_boards/shimmer_boards.h"
 
 #endif
