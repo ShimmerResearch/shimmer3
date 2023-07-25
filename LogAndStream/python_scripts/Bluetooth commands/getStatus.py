@@ -12,7 +12,6 @@ def wait_for_ack():
     while ddata != ack:
         ddata = ser.read(1)
         print("0x%02x" % ord(ddata[0]))
-
     return
 
 
