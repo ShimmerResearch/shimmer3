@@ -25,7 +25,7 @@ def wait_for_byte(a):
     ack = struct.pack('B', a)
     while ddata != ack:
         ddata = ser.read(1)
-        print("in : 0x%02x" % ord(ddata[0]))
+        print("in : 0x%02x" % ddata[0])
     return
 
 
@@ -58,7 +58,7 @@ else:
     try:
         print_usage()
         while 1:
-            choice = msvcrt.getch()
+            choice = input()
             if choice == '1':
                 print("out: 0x%02x" % SET_DERIVED_CHANNEL_BYTES)
                 ser.write(struct.pack('B', SET_DERIVED_CHANNEL_BYTES))

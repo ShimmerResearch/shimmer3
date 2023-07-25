@@ -34,7 +34,7 @@ else:
         wait_for_ack()
 
         # read incoming data
-        ddata = ""
+        ddata = bytes()
         numbytes = 0
         framesize = 4
 

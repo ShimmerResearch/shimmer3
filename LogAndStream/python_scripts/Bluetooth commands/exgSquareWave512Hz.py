@@ -65,7 +65,7 @@ else:
     print("Start sent...")
 
     # read incoming data
-    ddata = ""
+    ddata = bytes()
     numbytes = 0
     framesize = 18  # 1byte packet type + 2byte timestamp + 14byte ExG data
 
@@ -87,11 +87,16 @@ else:
             timestamp = ts0 + ts1 * 256 + ts2 * 65536
             # 24-bit signed values MSB values are tricky, as struct only supports 16-bit or 32-bit
             # pad with zeroes at LSB end and then shift the result
-            c1ch1 = struct.unpack('>i', (data[5:8] + '\0'))[0] >> 8
-            c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
-            (c2status,) = struct.unpack('B', data[11])
-            c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
-            c2ch2 = struct.unpack('>i', (data[15:18] + '\0'))[0] >> 8
+            # c1ch1 = struct.unpack('>i', (data[5:8] + '\0'))[0] >> 8
+            # c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
+            c1ch1 = int.from_bytes(data[5:8], 'big', signed=True)
+            c1ch2 = int.from_bytes(data[8:11], 'big', signed=True)
+            # (c2status,) = struct.unpack('B', data[11])
+            c2status = data[11]
+            # c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
+            # c2ch2 = struct.unpack('>i', (data[15:18] + '\0'))[0] >> 8
+            c2ch1 = int.from_bytes(data[12:15], 'big', signed=True)
+            c2ch2 = int.from_bytes(data[15:18], 'big', signed=True)
             print("0x%02x,%06x,\t0x%02x,%8d,%8d,\t0x%02x,%8d,%8d" % (
             packettype, timestamp, c1status, c1ch1, c1ch2, c2status, c2ch1, c2ch2))
 

@@ -57,8 +57,8 @@ def bmp280_calib(uTemp, uPress):
     T = (t_fine * 5 + 128) >> 8
 
     # /* calculate true pressure*/
-    var1 = 0
-    var2 = 0
+    var1 = 0.0
+    var2 = 0.0
     P = 0
 
     var1 = t_fine - 128000
@@ -71,7 +71,7 @@ def bmp280_calib(uTemp, uPress):
         # avoid exception caused by division by zero
 
         P = 1048576 - uPress
-        P = (((P << 31) - var2) * 3125) / var1
+        P = int((((P << 31) - var2) * 3125) / var1)
         var1 = (P9 * (P >> 13) * (P >> 13)) >> 25
         var2 = (P8 * P) >> 19
         P = ((P + var1 + var2) >> 8) + (P7 << 4)
@@ -161,7 +161,7 @@ else:
     ser.flushInput()
 
     # get the daughter card ID byte (SR number)
-    ddaughterCardId = ""
+    ddaughterCardId = bytes()
     memLength = 5  # Byte Format: daughter CardID|length|major|minor|Internal
     print("Requesting Daughter Card ID...")
     ser.write(struct.pack('BBB', 0x66, 0x03, 0x00))
@@ -179,12 +179,12 @@ else:
     ser.write(struct.pack('B', (0xA0 if bmp280 else 0x59)))
     wait_for_ack()
 
-    ddata = ""
+    ddata = bytes()
     calibcoeffsresponse = struct.pack('B', (0x9F if bmp280 else 0x58))
     while ddata != calibcoeffsresponse:
         ddata = ser.read(1)
 
-    ddata = ""
+    ddata = bytes()
     numbytes = 0
     while numbytes < framesize:
         ddata += ser.read(framesize)
@@ -220,7 +220,7 @@ else:
      sampling_freq = 32768 / clock_wait = X Hz
     '''
     sampling_freq = 2  # desired sampling freq. in Hz
-    clock_wait = (2 << 14) / sampling_freq
+    clock_wait = int((2 << 14) / sampling_freq)
 
     ser.write(struct.pack('<BH', 0x05, clock_wait))
 
@@ -231,7 +231,7 @@ else:
     wait_for_ack()
 
     # read incoming data
-    ddata = ""
+    ddata = bytes()
     numbytes = 0
     prev_UT = 0
     prev_UP = 0

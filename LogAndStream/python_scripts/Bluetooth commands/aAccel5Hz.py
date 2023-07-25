@@ -5,11 +5,11 @@ import sys
 
 
 def wait_for_ack():
-    ddata = ""
+    ddata = bytes()
     ack = struct.pack('B', 0xff)
     while ddata != ack:
         ddata = ser.read(1)
-        print("0x%02x" % ord(ddata[0]))
+        print("0x%02x" % ddata[0])
     return
 
 
@@ -29,8 +29,7 @@ else:
     wait_for_ack()
     print("sensor setting, done.")
     # send the set sampling rate command
-    ser.write(
-        struct.pack('BBB', 0x05, 0x00, 0x19))  # 5.12Hz (6400 (0x1900)). Has to be done like this for alignment reasons
+    ser.write(struct.pack('BBB', 0x05, 0x00, 0x19))  # 5.12Hz (6400 (0x1900)). Has to be done like this for alignment reasons
     wait_for_ack()
     print("sampling rate setting, done.")
     # send start streaming command
@@ -39,7 +38,7 @@ else:
     print("start command sending, done.")
 
     # read incoming data
-    ddata = ""
+    ddata = bytes()
     numbytes = 0
     framesize = 10  # 1byte packet type + 3byte timestamp + 3x2byte Analog Accel
 

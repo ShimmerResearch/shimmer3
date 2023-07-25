@@ -11,7 +11,7 @@ def wait_for_ack():
     ack = struct.pack('B', 0xff)
     while ddata != ack:
         ddata = ser.read(1)
-        print("0x%02x" % ord(ddata[0]))
+        print("0x%02x" % ddata[0])
     return
 
 
