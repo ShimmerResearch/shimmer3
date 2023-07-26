@@ -73,7 +73,6 @@ void detectI2cSlaves(void);
 void loadSensorConfigurationAndCalibration(void);
 void loadBmpCalibration(void);
 void ProcessHwRevision(void);
-void parseDaughterCardId(uint8_t srId);
 void InitialiseBt(void);
 void BlinkTimerStart(void);
 inline void BlinkTimerStop(void);
@@ -235,8 +234,7 @@ DIRS dir;               //Directory object
 FIL dataFile;
 /* make dir for SDLog files*/
 uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
-        bmpX80Calib[BMP280_CALIB_DATA_SIZE], bmpInUse, lsmInUse,
-        eepromIsPresent, gyroInUse, substituteWrAccelAndMag, expIdName[MAX_CHARS],
+        bmpX80Calib[BMP280_CALIB_DATA_SIZE], expIdName[MAX_CHARS],
         shimmerName[MAX_CHARS], daughtCardId[PAGE_SIZE], firstTsFlag,
         fileName[64],
         configTimeText[UINT32_LEN], //,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
@@ -246,7 +244,6 @@ uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
 uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20,
         blinkCnt50;
 uint64_t firstTs, fileLastHour, fileLastMin;
-char daughtCardIdStr[25];
 
 volatile uint8_t fileBad, fileBadCnt, toggleLedRed;
 static FRESULT ff_result;
@@ -737,9 +734,10 @@ void Init(void)
     mpu9150GyroRangeResponse = 0;
     bmp180CalibrationCoefficientsResponse = 0;
     bmp280CalibrationCoefficientsResponse = 0;
-    bmpInUse = BMP180_IN_USE;
-    lsmInUse = 0;
-    eepromIsPresent = FALSE;
+    setBmpInUse(BMP180_IN_USE);
+    setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+    setGyroInUse(GYRO_NONE_IN_USE);
+    setEepromIsPresent(0);
     mpu9150SamplingRateResponse = 0;
     mpu9150AccelRangeResponse = 0;
     bmpX80OversamplingRatioResponse = 0;
@@ -792,7 +790,6 @@ void Init(void)
     uartArgSize = 0;
     uartArg2Wait = 0;
     uartCrc2Wait = 0;
-    substituteWrAccelAndMag = 0;
     useAckPrefixForInstreamResponses = 1U;
 
     memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
@@ -854,7 +851,10 @@ void Init(void)
     eepromRead(DAUGHT_CARD_ID, PAGE_SIZE, daughtCardId);
 
     ProcessHwRevision();
-    Board_init_for_revision(daughtCardId[DAUGHT_CARD_ID], daughtCardId[DAUGHT_CARD_REV], daughtCardId[DAUGHT_CARD_SPECIAL_REV]);
+    Board_init_for_revision(isAds1292Present(daughtCardId[DAUGHT_CARD_ID]),
+                            isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
+                                                             daughtCardId[DAUGHT_CARD_REV],
+                                                             daughtCardId[DAUGHT_CARD_SPECIAL_REV]));
 
     BlinkTimerStop();
 
@@ -941,29 +941,34 @@ void detectI2cSlaves(void)
 #endif
 
     // Identify the presence of different sensors
-    bmpInUse = (i2cSlavePresent(BMP280_ADDR)) ? BMP280_IN_USE : BMP180_IN_USE;
+    setBmpInUse((i2cSlavePresent(BMP280_ADDR)) ? BMP280_IN_USE : BMP180_IN_USE);
+
     if(i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
     {
-        lsmInUse = LSM303AHTR_IN_USE;
+        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303AHTR_IN_USE);
     }
     else if(i2cSlavePresent(LSM303DHLC_ACCEL_ADDR))
     {
-        lsmInUse = LSM303DLHC_IN_USE;
+        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303DLHC_IN_USE);
     }
     else
     {
-        lsmInUse = 0;
+        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
     }
 
-    eepromIsPresent = (i2cSlavePresent(CAT24C16_ADDR)) ? TRUE : FALSE;
-    gyroInUse = 0;
+    setEepromIsPresent(i2cSlavePresent(CAT24C16_ADDR));
+
     if (i2cSlavePresent(ICM20948_ADDR))
     {
-        gyroInUse = ICM20948_IN_USE;
+        setGyroInUse(GYRO_ICM20948_IN_USE);
     }
     else if (i2cSlavePresent(MPU9150_ADDR))
     {
-        gyroInUse = MPU9x50_IN_USE;
+        setGyroInUse(GYRO_MPU9X50_IN_USE);
+    }
+    else
+    {
+        setGyroInUse(GYRO_NONE_IN_USE);
     }
 }
 
@@ -1023,14 +1028,14 @@ void loadBmpCalibration(void)
 {
     memset(bmpX80Calib, 0, BMP280_CALIB_DATA_SIZE);
 
-    BMPX80_setup(bmpInUse);
+    BMPX80_init();
 
     BMPX80_getCalibCoeff(bmpX80Calib);
     P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
 
     memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
     BMP180_CALIB_DATA_SIZE);
-    if (bmpInUse == BMP280_IN_USE)
+    if (isBmp280InUse())
     {
         memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
                &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
@@ -1046,40 +1051,26 @@ void ProcessHwRevision(void)
 
     parseDaughterCardId(srId);
 
-    if (eepromIsPresent)
+    if (isEepromIsPresent())
     {
         // Some board batches don't have the LSM303AHTR placed, in these
         // cases, the ICM-20948's channels are used instead
-        if (gyroInUse == ICM20948_IN_USE
-            && ((srId == SHIMMER3_IMU && srRevMajor == 9 && srRevMinor == 1)
-                || (srId == EXP_BRD_EXG_UNIFIED && srRevMajor == 5 && srRevMinor == 1)
-                || (srId == EXP_BRD_GSR_UNIFIED && srRevMajor == 4 && srRevMinor == 1)
-                || (srId == EXP_BRD_GSR_UNIFIED && srRevMajor == 4 && srRevMinor == 2)
-                || (srId == EXP_BRD_BR_AMP_UNIFIED && srRevMajor == 3 && srRevMinor == 1)
-                || (srId == EXP_BRD_PROTO3_DELUXE && srRevMajor == 3 && srRevMinor == 1)
-                || (srId == EXP_BRD_PROTO3_MINI && srRevMajor == 3 && srRevMinor == 1)
-                || (srId == EXP_BRD_ADXL377_ACCEL_200G && srRevMajor == 2 && srRevMinor == 1)))
+        if (isSubstitutionNeededForWrAccel(srId, srRevMajor, srRevMinor))
         {
-            substituteWrAccelAndMag = 1;
+            setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
         }
         else
         {
             // If the hardware is any board other then the above, overwrite the
             // special rev with 171 (used as a failsafe) to let Consensys know
             // what sensors are on-board
-            if ((lsmInUse == LSM303AHTR_IN_USE)
-                    && bmpInUse == BMP280_IN_USE
-                    && !(srId == SHIMMER_ECG_MD
-                            || srId == SHIMMER3_IMU
-                            || srId == EXP_BRD_EXG_UNIFIED
-                            || srId == EXP_BRD_GSR_UNIFIED
-                            || srId == EXP_BRD_BR_AMP_UNIFIED))
+            if (are2ndGenSensorsPresentAndUnknownBoard(srId))
             {
                 daughtCardId[DAUGHT_CARD_SPECIAL_REV] = 171;
             }
         }
 
-        if(srId == EXP_BRD_GSR_UNIFIED && srRevMajor == 4 && srRevMinor == 1)
+        if(areGsrControlsPinsReversed(srId, srRevMajor, srRevMinor))
         {
             setGsrRangePinsAreReversed(1);
         }
@@ -1088,8 +1079,7 @@ void ProcessHwRevision(void)
     {
         // The EEPROM is not present on the SR31-6-0 so the firmware needs mock
         // the version number so that Consensys knows which sensors are on-board
-        if (lsmInUse == LSM303AHTR_IN_USE
-                && bmpInUse == BMP280_IN_USE)
+        if (are2ndGenImuSensorsPresent())
         {
             daughtCardId[DAUGHT_CARD_ID] = SHIMMER3_IMU;
             daughtCardId[DAUGHT_CARD_REV] = 6;
@@ -1098,55 +1088,14 @@ void ProcessHwRevision(void)
     }
 }
 
-void parseDaughterCardId(uint8_t srId)
-{
-    memset(daughtCardIdStr, 0x00, sizeof(daughtCardIdStr));
-
-    switch (srId)
-    {
-    case SHIMMER3_IMU:
-        sprintf(daughtCardIdStr, "Shimmer3 IMU");
-        break;
-    case EXP_BRD_GSR:
-    case EXP_BRD_GSR_UNIFIED:
-        sprintf(daughtCardIdStr, "Shimmer3 GSR+");
-        break;
-    case EXP_BRD_EXG:
-    case EXP_BRD_EXG_UNIFIED:
-        sprintf(daughtCardIdStr, "Shimmer3 ExG");
-        break;
-    case EXP_BRD_BR_AMP:
-    case EXP_BRD_BR_AMP_UNIFIED:
-        sprintf(daughtCardIdStr, "Shimmer3 Bridge Amplifier");
-        break;
-    case EXP_BRD_PROTO3_MINI:
-        sprintf(daughtCardIdStr, "Shimmer3 Proto3 Mini");
-        break;
-    case EXP_BRD_PROTO3_DELUXE:
-        sprintf(daughtCardIdStr, "Shimmer3 Proto3 Deluxe");
-        break;
-    case EXP_BRD_ADXL377_ACCEL_200G:
-        sprintf(daughtCardIdStr, "Shimmer3 200G Accel");
-        break;
-    case EXP_BRD_H3LIS331DL_ACCEL_HIGH_G:
-        sprintf(daughtCardIdStr, "Shimmer3 100G Accel");
-        break;
-    case SHIMMER_ECG_MD:
-        sprintf(daughtCardIdStr, "Shimmer3 ECG MD");
-        break;
-    default:
-        sprintf(daughtCardIdStr, "SR%d", srId);
-        break;
-    }
-}
-
 void InitialiseBt(void)
 {
     // This is the start of all BT initialisation
     /* The RN4678 operational mode need to be set before BT_init() is called so
      * that the pins are set correctly prior to communication with the module */
-    if (daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_BR_AMP_UNIFIED
-            && daughtCardId[DAUGHT_CARD_REV] >= 3)
+    if (isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
+                                   daughtCardId[DAUGHT_CARD_REV],
+                                   daughtCardId[DAUGHT_CARD_SPECIAL_REV]))
     {
         setRn4678OperationalMode(RN4678_OP_MODE_APPLICATION);
     }
@@ -1168,7 +1117,7 @@ void InitialiseBt(void)
      * always used for Classic Bluetooth so we're just disabling the passkey
      * altogether here */
     BT_setAuthentication(2U);
-    setBleDeviceInformation(&daughtCardIdStr[0], FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+    setBleDeviceInformation(getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 #endif
 
 #if !BT_ENABLE_BAUD_RATE_CHANGE
@@ -1192,7 +1141,7 @@ void InitialiseBt(void)
     /* Read previous baud rate from the EEPROM if it is present */
     uint8_t initialBaudRate = BAUD_115200;
     memset(rnx_radio_eeprom, 0xFF, sizeof(rnx_radio_eeprom) / sizeof(rnx_radio_eeprom[0]));
-    if (eepromIsPresent)
+    if (isEepromIsPresent())
     {
         // Read Bluetooth configuration parameters from EEPROM
         /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
@@ -1287,7 +1236,7 @@ void InitialiseBt(void)
         }
     }
 
-    if (eepromIsPresent
+    if (isEepromIsPresent()
             && (rnx_radio_eeprom[RNX_RADIO_TYPE_IDX] != getBtHwVersion()
             || rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] == 0xFF
             || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != getCurrentBtBaudRate())
@@ -1392,18 +1341,18 @@ void StartStreaming(void)
         if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                 || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
                 || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-                || (substituteWrAccelAndMag
+                || (isWrAccelInUseIcm20948()
                         && ((storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
                         || (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG))))
         {
-            if (gyroInUse == ICM20948_IN_USE)
+            if (isGyroInUseIcm20948())
             {
                 ICM20948_init();
                 ICM20948_wake(1);
                 volatile uint8_t icm_id = ICM20948_getId();    // should be 0xEA
                 volatile uint8_t mag_id = ICM20948_getMagId(); // should be 0x09
             }
-            else if (gyroInUse == MPU9x50_IN_USE)
+            else if (isGyroInUseMpu9x50())
             {
                 MPU9150_init();
                 MPU9150_wake(1);
@@ -1412,10 +1361,10 @@ void StartStreaming(void)
             i2cEn = 1;
             if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                     || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-                    || (substituteWrAccelAndMag
+                    || (isWrAccelInUseIcm20948()
                             && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
             {
-                if (gyroInUse == ICM20948_IN_USE)
+                if (isGyroInUseIcm20948())
                 {
                     ICMsampleRateDiv = ICM20948_convertSampleRateDivFromMPU9X50(
                             storedConfig[NV_CONFIG_SETUP_BYTE1],
@@ -1423,31 +1372,31 @@ void StartStreaming(void)
 
                     ICM20948_setGyroSamplingRate(ICMsampleRateDiv);
                 }
-                else if (gyroInUse == MPU9x50_IN_USE)
+                else if (isGyroInUseMpu9x50())
                 {
                     MPU9150_setSamplingRate(
                             storedConfig[NV_CONFIG_SETUP_BYTE1]);
                 }
                 if (storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                 {
-                    if (gyroInUse == ICM20948_IN_USE)
+                    if (isGyroInUseIcm20948())
                     {
                         ICM20948_setGyroSensitivity(
                                 storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03);
                     }
-                    else if (gyroInUse == MPU9x50_IN_USE)
+                    else if (isGyroInUseMpu9x50())
                     {
                         MPU9150_setGyroSensitivity(
                                 storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03); //This needs to go after the wake?
                     }
                 }
                 if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-                        || (substituteWrAccelAndMag && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
+                        || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
                 {
                     uint8_t wrAccelRange = (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xC0) >> 6;
-                    if (gyroInUse == ICM20948_IN_USE)
+                    if (isGyroInUseIcm20948())
                     {
-                        if (substituteWrAccelAndMag)
+                        if (isWrAccelInUseIcm20948())
                         {
                             // Use setting design for WR accel - re-map to suit the ICM-20948
                             wrAccelRange = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0C) >> 2;
@@ -1468,7 +1417,7 @@ void StartStreaming(void)
                         }
                         ICM20948_setAccelRange(wrAccelRange);
                     }
-                    else if (gyroInUse == MPU9x50_IN_USE)
+                    else if (isGyroInUseMpu9x50())
                     {
                         MPU9150_setAccelRange(wrAccelRange);
                     }
@@ -1481,24 +1430,24 @@ void StartStreaming(void)
                 //No idea why
                 //timing delays or other I2C commands to gyro/accel core do not seem to have the same effect?!?
                 //Only relevant first time mag is accessed after powering up MPU9150
-                if (gyroInUse == ICM20948_IN_USE)
+                if (isGyroInUseIcm20948())
                 {
                     ICM20948_wake(0);
                 }
-                else if (gyroInUse == MPU9x50_IN_USE)
+                else if (isGyroInUseMpu9x50())
                 {
                     MPU9150_wake(0);
                 }
             }
             if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-                || (substituteWrAccelAndMag && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
+                || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
             {
                 uint16_t samplingRateTicks = *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
-                if (gyroInUse == ICM20948_IN_USE)
+                if (isGyroInUseIcm20948())
                 {
                     ICM20948_setMagSamplingRateFromShimmerRate(samplingRateTicks);
                 }
-                else if (gyroInUse == MPU9x50_IN_USE)
+                else if (isGyroInUseMpu9x50())
                 {
                     if (samplingRateTicks >= clk_120)
                     {
@@ -1519,14 +1468,14 @@ void StartStreaming(void)
             }
         }
 
-        if (!substituteWrAccelAndMag
+        if (!isWrAccelInUseIcm20948()
                 && ((storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
                 || (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
         {
             if (!i2cEn)
             {
                 //Initialise I2C
-                if (lsmInUse == LSM303DLHC_IN_USE)
+                if (isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_init();
                 }
@@ -1538,7 +1487,7 @@ void StartStreaming(void)
             }
             if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
             {
-                if (lsmInUse == LSM303DLHC_IN_USE)
+                if (isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_accelInit(
                             ((storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xF0) >> 4), //sampling rate
@@ -1557,7 +1506,7 @@ void StartStreaming(void)
             }
             if (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
             {
-                if (lsmInUse == LSM303DLHC_IN_USE)
+                if (isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_magInit(
                             ((storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1C) >> 2), //sampling rate
@@ -1614,7 +1563,7 @@ void StartStreaming(void)
 #if PRES_TS_EN
             bmpPresInterval = bmpX80SamplingTimeTicks;
             // TODO Set as 5.5ms here for BMP280 but datasheet recommends to set same as pressure channel
-            bmpTempInterval = ((bmpInUse == BMP180_IN_USE) ? clk_45 : clk_55);
+            bmpTempInterval = (isBmp180InUse() ? clk_45 : clk_55);
 #endif
             memset(bmpVal, 0, BMPX80_PACKET_SIZE);
         }
@@ -1739,26 +1688,26 @@ inline void StopSensing(void)
     if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-            || (substituteWrAccelAndMag
+            || (isWrAccelInUseIcm20948()
                     && ((storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
                         || (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG))))
     {
-        if (gyroInUse == ICM20948_IN_USE)
+        if (isGyroInUseIcm20948())
         {
             ICM20948_setMagMode(AK09916_PWR_DOWN);
             ICM20948_wake(0);
         }
-        else if (gyroInUse == MPU9x50_IN_USE)
+        else if (isGyroInUseMpu9x50())
         {
             MPU9150_wake(0);
         }
     }
 
-    if (!substituteWrAccelAndMag
+    if (!isWrAccelInUseIcm20948()
             && ((storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
             || (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
     {
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             LSM303DLHC_sleep();
         }
@@ -2020,7 +1969,7 @@ void ConfigureChannels(void)
     {
         *channel_contents_ptr++ = X_LSM303DLHC_MAG;
 
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
             *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
@@ -2110,12 +2059,12 @@ void ConfigureChannels(void)
 
     isIcm20948AccelEn = FALSE;
     isIcm20948GyroEn = FALSE;
-    if(gyroInUse == ICM20948_IN_USE && storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
+    if(isGyroInUseIcm20948() && storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
     {
         isIcm20948GyroEn = TRUE;
     }
     if((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-            || (substituteWrAccelAndMag && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
+            || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
     {
         isIcm20948AccelEn = TRUE;
     }
@@ -2898,7 +2847,7 @@ void SampleTimerStart(void)
             uint16_t bmpX80SamplingTimeDiffFrom9msInTicks = getBmpX80SamplingTimeDiffFrom9msInTicks();
 
             // When max BMPX80 sampling time is less than 9ms
-            if (bmpX80Precision == 0 || (bmpX80Precision == 1 && bmpInUse == BMP180_IN_USE))
+            if (bmpX80Precision == 0 || (bmpX80Precision == 1 && isBmp180InUse()))
             {
                 if (preSampleMpuMag)
                 {
@@ -2916,7 +2865,7 @@ void SampleTimerStart(void)
                 TB0CCTL2 = CCIE;
             }
             // When max BMPX80 sampling time is greater than 9ms
-            else if ((bmpX80Precision == 1 && bmpInUse != BMP180_IN_USE) || bmpX80Precision == 2 || bmpX80Precision == 3)
+            else if ((bmpX80Precision == 1 && !isBmp180InUse()) || bmpX80Precision == 2 || bmpX80Precision == 3)
             {
                 TB0CCR0 = baseClockOffset + bmpX80SamplingTimeInTicks;
                 TB0CCR2 = baseClockOffset;
@@ -4283,7 +4232,7 @@ void SendResponse(void)
             *(resPacket + packet_length++) =
             BMP180_CALIBRATION_COEFFICIENTS_RESPONSE;
 
-            if (bmpInUse == BMP280_IN_USE)
+            if (isBmp280InUse())
             {
                 // Dummy bytes sent if incorrect calibration bytes requested.
                 memset(bmpX80Calib, 0x01, BMP180_CALIB_DATA_SIZE);
@@ -4296,7 +4245,7 @@ void SendResponse(void)
         }
         else if (bmp280CalibrationCoefficientsResponse)
         {
-            if (bmpInUse == BMP280_IN_USE)
+            if (isBmp280InUse())
             {
                 *(resPacket + packet_length++) =
                 BMP280_CALIBRATION_COEFFICIENTS_RESPONSE;
@@ -4457,7 +4406,7 @@ void SendResponse(void)
         else if (mpu9150MagSensAdjValsResponse)
         {
             // Mag sensitivity adj feature is not present in ICM-20948
-            if(gyroInUse == MPU9x50_IN_USE)
+            if(isGyroInUseMpu9x50())
             {
                 MPU9150_init();
                 MPU9150_wake(1);
@@ -5362,7 +5311,7 @@ void Config2SdHead(void)
     memcpy(&sdHeadText[SDH_CONFIG_TIME_0], &storedConfig[NV_SD_CONFIG_TIME], 4);
     memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
     BMP180_CALIB_DATA_SIZE);
-    if (bmpInUse == BMP280_IN_USE)
+    if (isBmp280InUse())
     {
         memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
                &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
@@ -5715,7 +5664,7 @@ void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time)
         sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
         InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
         sc1.range = (info_config & 0xe0) >> 5;
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             sc1.range = (info_config & 0xe0) >> 5;
         }
@@ -5777,7 +5726,7 @@ void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor)
         scs_infomem_offset = NV_LSM303DLHC_MAG_CALIBRATION;
         scs_sdhead_offset = SDH_LSM303DLHC_MAG_CALIBRATION;
         scs_sdhead_ts = SDH_LSM303DLHC_MAG_CALIB_TS;
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
         }
@@ -5849,7 +5798,7 @@ void CalibFromFile()
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
         memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
         BMP180_CALIB_DATA_SIZE);
-        if (bmpInUse == BMP280_IN_USE)
+        if (isBmp280InUse())
         {
             memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
                    &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
@@ -6193,7 +6142,7 @@ void CalibAll()
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
         memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
         BMP180_CALIB_DATA_SIZE);
-        if (bmpInUse == BMP280_IN_USE)
+        if (isBmp280InUse())
         {
             memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
                    &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
@@ -6233,7 +6182,7 @@ void CalibFromInfoAll()
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
         memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
         BMP180_CALIB_DATA_SIZE);
-        if (bmpInUse == BMP280_IN_USE)
+        if (isBmp280InUse())
         {
             memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
                    &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
@@ -6390,26 +6339,26 @@ void CalibDefault(uint8_t sensor)
         address = NV_LSM303DLHC_ACCEL_CALIBRATION;
         if (lsm303_accel_range == RANGE_2G)
         {
-            sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 1631 : 1671;
+            sensitivity = isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
         }
         else if (lsm303_accel_range == RANGE_4G)
         {
-            sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 815 : 836;
+            sensitivity = isWrAccelInUseLsm303dlhc() ? 815 : 836;
         }
         else if (lsm303_accel_range == RANGE_8G)
         {
-            sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 408 : 418;
+            sensitivity = isWrAccelInUseLsm303dlhc() ? 408 : 418;
         }
         else
         {
-            sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 135 : 209;
+            sensitivity = isWrAccelInUseLsm303dlhc() ? 135 : 209;
         }
-        align_xx = (lsmInUse == LSM303DLHC_IN_USE) ? (-100) : 0;
-        align_xy = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : -100;
+        align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
         align_xz = 0;
 
-        align_yx = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : 100;
-        align_yy = (lsmInUse == LSM303DLHC_IN_USE) ? 100 : 0;
+        align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
         align_yz = 0;
 
         align_zx = 0;
@@ -6453,7 +6402,7 @@ void CalibDefault(uint8_t sensor)
     {
         number_axes = 3;
         bias = 0;
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             if (lsm303dlhc_mag_range == LSM303_MAG_13GA)
             {
@@ -6506,12 +6455,12 @@ void CalibDefault(uint8_t sensor)
         }
 
         align = TRUE;
-        align_xx = (lsmInUse == LSM303DLHC_IN_USE) ? (-100) : 0;
-        align_xy = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : -100;
+        align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
         align_xz = 0;
 
-        align_yx = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : 100;
-        align_yy = (lsmInUse == LSM303DLHC_IN_USE) ? 100 : 0;
+        align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
         align_yz = 0;
 
         align_zx = 0;
@@ -6525,7 +6474,7 @@ void CalibDefault(uint8_t sensor)
         number_axes = 3;
         bias = 2047;
         sensitivity = 83;
-        if ((lsmInUse == LSM303AHTR_IN_USE || substituteWrAccelAndMag) && (bmpInUse == BMP280_IN_USE))
+        if ((isWrAccelInUseLsm303ahtr() || isWrAccelInUseIcm20948()) && isBmp280InUse())
         {
             // Assuming here that new bmp and lsm infer new low-noise accel used
             bias = 2253;
@@ -7211,7 +7160,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
     {
-        if (gyroInUse == ICM20948_IN_USE)
+        if (isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U + 6U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U + 6U];
@@ -7220,7 +7169,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U + 6U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U + 6U];
         }
-        else if (gyroInUse == MPU9x50_IN_USE)
+        else if (isGyroInUseMpu9x50())
         {
             MPU9150_getGyro(current_buffer_ptr + digi_offset);
         }
@@ -7230,7 +7179,7 @@ void StreamData()
     uint8_t icm20948MagBuf[6] = {0};
     uint8_t icm20948MagRdy = 0;
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-            || (substituteWrAccelAndMag && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
+            || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
         if(icm20948MagRdy = ICM20948_isMagDataRdy())
         {
@@ -7240,7 +7189,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
     {
-        if(substituteWrAccelAndMag)
+        if(isWrAccelInUseIcm20948())
         {
             // Swap byte order to immitate LSM303 chip
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[1U];
@@ -7256,7 +7205,7 @@ void StreamData()
         }
         else
         {
-            if (lsmInUse == LSM303DLHC_IN_USE)
+            if (isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getAccel(current_buffer_ptr + digi_offset);
             }
@@ -7270,7 +7219,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
     {
-        if(substituteWrAccelAndMag)
+        if(isWrAccelInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -7293,7 +7242,7 @@ void StreamData()
         }
         else
         {
-            if (lsmInUse == LSM303DLHC_IN_USE)
+            if (isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getMag(current_buffer_ptr + digi_offset);
             }
@@ -7306,7 +7255,7 @@ void StreamData()
     }
     if (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
     {
-        if (gyroInUse == ICM20948_IN_USE)
+        if (isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U];
@@ -7315,7 +7264,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U];
         }
-        else if (gyroInUse == MPU9x50_IN_USE)
+        else if (isGyroInUseMpu9x50())
         {
             MPU9150_getAccel(current_buffer_ptr + digi_offset);
         }
@@ -7323,7 +7272,7 @@ void StreamData()
     }
     if (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
     {
-        if (gyroInUse == ICM20948_IN_USE)
+        if (isGyroInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -7340,7 +7289,7 @@ void StreamData()
                 memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
-        else if (gyroInUse == MPU9x50_IN_USE)
+        else if (isGyroInUseMpu9x50())
         {
             if (preSampleMpuMag)
             {
@@ -7806,7 +7755,7 @@ void UpdateSdConfig()
                     storedConfig[NV_SENSORS2] & SENSOR_EXG2_16BIT ? 1 : 0);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
             sprintf(buffer,
-                    ((bmpInUse == BMP180_IN_USE) ?
+                    (isBmp180InUse() ?
                             ("pres_bmp180=%d\r\n") : ("pres_bmp280=%d\r\n")),
                     storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE ? 1 : 0);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
@@ -7843,7 +7792,7 @@ void UpdateSdConfig()
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] >> 6) & 0x03);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
             sprintf(buffer,
-                    ((bmpInUse == BMP180_IN_USE) ?
+                    (isBmp180InUse() ?
                             ("pres_bmp180_prec=%d\r\n") :
                             ("pres_bmp280_prec=%d\r\n")),
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] >> 4) & 0x03);
@@ -9090,17 +9039,17 @@ uint16_t getBmpX80SamplingTimeInTicks(void)
     switch (bmpX80Precision)
     {
     case 0:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_45 : clk_64);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_45 : clk_64);
         break;
     case 1:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_75 : clk_133);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_75 : clk_133);
         break;
     case 2:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_135 : clk_225);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_135 : clk_225);
         break;
     case 3:
     default:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_255 : clk_432);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_255 : clk_432);
         break;
     }
     return bmpX80SamplingTimeTicks;
@@ -9114,18 +9063,18 @@ uint16_t getBmpX80SamplingTimeDiffFrom9msInTicks(void)
     switch (bmpX80Precision)
     {
     case 0:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_90_45 : clk_90_64);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_90_45 : clk_90_64);
         break;
     case 1:
         // Note here that the BMP180 takes <9ms to sample for this setting but the BMP280 takes >9ms
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_90_75 : clk_133_90);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_90_75 : clk_133_90);
         break;
     case 2:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_135_90 : clk_225_90);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_135_90 : clk_225_90);
         break;
     case 3:
     default:
-        bmpX80SamplingTimeTicks = ((bmpInUse == BMP180_IN_USE) ? clk_255_90 : clk_432_90);
+        bmpX80SamplingTimeTicks = (isBmp180InUse() ? clk_255_90 : clk_432_90);
         break;
     }
     return bmpX80SamplingTimeTicks;

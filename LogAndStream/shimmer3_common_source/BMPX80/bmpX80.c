@@ -49,24 +49,9 @@
 #include "msp430.h"
 #include "../5xx_HAL/hal_I2C.h"
 
-static uint8_t bmpX80;
+uint8_t bmpInUse;
 static uint8_t bmpX80Address;
 
-
-void BMPX80_setup(uint8_t bmp_in_use) {
-
-	BMPX80_init();
-
-	if (bmp_in_use == BMP280_IN_USE) {
-		bmpX80 = BMP280_IN_USE;
-		bmpX80Address = BMP280_ADDR;
-
-	} else if (bmp_in_use == BMP180_IN_USE) {
-		bmpX80 = BMP180_IN_USE;
-		bmpX80Address = BMP180_ADDR;
-	}
-
-}
 
 //configure I2C
 void BMPX80_init(void) {
@@ -78,7 +63,6 @@ void BMPX80_init(void) {
 	I2C_Master_Init(S_MCLK, 24000000, 400000);
 }
 
-
 uint8_t BMPX80_getId(void) {
 	uint8_t buf;
 	I2C_Set_Slave_Address(bmpX80Address);
@@ -89,9 +73,9 @@ uint8_t BMPX80_getId(void) {
 }
 
 void BMPX80_startTempMeasurement(void) {
-	if (bmpX80 == BMP280_IN_USE) {
+	if (isBmp280InUse()) {
 //		BMPX80_setWorkMode(2);
-	} else if (bmpX80 == BMP180_IN_USE) {
+	} else if (isBmp180InUse()) {
 		I2C_Set_Slave_Address(bmpX80Address);
 		uint8_t buf[2];
 		buf[0] = CTRL_MEAS;
@@ -101,7 +85,7 @@ void BMPX80_startTempMeasurement(void) {
 }
 
 void BMPX80_getTemp(uint8_t *buf) {
-	if (bmpX80 == BMP280_IN_USE) {
+	if (isBmp280InUse()) {
 		*buf = BMP280_TEMPERATURE_MSB_REG;
 	} else {
 		*buf = BMP180_OUT_MSB;
@@ -112,9 +96,9 @@ void BMPX80_getTemp(uint8_t *buf) {
 
 void BMPX80_startPressMeasurement(uint8_t oss) {
 
-	if (bmpX80 == BMP280_IN_USE) {
+	if (isBmp280InUse()) {
 		BMPX80_setWorkMode((oss == 0) ? 0 : oss + 1); // used to skip Low Power mode (1)
-	} else if (bmpX80 == BMP180_IN_USE) {
+	} else if (isBmp180InUse()) {
 		I2C_Set_Slave_Address(bmpX80Address);
 		uint8_t buf[2];
 		buf[0] = CTRL_MEAS;
@@ -125,7 +109,7 @@ void BMPX80_startPressMeasurement(uint8_t oss) {
 }
 
 void BMPX80_getPress(uint8_t *buf) {
-	if (bmpX80 == BMP280_IN_USE) {
+	if (isBmp280InUse()) {
 		*buf = BMP280_PRESSURE_MSB_REG;
 	} else {
 		*buf = BMP180_OUT_MSB;
@@ -139,10 +123,10 @@ void BMPX80_getPress(uint8_t *buf) {
 void BMPX80_getCalibCoeff(uint8_t *res) {
 	// array is 24 bytes long to accommodate bmp280 calibration either way
 	I2C_Set_Slave_Address(bmpX80Address);
-	if (bmpX80 == BMP280_IN_USE) {
+	if (isBmp280InUse()) {
 		*res = BMP280_TEMPERATURE_CALIB_DIG_T1_LSB_REG;
 		I2C_Read_Packet_From_Sensor(res, BMP280_CALIB_DATA_SIZE);
-	} else if (bmpX80 == BMP180_IN_USE) {
+	} else if (isBmp180InUse()) {
 		*res = AC1_MSB;
 		I2C_Read_Packet_From_Sensor(res, BMP180_CALIB_DATA_SIZE);
 	}
@@ -202,3 +186,18 @@ void BMPX80_setWorkMode(uint8_t work_mode) {
 	}
 }
 
+void setBmpInUse(uint8_t bmp_in_use)
+{
+    bmpInUse = bmp_in_use;
+    bmpX80Address = isBmp280InUse()? BMP280_ADDR:BMP180_ADDR;
+}
+
+uint8_t isBmp180InUse(void)
+{
+    return bmpInUse == BMP180_IN_USE;
+}
+
+uint8_t isBmp280InUse(void)
+{
+    return bmpInUse == BMP280_IN_USE;
+}

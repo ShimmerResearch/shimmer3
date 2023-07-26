@@ -3,22 +3,26 @@ This is a general purpose, configurable application to be used with Shimmer3 and
 - LogAndStream supports on-board logging and real-time streaming over Bluetooth. 
 - SDLog support on-board logging and, if enabled, real-time clock syncing between Shimmer units over Bluetooth while logging.
 
-### Compiling firmware:
-To compile the LogAndStream firmware, set the following define as 1 inside "shimmer3_common_source/Bluetooth_SD/RN4X.h". To compile as SDLog, change it to 0.
-   ```
-	#define FW_IS_LOGANDSTREAM 1
-   ```
+## Compiling firmware:
 
-### Changelog
+Definitions that need to be set in order to generate each firmware image:
+
+| Source File | Definition | LogAndStream | LogAndStream with BLE | LogAndStream Factory | SDLog |
+| ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
+| main.c   | FACTORY_TEST        | 0 | 0 | 1 | 0 |
+| shimmer3_common_source/Bluetooth_SD/RN4X.h      | FW_IS_LOGANDSTREAM       | 1 | 1 | 1 | 0 |
+| shimmer3_common_source/Bluetooth_SD/RN4X.h      | BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678       | 0 | 1 | 0 | 0 |
+
+## Changelog
 For notes on changes in the development of this firmware, please see ```CHANGELOG.txt``` for reference.
 
-### Log file Format:
+## Log file Format:
    ```
           | SD Header | Data Buffer 1 | Data Buffer 2 ...
    Byte #:|   0~255   |    256~...    |     ...
    ```
 
-### Data Buffer Format:
+## Data Buffer Format:
    ```
           | Data Block 1 | Data Block 2 ...
    Byte #:|     0~...    |    ...   
@@ -26,7 +30,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    - Data buffer always store integer number of Data Blocks
    ```
    
-### Data Block Format:
+## Data Block Format:
    ```
           |TimeStamp|Achan1|Achan2| ... |AchanX | Dchan1  | Dchan2  | ... |    DchanY   |
    Byte #:|   0-2   | 3~4  | 5~6  | ... |2x~2x+2|2x+3~2x+4|2x+5~2x+6| ... |2x+2y~2x+wy+2|
@@ -34,7 +38,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
    - refer to user manual for endianness of each specific channel
    ```
  
-### UART structure:
+## UART structure:
    set/get/response Packet Format:
    ```
           |start_sign | cmd | length | comp | prop |     data     |          crc         |
@@ -90,7 +94,7 @@ For notes on changes in the development of this firmware, please see ```CHANGELO
       #define UART_PROP_CARD_MEM          0x03
    ```
       
-### Bluetooth command configurations
+## Bluetooth command configurations
    Currently the following parameters can be configured. This configuration is stored in the Infomem so survives a reset/power off:
    ```
       - Sampling rate

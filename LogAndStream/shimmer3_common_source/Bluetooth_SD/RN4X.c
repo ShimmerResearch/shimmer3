@@ -57,6 +57,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "msp430.h"
 #include "../5xx_HAL/hal_DMA.h"

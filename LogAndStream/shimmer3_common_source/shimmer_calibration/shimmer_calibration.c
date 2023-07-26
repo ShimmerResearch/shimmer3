@@ -16,17 +16,18 @@
 
 #include "shimmer_calibration.h"
 #include "../5xx_HAL/hal_RTC.h"
+#include "../5xx_HAL/hal_Board.h"
 #include "../FatFs/ff.h"
 #include "../../shimmer_btsd.h"
 #include "../LSM303DLHC/lsm303dlhc.h"
 #include "../LSM303AHTR/lsm303ahtr.h"
 #include "../BMPX80/bmpX80.h"
 #include "../Bluetooth_SD/RN4X.h"
+#include "../shimmer_boards/shimmer_boards.h"
 
 uint8_t shimmerCalib_ram[SHIMMER_CALIB_RAM_MAX], shimmerCalib_macId[5],
         shimmerCalib_ramTemp[SHIMMER_CALIB_RAM_MAX];
 uint16_t shimmerCalib_ramLen, shimmerCalib_ramTempLen, shimmerCalib_ramTempMax;
-extern uint8_t lsmInUse, bmpInUse, substituteWrAccelAndMag;
 
 uint8_t ShimmerCalib_findLength(sc_t* sc1)
 {
@@ -345,13 +346,15 @@ void ShimmerCalib_default(uint8_t sensor)
         for (sc1.range = 0; sc1.range < SC_SENSOR_RANGE_MAX_ANALOG_ACCEL;
                 sc1.range++)
         {
-            bias = 2047;
-            sensitivity = 83;
-            if ((lsmInUse == LSM303AHTR_IN_USE || substituteWrAccelAndMag) && (bmpInUse == BMP280_IN_USE))
+            if (isLnAccelKxtc9_2050Present())
             {
-                // Assuming here that new bmp and lsm infer new low-noise accel used
                 bias = 2253;
                 sensitivity = 92;
+            }
+            else
+            {
+                bias = 2047;
+                sensitivity = 83;
             }
             bias = (((bias & 0x00ff) << 8) | ((bias & 0xff00) >> 8));
             sensitivity = (((sensitivity & 0x00ff) << 8)
@@ -429,19 +432,19 @@ void ShimmerCalib_default(uint8_t sensor)
             bias = 0;
             if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_2G)
             {
-                sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 1631 : 1671;
+                sensitivity = isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
             }
             else if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_4G)
             {
-                sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 815 : 836;
+                sensitivity = isWrAccelInUseLsm303dlhc() ? 815 : 836;
             }
             else if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_8G)
             {
-                sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 408 : 418;
+                sensitivity = isWrAccelInUseLsm303dlhc() ? 408 : 418;
             }
             else
             { //(sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_16G)
-                sensitivity = (lsmInUse == LSM303DLHC_IN_USE) ? 135 : 209;
+                sensitivity = isWrAccelInUseLsm303dlhc() ? 135 : 209;
             }
             bias = (((bias & 0x00ff) << 8) | ((bias & 0xff00) >> 8));
             sensitivity = (((sensitivity & 0x00ff) << 8)
@@ -452,11 +455,11 @@ void ShimmerCalib_default(uint8_t sensor)
             sc1.data.dd.sens_x = sensitivity;
             sc1.data.dd.sens_y = sensitivity;
             sc1.data.dd.sens_z = sensitivity;
-            sc1.data.dd.align_xx = (lsmInUse == LSM303DLHC_IN_USE) ? (-100) : 0;
-            sc1.data.dd.align_xy = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : -100;
+            sc1.data.dd.align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+            sc1.data.dd.align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
             sc1.data.dd.align_xz = 0;
-            sc1.data.dd.align_yx = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : 100;
-            sc1.data.dd.align_yy = (lsmInUse == LSM303DLHC_IN_USE) ? 100 : 0;
+            sc1.data.dd.align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
+            sc1.data.dd.align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
             sc1.data.dd.align_yz = 0;
             sc1.data.dd.align_zx = 0;
             sc1.data.dd.align_zy = 0;
@@ -469,7 +472,7 @@ void ShimmerCalib_default(uint8_t sensor)
         sc1.id = sensor;
         sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
         sc1.range = 0;
-        if (lsmInUse == LSM303DLHC_IN_USE)
+        if (isWrAccelInUseLsm303dlhc())
         {
             for (sc1.range = 0; sc1.range < SC_SENSOR_RANGE_MAX_LSM303DLHC_MAG;
                     sc1.range++)
@@ -545,11 +548,11 @@ void ShimmerCalib_default(uint8_t sensor)
         sc1.data.dd.bias_x = bias;
         sc1.data.dd.bias_y = bias;
         sc1.data.dd.bias_z = bias;
-        sc1.data.dd.align_xx = (lsmInUse == LSM303DLHC_IN_USE) ? (-100) : 0;
-        sc1.data.dd.align_xy = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : -100;
+        sc1.data.dd.align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        sc1.data.dd.align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
         sc1.data.dd.align_xz = 0;
-        sc1.data.dd.align_yx = (lsmInUse == LSM303DLHC_IN_USE) ? 0 : 100;
-        sc1.data.dd.align_yy = (lsmInUse == LSM303DLHC_IN_USE) ? 100 : 0;
+        sc1.data.dd.align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        sc1.data.dd.align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
         sc1.data.dd.align_yz = 0;
         sc1.data.dd.align_zx = 0;
         sc1.data.dd.align_zy = 0;
