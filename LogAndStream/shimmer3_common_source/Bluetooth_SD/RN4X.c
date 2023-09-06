@@ -1240,7 +1240,7 @@ void runSetCommands(void)
 //            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
 //            {
 //                bt_setcommands_step++;
-//                sprintf(commandbuf, "IA,19,0540\r"); //0x0540 Generic Sensor
+//                sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
 //                writeCommandBufAndExpectAok();
 //                return;
 //            }
