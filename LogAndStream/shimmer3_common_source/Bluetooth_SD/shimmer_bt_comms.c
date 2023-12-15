@@ -892,6 +892,7 @@ uint8_t Dma2ConversionDone(void)
                 case SET_CONFIGTIME_COMMAND:
                 case SET_CRC_COMMAND:
                 case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+                case SET_DATA_RATE_TEST:
                     *(gActionPtr) = data;
                     waitingForArgs = 1U;
                     break;
@@ -1803,6 +1804,7 @@ uint8_t processShimmerBtCmd(void)
     case SET_NSHIMMER_COMMAND:
     case SET_CRC_COMMAND:
     case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE
+    case SET_DATA_RATE_TEST:
         if(numBytesInBtRxBufWhenLastProcessed>=(1U+1U))
         {
             readActionAndArgBytes(1U);
@@ -2074,6 +2076,7 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case SET_CONFIGTIME_COMMAND:
     case SET_CRC_COMMAND:
     case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+    case SET_DATA_RATE_TEST:
     case SET_SAMPLING_RATE_COMMAND:
     case GET_DAUGHTER_CARD_ID_COMMAND:
     case SET_SENSORS_COMMAND:

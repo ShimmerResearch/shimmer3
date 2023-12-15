@@ -6,7 +6,7 @@
 /* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
 #define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
-#define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 0
+#define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
 
 /********** Defines created when testing Bluetooth driver - Start ***********/
 /* This toggles the CTS pin whenever the DMA interrupt is being processed to tell the BT module to stop sending bytes while the MCU is not in a position to recieve them */
@@ -528,5 +528,8 @@ void pushByteToBtRxBufIfNotFull(uint8_t c);
 void clearBtRxBuf(void);
 uint8_t isBtStarting(void);
 #endif
+
+void setBtDataRateTestState(uint8_t state);
+void loadBtTxBufForDataRateTest(void);
 
 #endif //RN4X_H

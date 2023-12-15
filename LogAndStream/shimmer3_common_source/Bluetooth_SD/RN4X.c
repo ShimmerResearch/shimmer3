@@ -113,6 +113,9 @@ rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
 
+uint8_t btDataRateTestState;
+uint32_t btDataRateTestCounter;
+
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
 #define RINGFIFO_WR(ringFifo, dataIn, mask)     {ringFifo.data[mask & ringFifo.wrIdx++] = (dataIn);}
@@ -1695,6 +1698,11 @@ uint8_t isBtModuleOverflowPinHigh(void)
 
 void sendNextChar(void)
 {
+    if (btDataRateTestState)
+    {
+        loadBtTxBufForDataRateTest();
+    }
+
     if (!RINGFIFO_EMPTY(gBtTxFifo)
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
             && (rn4678RtsLockDetected || !isBtModuleOverflowPinHigh())
@@ -1818,6 +1826,9 @@ void BT_init(void)
     BT_setRn4678BleConnectionParameters("0001,001C,0000,0200");
 
     BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
+
+    btDataRateTestState = 0;
+    btDataRateTestCounter = 0;
 }
 
 void BT_start(void)
@@ -3091,6 +3102,34 @@ uint8_t isBtStarting(void)
     return btIsStarting!=0;
 }
 #endif
+
+void setBtDataRateTestState(uint8_t state)
+{
+    btDataRateTestState = state;
+    btDataRateTestCounter = 0;
+}
+
+void loadBtTxBufForDataRateTest(void)
+{
+//    uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
+//    uint16_t i;
+//    if (spaceInTxBuf > sizeof(btDataRateTestCounter))
+//    {
+//        for (i = 0; i < (spaceInTxBuf/sizeof(btDataRateTestCounter)); i++ )
+//        {
+//            pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
+//            btDataRateTestCounter++;
+//        }
+//    }
+
+    uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
+    if (spaceInTxBuf > (sizeof(btDataRateTestCounter)+1U))
+    {
+        pushByteToBtTxBuf(0xA5); // DATA_RATE_TEST_RESPONSE
+        pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
+        btDataRateTestCounter++;
+    }
+}
 
 #pragma vector=USCI_A1_VECTOR
 __interrupt void USCI_A1_ISR(void)

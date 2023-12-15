@@ -222,7 +222,7 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
-        useAckPrefixForInstreamResponses;
+        useAckPrefixForInstreamResponses, btDataRateResponse;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
 uint8_t resPacket[RESPONSE_PACKET_SIZE + 2]; //+2 for crc checksum bytes;
@@ -2162,6 +2162,7 @@ void HandleBtRfCommStateChange(bool isOpen)
 #if FW_IS_LOGANDSTREAM
         btstreamReady = 0;
         enableBtstream = 0;
+        setBtDataRateTestState(0);
         clearBtTxBuf(0);
 #endif
         setBtCrcMode(CRC_OFF);
@@ -3358,6 +3359,15 @@ void ProcessCommand(void)
         break;
     case GET_BT_VERSION_STR_COMMAND:
         btVerResponse = 1;
+        break;
+    case SET_DATA_RATE_TEST:
+        /* Stop test before ACK is sent */
+        if (args[0] == 0)
+        {
+            setBtDataRateTestState(0);
+            clearBtTxBuf(1);
+        }
+        btDataRateResponse = 1;
         break;
     case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
         if (args[0] < 10)
@@ -4556,6 +4566,16 @@ void SendResponse(void)
             packet_length += btVerStrLen;
 
             btVerResponse = 0;
+        }
+        else if (btDataRateResponse)
+        {
+            /* Start test after ACK is sent - this will be handled by the
+             * interrupt after ACK byte is transmitted */
+            if (args[0] != 0)
+            {
+                setBtDataRateTestState(1);
+            }
+            btDataRateResponse = 0;
         }
     }
 
