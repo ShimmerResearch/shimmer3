@@ -316,6 +316,9 @@ void BT_startDone_cb(void (*cb)(void));
 // set a callback function cb that runs when baud rate is successfully changed
 void BT_baudRateChange_cb(void (*cb)(void));
 
+// set a callback function cb that runs before bytes are transmitted to the BT module from the TX Buf
+void BT_setSendNextChar_cb(void (*cb)(void));
+
 void initRN1(void);
 void initRN2(void);
 void initRN3(void);
@@ -528,8 +531,5 @@ void pushByteToBtRxBufIfNotFull(uint8_t c);
 void clearBtRxBuf(void);
 uint8_t isBtStarting(void);
 #endif
-
-void setBtDataRateTestState(uint8_t state);
-void loadBtTxBufForDataRateTest(void);
 
 #endif //RN4X_H

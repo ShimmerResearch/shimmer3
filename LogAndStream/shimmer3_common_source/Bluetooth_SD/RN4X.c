@@ -68,6 +68,8 @@ uint8_t starting;
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
 void (*BT_write)(uint8_t *buf, uint8_t len, btResponseType responseType);
+void (*sendNextChar_cb)(void);
+
 uint8_t btRebootRequired; //boolean for checking if new commands are added
 volatile uint8_t messageInProgress, txOverflow;
 uint8_t txie_reg;
@@ -112,9 +114,6 @@ uint8_t slowRate;
 rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
-
-uint8_t btDataRateTestState;
-uint32_t btDataRateTestCounter;
 
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
@@ -216,6 +215,11 @@ void BT_startDone_cb(void (*cb)(void))
 void BT_baudRateChange_cb(void (*cb)(void))
 {
     baudRateChange_cb = cb;
+}
+
+void BT_setSendNextChar_cb(void (*cb)(void))
+{
+    sendNextChar_cb = cb;
 }
 
 /* TODO create common boot sequence for both BT modules */
@@ -1698,9 +1702,9 @@ uint8_t isBtModuleOverflowPinHigh(void)
 
 void sendNextChar(void)
 {
-    if (btDataRateTestState)
+    if(sendNextChar_cb)
     {
-        loadBtTxBufForDataRateTest();
+        sendNextChar_cb();
     }
 
     if (!RINGFIFO_EMPTY(gBtTxFifo)
@@ -1827,8 +1831,7 @@ void BT_init(void)
 
     BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
 
-    btDataRateTestState = 0;
-    btDataRateTestCounter = 0;
+    BT_setSendNextChar_cb(0);
 }
 
 void BT_start(void)
@@ -3102,34 +3105,6 @@ uint8_t isBtStarting(void)
     return btIsStarting!=0;
 }
 #endif
-
-void setBtDataRateTestState(uint8_t state)
-{
-    btDataRateTestState = state;
-    btDataRateTestCounter = 0;
-}
-
-void loadBtTxBufForDataRateTest(void)
-{
-//    uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
-//    uint16_t i;
-//    if (spaceInTxBuf > sizeof(btDataRateTestCounter))
-//    {
-//        for (i = 0; i < (spaceInTxBuf/sizeof(btDataRateTestCounter)); i++ )
-//        {
-//            pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
-//            btDataRateTestCounter++;
-//        }
-//    }
-
-    uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
-    if (spaceInTxBuf > (sizeof(btDataRateTestCounter)+1U))
-    {
-        pushByteToBtTxBuf(0xA5); // DATA_RATE_TEST_RESPONSE
-        pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
-        btDataRateTestCounter++;
-    }
-}
 
 #pragma vector=USCI_A1_VECTOR
 __interrupt void USCI_A1_ISR(void)

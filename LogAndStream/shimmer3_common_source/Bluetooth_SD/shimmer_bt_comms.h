@@ -12,6 +12,13 @@
 #include "../../shimmer_btsd.h"
 #include "../5xx_HAL/hal_CRC.h"
 
+typedef enum
+{
+    DATA_RATE_TEST_MODE_DISABLED = 0,
+    DATA_RATE_TEST_MODE_CONTINOUS,
+    DATA_RATE_TEST_MODE_BULK_TX
+} dataRateTestMode_t;
+
 // Packet Types// Packet Types
 #define DATA_PACKET                                   0x00
 #define INQUIRY_COMMAND                               0x01
@@ -164,7 +171,7 @@
 #define GET_BT_VERSION_STR_COMMAND                    0xA1
 #define BT_VERSION_STR_RESPONSE                       0xA2
 #define SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE        0xA3
-#define SET_DATA_RATE_TEST                            0xA4
+#define SET_DATA_RATE_TEST_MODE                       0xA4
 #define DATA_RATE_TEST_RESPONSE                       0xA5
 #if !USE_OLD_SD_SYNC_APPROACH
 #define SET_SD_SYNC_COMMAND                           0xE0
@@ -174,6 +181,8 @@
 
 //#define BT_RX_COMMS_TIMEOUT_TICKS                     3277U /* 32768*0.1s = 3276.8  */
 #define BT_RX_COMMS_TIMEOUT_TICKS                     328U /* 32768*0.01s = 327.68  */
+
+#define DATA_RATE_TEST_PACKET_SIZE                    5U // 1 header byte + uint32_t counter value
 
 #if BT_DMA_USED_FOR_RX
 uint8_t Dma2ConversionDone(void);
@@ -215,5 +224,11 @@ char * getBtVerStrPtr(void);
 
 void setBtCrcMode(COMMS_CRC_MODE btCrcModeNew);
 COMMS_CRC_MODE getBtCrcMode(void);
+
+void setBtDataRateTestMode(dataRateTestMode_t mode, uint16_t txRate, uint8_t packetCount);
+void setBtDataRateTestModeDisabled();
+dataRateTestMode_t getBtDataRateTestMode(void);
+uint16_t getBtDataRateTestTxRate(void);
+void loadBtTxBufForDataRateTest(void);
 
 #endif /* SHIMMER3_COMMON_SOURCE_BLUETOOTH_SD_SHIMMER_BT_COMMS_H_ */

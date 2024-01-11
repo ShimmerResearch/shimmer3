@@ -509,31 +509,39 @@ void main(void)
 
             if (streamDataInProc)
             {
-                if ((!(enableSdlog && sdlogReady))
-                        && (!(enableBtstream && btstreamReady)))
+                if (getBtDataRateTestMode() == DATA_RATE_TEST_MODE_BULK_TX)
                 {
-                    btsdSelfCmd = 1;
-                    setStopSensing(1U);
+                    loadBtTxBufForDataRateTest();
+                    sendNextCharIfNotInProgress();
                 }
-                if (newDirFlag && enableSdlog && sdlogReady)
+                else
                 {
-                    StartLogging();
-                    //               Timestamp0ToFirstFile();
-                }
-                StreamData();
-                // if sensor data buffer is large enough (about 1024 bytes),
-                // write it to SDcard and clear the buffer
-                if (enableSdlog && sdlogReady)
-                {
-                    if (sdBuffLen > SDBUFF_SIZE - blockLen)
+                    if ((!(enableSdlog && sdlogReady))
+                            && (!(enableBtstream && btstreamReady)))
                     {
-                        TaskSet(TASK_WR2SD);
+                        btsdSelfCmd = 1;
+                        setStopSensing(1U);
                     }
-                }
-                if (btsdSelfCmd)
-                {
-                    BtsdSelfcmd();
-                    btsdSelfCmd = 0;
+                    if (newDirFlag && enableSdlog && sdlogReady)
+                    {
+                        StartLogging();
+                        //               Timestamp0ToFirstFile();
+                    }
+                    StreamData();
+                    // if sensor data buffer is large enough (about 1024 bytes),
+                    // write it to SDcard and clear the buffer
+                    if (enableSdlog && sdlogReady)
+                    {
+                        if (sdBuffLen > SDBUFF_SIZE - blockLen)
+                        {
+                            TaskSet(TASK_WR2SD);
+                        }
+                    }
+                    if (btsdSelfCmd)
+                    {
+                        BtsdSelfcmd();
+                        btsdSelfCmd = 0;
+                    }
                 }
             }
             streamDataInProc = 0;
@@ -2162,7 +2170,13 @@ void HandleBtRfCommStateChange(bool isOpen)
 #if FW_IS_LOGANDSTREAM
         btstreamReady = 0;
         enableBtstream = 0;
-        setBtDataRateTestState(0);
+
+        if (getBtDataRateTestMode() == DATA_RATE_TEST_MODE_BULK_TX)
+        {
+            SampleTimerStop();
+        }
+        setBtDataRateTestModeDisabled();
+
         clearBtTxBuf(0);
 #endif
         setBtCrcMode(CRC_OFF);
@@ -2916,59 +2930,74 @@ uint8_t timeStampLen;
 __interrupt void TIMER0_B0_ISR(void)
 {
     uint16_t timer_b0 = GetTB0();
-    uint8_t rtc_temp[4];
-    TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
 
-    if (!streamDataInProc)
+    if (getBtDataRateTestMode() == DATA_RATE_TEST_MODE_BULK_TX)
     {
-        streamDataInProc = 1;
-#if TS_BYTE3
-        if (firstTsFlag == 1)
+        if (!streamDataInProc)
         {
-            firstTs = RTC_get64();
-            firstTsFlag = 2;
-            *(uint32_t*) rtc_temp = (uint64_t) firstTs;
+            streamDataInProc = 1;
+
+            TB0CCR0 = timer_b0 + getBtDataRateTestTxRate();
+            TaskSet(TASK_STREAMDATA);
+            __bic_SR_register_on_exit(LPM3_bits);
         }
-        else
-        {
-            *(uint32_t*) rtc_temp = RTC_get32();
-        }
-        if (currentBuffer)
-        {
-            //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
-            txBuff1[1] = rtc_temp[0];
-            txBuff1[2] = rtc_temp[1];
-            txBuff1[3] = rtc_temp[2];
-        }
-        else
-        {
-            //*((uint16_t *)(txBuff0+2)) = timer_b0;
-            txBuff0[1] = rtc_temp[0];
-            txBuff0[2] = rtc_temp[1];
-            txBuff0[3] = rtc_temp[2];
-        }
-#else
-        if(currentBuffer)
-        {
-            *((uint16_t *)(txBuff1+2)) = timer_b0; //the first two bytes are packet type bytes. reserved for BTstream
-        }
-        else
-        {
-            *((uint16_t *)(txBuff0+2)) = timer_b0;
-        }
-#endif
-    }
-    //start ADC conversion
-    if (nbrAdcChans)
-    {
-        DMA0_enable();
-        ADC_startConversion();
     }
     else
     {
-        //no analog channels, so go straight to digital
-        TaskSet(TASK_STREAMDATA);
-        __bic_SR_register_on_exit(LPM3_bits);
+        uint8_t rtc_temp[4];
+        TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
+
+        if (!streamDataInProc)
+        {
+            streamDataInProc = 1;
+    #if TS_BYTE3
+            if (firstTsFlag == 1)
+            {
+                firstTs = RTC_get64();
+                firstTsFlag = 2;
+                *(uint32_t*) rtc_temp = (uint64_t) firstTs;
+            }
+            else
+            {
+                *(uint32_t*) rtc_temp = RTC_get32();
+            }
+            if (currentBuffer)
+            {
+                //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
+                txBuff1[1] = rtc_temp[0];
+                txBuff1[2] = rtc_temp[1];
+                txBuff1[3] = rtc_temp[2];
+            }
+            else
+            {
+                //*((uint16_t *)(txBuff0+2)) = timer_b0;
+                txBuff0[1] = rtc_temp[0];
+                txBuff0[2] = rtc_temp[1];
+                txBuff0[3] = rtc_temp[2];
+            }
+    #else
+            if(currentBuffer)
+            {
+                *((uint16_t *)(txBuff1+2)) = timer_b0; //the first two bytes are packet type bytes. reserved for BTstream
+            }
+            else
+            {
+                *((uint16_t *)(txBuff0+2)) = timer_b0;
+            }
+    #endif
+        }
+        //start ADC conversion
+        if (nbrAdcChans)
+        {
+            DMA0_enable();
+            ADC_startConversion();
+        }
+        else
+        {
+            //no analog channels, so go straight to digital
+            TaskSet(TASK_STREAMDATA);
+            __bic_SR_register_on_exit(LPM3_bits);
+        }
     }
 }
 
@@ -3360,11 +3389,15 @@ void ProcessCommand(void)
     case GET_BT_VERSION_STR_COMMAND:
         btVerResponse = 1;
         break;
-    case SET_DATA_RATE_TEST:
+    case SET_DATA_RATE_TEST_MODE:
         /* Stop test before ACK is sent */
-        if (args[0] == 0)
+        if (args[0] == DATA_RATE_TEST_MODE_DISABLED)
         {
-            setBtDataRateTestState(0);
+            if (getBtDataRateTestMode() == DATA_RATE_TEST_MODE_BULK_TX)
+            {
+                SampleTimerStop();
+            }
+            setBtDataRateTestModeDisabled();
             clearBtTxBuf(1);
         }
         btDataRateResponse = 1;
@@ -4571,9 +4604,28 @@ void SendResponse(void)
         {
             /* Start test after ACK is sent - this will be handled by the
              * interrupt after ACK byte is transmitted */
-            if (args[0] != 0)
+            if (args[0] > DATA_RATE_TEST_MODE_DISABLED && args[0] <= DATA_RATE_TEST_MODE_BULK_TX)
             {
-                setBtDataRateTestState(1);
+                setBtDataRateTestMode((dataRateTestMode_t)args[0], (args[2]<<8)|args[1], args[3]);
+
+                if (getBtDataRateTestMode() == DATA_RATE_TEST_MODE_BULK_TX)
+                {
+                    // Based on contents of StartStreaming()
+
+                    SamplingClkAssignment(&storedConfig[0]);
+
+                    ClkAssignment();
+                    TB0CTL = MC_0; // StopTb0()
+                    TB0Start();
+                    uint16_t val_tb0 = GetTB0();
+                    uint16_t baseClockOffset = val_tb0 + getBtDataRateTestTxRate();
+                    TB0CCTL1 = 0;
+                    TB0CCTL2 = 0;
+                    TB0CCR0 = baseClockOffset;
+                    TB0CCTL0 = CCIE;
+                    sampleTimerStatus = 1;
+                    TB0Start();
+                }
             }
             btDataRateResponse = 0;
         }
