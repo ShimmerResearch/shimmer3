@@ -189,6 +189,9 @@ void Board_init(void) {
    //SW_I2C
    P8OUT &= ~BIT4;           //set low
    P8DIR |= BIT4;            //set as output
+
+   P7OUT |= BIT7;
+   P7DIR |= BIT7;       //set as output
 }
 
 /***************************************************************************//**
