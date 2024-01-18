@@ -333,40 +333,29 @@ void ICM20948_getMag(uint8_t *buf)
     }
 }
 
-uint8_t ICM20948_getMagNew(uint8_t *buf)
+uint8_t ICM20948_getMagAndStatus(uint8_t *buf)
 {
-    uint8_t status;
-    uint8_t bufNew[8];
-
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+
     *buf = ICM_ST1;
-    I2C_Read_Packet_From_Sensor(&bufNew[0], 8);
+    I2C_Read_Packet_From_Sensor(buf, ICM_MAG_RD_SIZE);
 
     // Check Status 1 if Data not ready
-    if (!(bufNew[0]&0x01))
+    if (!(*(buf + ICM_MAG_IDX_ST1) & 0x01))
     {
         return 0;
     }
 
     //check Status 2 register
-    if (bufNew[7]&0x08)
+    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
     {
         //either a read error or mag sensor overflow occurred
-        buf[0] = 0xFF;
-        buf[1] = 0x7F;
-        buf[2] = 0xFF;
-        buf[3] = 0x7F;
-        buf[4] = 0xFF;
-        buf[5] = 0x7F;
-    }
-    else
-    {
-        buf[0] = bufNew[1];
-        buf[1] = bufNew[2];
-        buf[2] = bufNew[3];
-        buf[3] = bufNew[4];
-        buf[4] = bufNew[5];
-        buf[5] = bufNew[6];
+        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
     }
     return 1;
 }

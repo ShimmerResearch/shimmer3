@@ -7178,16 +7178,12 @@ void StreamData()
         digi_offset += 6;
     }
 
-    uint8_t icm20948MagBuf[6] = {0};
+    uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = {0};
     uint8_t icm20948MagRdy = 0;
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
             || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
-//        if(icm20948MagRdy = ICM20948_isMagDataRdy())
-//        {
-//            ICM20948_getMag(&icm20948MagBuf[0]);
-//        }
-        icm20948MagRdy = ICM20948_getMagNew(&icm20948MagBuf[0]);
+        icm20948MagRdy = ICM20948_getMagAndStatus(&icm20948MagBuf[0]);
     }
 
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
@@ -7226,14 +7222,14 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[0U];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[1U];
+                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
 
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[2U];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[3U];
+                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
 
                 //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
-                int16_t signInvertBuffer = - ((int16_t)((icm20948MagBuf[5U] << 8) | icm20948MagBuf[4U]));
+                int16_t signInvertBuffer = - ((int16_t)((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8) | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
                 current_buffer_ptr[digi_offset + 4U] = signInvertBuffer & 0xFF;
                 current_buffer_ptr[digi_offset + 5U] = (signInvertBuffer >> 8) & 0xFF;
             }
@@ -7279,12 +7275,12 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[0U];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[1U];
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[2U];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[3U];
-                current_buffer_ptr[digi_offset + 4U] = icm20948MagBuf[4U];
-                current_buffer_ptr[digi_offset + 5U] = icm20948MagBuf[5U];
+                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+                current_buffer_ptr[digi_offset + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
+                current_buffer_ptr[digi_offset + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
             }
             else
             {

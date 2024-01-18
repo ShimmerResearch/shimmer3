@@ -104,6 +104,16 @@
 #define CNTL2                   0x31
 #define CNTL3                   0x32
 
+#define ICM_MAG_IDX_ST1             0
+#define ICM_MAG_IDX_XOUT_L          1
+#define ICM_MAG_IDX_XOUT_H          2
+#define ICM_MAG_IDX_YOUT_L          3
+#define ICM_MAG_IDX_YOUT_H          4
+#define ICM_MAG_IDX_ZOUT_L          5
+#define ICM_MAG_IDX_ZOUT_H          6
+#define ICM_MAG_IDX_ST2             8
+#define ICM_MAG_RD_SIZE             9
+
 typedef enum AK09916_OP_MODE {
     AK09916_PWR_DOWN           = 0x00,
     AK09916_TRIGGER_MODE       = 0x01,
@@ -177,7 +187,7 @@ uint8_t ICM20948_isMagDataRdy(void);
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf);
 
-uint8_t ICM20948_getMagNew(uint8_t *buf);
+uint8_t ICM20948_getMagAndStatus(uint8_t *buf);
 
 //read the x, y and z mag sensitivity adjustment values
 void ICM20948_getMagSensitivityAdj(uint8_t *buf);
