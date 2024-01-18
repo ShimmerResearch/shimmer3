@@ -2914,8 +2914,6 @@ uint8_t timeStampLen;
 #pragma vector=TIMER0_B0_VECTOR
 __interrupt void TIMER0_B0_ISR(void)
 {
-    P7OUT ^= BIT7;
-
     uint16_t timer_b0 = GetTB0();
     uint8_t rtc_temp[4];
     TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
