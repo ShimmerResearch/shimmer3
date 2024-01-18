@@ -336,11 +336,11 @@ void ICM20948_getMag(uint8_t *buf)
 uint8_t ICM20948_getMagNew(uint8_t *buf)
 {
     uint8_t status;
-    uint8_t bufNew[9];
+    uint8_t bufNew[8];
 
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
     *buf = ICM_ST1;
-    I2C_Read_Packet_From_Sensor(&bufNew[0], 9);
+    I2C_Read_Packet_From_Sensor(&bufNew[0], 8);
 
     // Check Status 1 if Data not ready
     if (!(bufNew[0]&0x01))
@@ -349,7 +349,7 @@ uint8_t ICM20948_getMagNew(uint8_t *buf)
     }
 
     //check Status 2 register
-    if (bufNew[8]&0x08)
+    if (bufNew[7]&0x08)
     {
         //either a read error or mag sensor overflow occurred
         buf[0] = 0xFF;
