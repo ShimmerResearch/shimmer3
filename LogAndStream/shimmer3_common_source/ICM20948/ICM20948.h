@@ -177,6 +177,8 @@ uint8_t ICM20948_isMagDataRdy(void);
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf);
 
+uint8_t ICM20948_getMagNew(uint8_t *buf);
+
 //read the x, y and z mag sensitivity adjustment values
 void ICM20948_getMagSensitivityAdj(uint8_t *buf);
 

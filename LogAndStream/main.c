@@ -7183,10 +7183,11 @@ void StreamData()
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
             || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
-        if(icm20948MagRdy = ICM20948_isMagDataRdy())
-        {
-            ICM20948_getMag(&icm20948MagBuf[0]);
-        }
+//        if(icm20948MagRdy = ICM20948_isMagDataRdy())
+//        {
+//            ICM20948_getMag(&icm20948MagBuf[0]);
+//        }
+        icm20948MagRdy = ICM20948_getMagNew(&icm20948MagBuf[0]);
     }
 
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
