@@ -104,15 +104,18 @@
 #define CNTL2                   0x31
 #define CNTL3                   0x32
 
-#define ICM_MAG_IDX_ST1             0
-#define ICM_MAG_IDX_XOUT_L          1
-#define ICM_MAG_IDX_XOUT_H          2
-#define ICM_MAG_IDX_YOUT_L          3
-#define ICM_MAG_IDX_YOUT_H          4
-#define ICM_MAG_IDX_ZOUT_L          5
-#define ICM_MAG_IDX_ZOUT_H          6
-#define ICM_MAG_IDX_ST2             8
-#define ICM_MAG_RD_SIZE             9
+enum ICM_MAG_READ_IDX {
+     ICM_MAG_IDX_ST1,
+     ICM_MAG_IDX_XOUT_L,
+     ICM_MAG_IDX_XOUT_H,
+     ICM_MAG_IDX_YOUT_L,
+     ICM_MAG_IDX_YOUT_H,
+     ICM_MAG_IDX_ZOUT_L,
+     ICM_MAG_IDX_ZOUT_H,
+     ICM_MAG_IDX_TMPS,
+     ICM_MAG_IDX_ST2,
+     ICM_MAG_RD_SIZE
+};
 
 typedef enum AK09916_OP_MODE {
     AK09916_PWR_DOWN           = 0x00,
