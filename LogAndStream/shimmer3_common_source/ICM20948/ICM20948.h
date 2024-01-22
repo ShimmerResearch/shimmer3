@@ -104,6 +104,8 @@
 #define CNTL2                   0x31
 #define CNTL3                   0x32
 
+#define SAMPLING_TIMER_TICKS_100Hz   328 // ceil(32768/100Hz)
+
 enum ICM_MAG_READ_IDX {
      ICM_MAG_IDX_ST1,
      ICM_MAG_IDX_XOUT_L,

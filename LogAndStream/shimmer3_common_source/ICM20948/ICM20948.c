@@ -51,7 +51,7 @@
 #include "ICM20948.h"
 #include "math.h"
 
-uint16_t magSampleTsTicks;
+uint8_t magSampleSkipEnabled;
 uint32_t lastMagSampleTsTicks;
 
 void ICM20948_bankSelect(uint8_t addr, uint8_t val)
@@ -265,7 +265,7 @@ uint8_t ICM20948_getMagId(void)
 
 void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
 {
-    magSampleTsTicks = 0;
+    magSampleSkipEnabled = 0;
     lastMagSampleTsTicks = 0;
 
     AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
@@ -287,10 +287,12 @@ void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
     else
     {
         opMode = AK09916_CONT_MODE_100HZ;
-
-        /* We want to sample slightly slower the the max rate of the mag.
-         * (not higher) to avoid over-reading from it and locking it up. */
-        magSampleTsTicks = 328; // 32768/100Hz = ceil(327.68).
+        /* If Shimmer sampling rate is >100Hz, enable sample skip feature to
+         * avoid locking up AK09916 Magnetometer - as we see regularly. */
+        if (samplingRateTicks <= SAMPLING_TIMER_TICKS_100Hz)
+        {
+            magSampleSkipEnabled = 1;
+        }
     }
 
     ICM20948_setMagMode(opMode);
@@ -348,10 +350,10 @@ void ICM20948_getMag(uint8_t *buf)
 
 uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
 {
-    if (magSampleTsTicks > 0)
+    if (magSampleSkipEnabled)
     {
-        uint32_t magSampleTsDiffTicks = ((currentSampleTsTicks - lastMagSampleTsTicks) & 0xFFFFFF);
-        if (magSampleTsDiffTicks < magSampleTsTicks)
+        uint32_t magSampleTsDiffTicks = (currentSampleTsTicks - lastMagSampleTsTicks) & 0xFFFFFF;
+        if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
         {
             /* Mag won't have new sample ready yet so don't read from it */
             return 0;
