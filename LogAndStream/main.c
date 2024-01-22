@@ -2932,20 +2932,12 @@ __interrupt void TIMER0_B0_ISR(void)
         {
             *(uint32_t*) currentSampleTsTicks = RTC_get32();
         }
-        if (currentBuffer)
-        {
-            //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
-            txBuff1[1] = currentSampleTsTicks[0];
-            txBuff1[2] = currentSampleTsTicks[1];
-            txBuff1[3] = currentSampleTsTicks[2];
-        }
-        else
-        {
-            //*((uint16_t *)(txBuff0+2)) = timer_b0;
-            txBuff0[1] = currentSampleTsTicks[0];
-            txBuff0[2] = currentSampleTsTicks[1];
-            txBuff0[3] = currentSampleTsTicks[2];
-        }
+
+        uint8_t *current_buffer_ptr = currentBuffer ? txBuff1 : txBuff0;
+        // The first byte is packet type byte when Bluetooth streaming
+        current_buffer_ptr[1] = currentSampleTsTicks[0];
+        current_buffer_ptr[2] = currentSampleTsTicks[1];
+        current_buffer_ptr[3] = currentSampleTsTicks[2];
 #else
         if(currentBuffer)
         {
@@ -7183,7 +7175,7 @@ void StreamData()
     {
         if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
         {
-            ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+            icm20948MagRdy = ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
         }
     }
 
