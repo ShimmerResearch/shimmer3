@@ -51,8 +51,8 @@
 #include "ICM20948.h"
 #include "math.h"
 
-uint8_t magSampleSkipCounter;
-uint8_t magSampleSkipCounterLimit;
+uint16_t magSampleTsTicks;
+uint32_t lastMagSampleTsTicks;
 
 void ICM20948_bankSelect(uint8_t addr, uint8_t val)
 {
@@ -265,8 +265,8 @@ uint8_t ICM20948_getMagId(void)
 
 void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
 {
-    magSampleSkipCounter = 0;
-    magSampleSkipCounterLimit = 0;
+    magSampleTsTicks = 0;
+    lastMagSampleTsTicks = 0;
 
     AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
     /* Choose the next highest sampling rate to the if Shimmer's sampling rate
@@ -288,10 +288,9 @@ void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
     {
         opMode = AK09916_CONT_MODE_100HZ;
 
-        //TODO logic does not work for 102Hz because every second sample would be skipped
-        /* e.g.: Shimmer@102Hz => 102Hz/100Hz = ceil(1.02) = 2 */
-        /* e.g.: Shimmer@1024Hz => 1024Hz/100Hz = ceil(10.24) = 11 */
-        magSampleSkipCounterLimit = ceil(327.68 / (float) samplingRateTicks);
+        /* We want to sample slightly slower the the max rate of the mag.
+         * (not higher) to avoid over-reading from it and locking it up. */
+        magSampleTsTicks = 328; // 32768/100Hz = ceil(327.68).
     }
 
     ICM20948_setMagMode(opMode);
@@ -347,27 +346,24 @@ void ICM20948_getMag(uint8_t *buf)
     }
 }
 
-uint8_t ICM20948_getMagAndStatus(uint8_t *buf)
+uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
 {
-    /* Check if sample skip feature is active */
-    if (magSampleSkipCounterLimit > 0)
+    if (magSampleTsTicks > 0)
     {
-        /* Implemented on the 0th sample count because we want it to get a new
-         * sample for the very first sample. */
-        if (magSampleSkipCounter != 0)
+        uint32_t magSampleTsDiffTicks = ((currentSampleTsTicks - lastMagSampleTsTicks) & 0xFFFFFF);
+        if (magSampleTsDiffTicks < magSampleTsTicks)
         {
-            magSampleSkipCounter++;
-            if (magSampleSkipCounter == magSampleSkipCounterLimit)
-            {
-                magSampleSkipCounter = 0;
-            }
-            /* Return 0 to indicate that a new Mag sample is not ready */
+            /* Mag won't have new sample ready yet so don't read from it */
             return 0;
         }
-
-        magSampleSkipCounter++;
     }
 
+    // Mag should have new sample ready
+    return 1;
+}
+
+uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf)
+{
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
     *buf = ICM_ST1;
@@ -378,6 +374,8 @@ uint8_t ICM20948_getMagAndStatus(uint8_t *buf)
     {
         return 0;
     }
+
+    lastMagSampleTsTicks = currentSampleTsTicks;
 
     //check Status 2 register
     if (*(buf + ICM_MAG_IDX_ST2) & 0x08)

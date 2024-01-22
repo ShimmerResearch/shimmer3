@@ -244,6 +244,7 @@ uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
 uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20,
         blinkCnt50;
 uint64_t firstTs, fileLastHour, fileLastMin;
+volatile uint8_t currentSampleTsTicks[4];
 
 volatile uint8_t fileBad, fileBadCnt, toggleLedRed;
 static FRESULT ff_result;
@@ -2915,7 +2916,6 @@ uint8_t timeStampLen;
 __interrupt void TIMER0_B0_ISR(void)
 {
     uint16_t timer_b0 = GetTB0();
-    uint8_t rtc_temp[4];
     TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
 
     if (!streamDataInProc)
@@ -2926,25 +2926,25 @@ __interrupt void TIMER0_B0_ISR(void)
         {
             firstTs = RTC_get64();
             firstTsFlag = 2;
-            *(uint32_t*) rtc_temp = (uint64_t) firstTs;
+            *(uint32_t*) currentSampleTsTicks = (uint64_t) firstTs;
         }
         else
         {
-            *(uint32_t*) rtc_temp = RTC_get32();
+            *(uint32_t*) currentSampleTsTicks = RTC_get32();
         }
         if (currentBuffer)
         {
             //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
-            txBuff1[1] = rtc_temp[0];
-            txBuff1[2] = rtc_temp[1];
-            txBuff1[3] = rtc_temp[2];
+            txBuff1[1] = currentSampleTsTicks[0];
+            txBuff1[2] = currentSampleTsTicks[1];
+            txBuff1[3] = currentSampleTsTicks[2];
         }
         else
         {
             //*((uint16_t *)(txBuff0+2)) = timer_b0;
-            txBuff0[1] = rtc_temp[0];
-            txBuff0[2] = rtc_temp[1];
-            txBuff0[3] = rtc_temp[2];
+            txBuff0[1] = currentSampleTsTicks[0];
+            txBuff0[2] = currentSampleTsTicks[1];
+            txBuff0[3] = currentSampleTsTicks[2];
         }
 #else
         if(currentBuffer)
@@ -7181,7 +7181,10 @@ void StreamData()
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
             || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
-        icm20948MagRdy = ICM20948_getMagAndStatus(&icm20948MagBuf[0]);
+        if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
+        {
+            ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+        }
     }
 
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
