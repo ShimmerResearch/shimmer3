@@ -51,6 +51,9 @@
 #include "ICM20948.h"
 #include "math.h"
 
+uint8_t magSampleSkipCounter;
+uint8_t magSampleSkipCounterLimit;
+
 void ICM20948_bankSelect(uint8_t addr, uint8_t val)
 {
     uint8_t selectBank[2];
@@ -262,24 +265,35 @@ uint8_t ICM20948_getMagId(void)
 
 void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
 {
+    magSampleSkipCounter = 0;
+    magSampleSkipCounterLimit = 0;
+
     AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
-    // e.g., if Shimmer's sampling rate is faster then 50Hz, choose the next highest rate, i.e., 100Hz
-    if (samplingRateTicks <= 656) // ceil(32768/50Hz)
-    {
-        opMode = AK09916_CONT_MODE_100HZ;
-    }
-    else if (samplingRateTicks <= 1639) // ceil(32768/20Hz)
-    {
-        opMode = AK09916_CONT_MODE_50HZ;
-    }
-    else if (samplingRateTicks <= 3277) // ceil(32768/10Hz)
-    {
-        opMode = AK09916_CONT_MODE_20HZ;
-    }
-    else
+    /* Choose the next highest sampling rate to the if Shimmer's sampling rate
+     * (e.g., if Shimmer's sampling rate is 9Hz, choose 10Hz). Note, choosing
+     * '>=' here as the comparison values are all floored. */
+    if (samplingRateTicks >= 3276) // floor(32768/10Hz)
     {
         opMode = AK09916_CONT_MODE_10HZ;
     }
+    else if (samplingRateTicks >= 1638) // floor(32768/20Hz)
+    {
+        opMode = AK09916_CONT_MODE_20HZ;
+    }
+    else if (samplingRateTicks >= 655) // floor(32768/50Hz)
+    {
+        opMode = AK09916_CONT_MODE_50HZ;
+    }
+    else
+    {
+        opMode = AK09916_CONT_MODE_100HZ;
+
+        //TODO logic does not work for 102Hz because every second sample would be skipped
+        /* e.g.: Shimmer@102Hz => 102Hz/100Hz = ceil(1.02) = 2 */
+        /* e.g.: Shimmer@1024Hz => 1024Hz/100Hz = ceil(10.24) = 11 */
+        magSampleSkipCounterLimit = ceil(327.68 / (float) samplingRateTicks);
+    }
+
     ICM20948_setMagMode(opMode);
 }
 
@@ -335,6 +349,25 @@ void ICM20948_getMag(uint8_t *buf)
 
 uint8_t ICM20948_getMagAndStatus(uint8_t *buf)
 {
+    /* Check if sample skip feature is active */
+    if (magSampleSkipCounterLimit > 0)
+    {
+        /* Implemented on the 0th sample count because we want it to get a new
+         * sample for the very first sample. */
+        if (magSampleSkipCounter != 0)
+        {
+            magSampleSkipCounter++;
+            if (magSampleSkipCounter == magSampleSkipCounterLimit)
+            {
+                magSampleSkipCounter = 0;
+            }
+            /* Return 0 to indicate that a new Mag sample is not ready */
+            return 0;
+        }
+
+        magSampleSkipCounter++;
+    }
+
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
     *buf = ICM_ST1;
