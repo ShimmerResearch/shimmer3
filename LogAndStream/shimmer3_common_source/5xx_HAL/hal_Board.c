@@ -159,8 +159,10 @@ void Board_init(void) {
    //External ADC expansion ports
    P6DIR &= ~(BIT6 + BIT7);   //A6 and A7 as input
    P6SEL |= BIT6 + BIT7;
-   P7DIR &= ~BIT7;            //A15 as input
-   P7SEL |= BIT7;
+//   P7DIR &= ~BIT7;            //A15 as input
+//   P7SEL |= BIT7;
+   P7OUT |= BIT7;
+   P7DIR |= BIT7;       //set as output
    //Internal ADC expansion ports
    P6DIR &= ~BIT1;            //A1 set as input
    P6SEL |= BIT1;
