@@ -272,15 +272,15 @@ void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
     /* Choose the next highest sampling rate to the if Shimmer's sampling rate
      * (e.g., if Shimmer's sampling rate is 9Hz, choose 10Hz). Note, choosing
      * '>=' here as the comparison values are all floored. */
-    if (samplingRateTicks >= 3276) // floor(32768/10Hz)
+    if (samplingRateTicks >= 3277) // ceil(32768/10Hz) = 3277. i.e., if <= 9.9994 Hz
     {
         opMode = AK09916_CONT_MODE_10HZ;
     }
-    else if (samplingRateTicks >= 1638) // floor(32768/20Hz)
+    else if (samplingRateTicks >= 1639) // ceil(32768/20Hz) = 1639. i.e., if <= 19.9927 Hz
     {
         opMode = AK09916_CONT_MODE_20HZ;
     }
-    else if (samplingRateTicks >= 655) // floor(32768/50Hz)
+    else if (samplingRateTicks >= 656) // ceil(32768/50Hz) = 656. i.e., if <= 49.9512 Hz
     {
         opMode = AK09916_CONT_MODE_50HZ;
     }
@@ -289,7 +289,7 @@ void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
         opMode = AK09916_CONT_MODE_100HZ;
         /* If Shimmer sampling rate is >100Hz, enable sample skip feature to
          * avoid locking up AK09916 Magnetometer - as we see regularly. */
-        if (samplingRateTicks <= SAMPLING_TIMER_TICKS_100Hz)
+        if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz) // ceil(32768/100Hz) = 328. i.e., if > 99.9024 Hz
         {
             magSampleSkipEnabled = 1;
         }
@@ -350,9 +350,21 @@ void ICM20948_getMag(uint8_t *buf)
 
 uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
 {
+    //TODO make more efficient
+
     if (magSampleSkipEnabled)
     {
-        uint32_t magSampleTsDiffTicks = (currentSampleTsTicks - lastMagSampleTsTicks) & 0xFFFFFF;
+        /* Mask to 16-bit to simplify calculations */
+        uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
+        uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
+
+        // Check if roll-over has occurred
+        if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
+        {
+            currentSampleTsTicksMasked |= 0x10000;
+        }
+
+        uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
         if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
         {
             /* Mag won't have new sample ready yet so don't read from it */
