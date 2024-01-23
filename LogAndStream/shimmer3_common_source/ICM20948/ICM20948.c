@@ -287,9 +287,10 @@ void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
     else
     {
         opMode = AK09916_CONT_MODE_100HZ;
-        /* If Shimmer sampling rate is >100Hz, enable sample skip feature to
-         * avoid locking up AK09916 Magnetometer - as we see regularly. */
-        if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz) // ceil(32768/100Hz) = 328. i.e., if > 99.9024 Hz
+        /* If Shimmer sampling rate is >threshold, enable sample skip feature to
+         * avoid locking up AK09916 Magnetometer. */
+//        if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz)
+        if (samplingRateTicks < SAMPLING_TIMER_TICKS_512Hz)
         {
             magSampleSkipEnabled = 1;
         }
@@ -327,49 +328,49 @@ uint8_t ICM20948_isMagDataRdy(void)
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf)
 {
-    uint8_t status;
-
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
-    *buf = ICM_MAG_XOUT_L;
-    I2C_Read_Packet_From_Sensor(buf, 6);
 
-    //check status register
-    status = ICM_ST2;
-    I2C_Read_Packet_From_Sensor(&status, 1);
-    if (status&0x08)
+    *buf = ICM_MAG_XOUT_L;
+    /* -1 here because we aren't reading the status 1 register in this read operation */
+    I2C_Read_Packet_From_Sensor(buf, (ICM_MAG_RD_SIZE-1));
+
+    //check Status 2 register
+    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
     {
         //either a read error or mag sensor overflow occurred
-        buf[0] = 0xFF;
-        buf[1] = 0x7F;
-        buf[2] = 0xFF;
-        buf[3] = 0x7F;
-        buf[4] = 0xFF;
-        buf[5] = 0x7F;
+        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
     }
+}
+
+uint8_t ICM20948_isMagSampleSkipEnabled(void)
+{
+    return magSampleSkipEnabled;
 }
 
 uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
 {
     //TODO make more efficient
 
-    if (magSampleSkipEnabled)
+    /* Mask to 16-bit to simplify calculations */
+    uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
+    uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
+
+    // Check if roll-over has occurred
+    if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
     {
-        /* Mask to 16-bit to simplify calculations */
-        uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
-        uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
+        currentSampleTsTicksMasked |= 0x10000;
+    }
 
-        // Check if roll-over has occurred
-        if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
-        {
-            currentSampleTsTicksMasked |= 0x10000;
-        }
-
-        uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
-        if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
-        {
-            /* Mag won't have new sample ready yet so don't read from it */
-            return 0;
-        }
+    uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
+    if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
+    {
+        /* Mag won't have new sample ready yet so don't read from it */
+        return 0;
     }
 
     // Mag should have new sample ready

@@ -7175,9 +7175,26 @@ void StreamData()
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
             || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
-        if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
+        if (ICM20948_isMagSampleSkipEnabled())
         {
-            icm20948MagRdy = ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+            /* This system tries to avoid lock-up scenario in the ICM20948 Mag
+             * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
+             * if the chip was being read from too often. */
+            if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
+            {
+                icm20948MagRdy = ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+            }
+        }
+        else
+        {
+            /* Original approach in-which the status 1 register is read first
+             * before reading the remaining bytes. This approach was found to
+             * work fine <512Hz but after that it would cause packet loss due
+             * to the length of time the I2C operations take to finish. */
+            if(icm20948MagRdy = ICM20948_isMagDataRdy())
+            {
+                ICM20948_getMag(&icm20948MagBuf[1]);
+            }
         }
     }
 
