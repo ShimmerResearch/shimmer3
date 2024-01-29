@@ -51,6 +51,9 @@
 #include "ICM20948.h"
 #include "math.h"
 
+uint8_t magSampleSkipEnabled;
+uint32_t lastMagSampleTsTicks;
+
 void ICM20948_bankSelect(uint8_t addr, uint8_t val)
 {
     uint8_t selectBank[2];
@@ -262,24 +265,37 @@ uint8_t ICM20948_getMagId(void)
 
 void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
 {
+    magSampleSkipEnabled = 0;
+    lastMagSampleTsTicks = 0;
+
     AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
-    // e.g., if Shimmer's sampling rate is faster then 50Hz, choose the next highest rate, i.e., 100Hz
-    if (samplingRateTicks <= 656) // ceil(32768/50Hz)
-    {
-        opMode = AK09916_CONT_MODE_100HZ;
-    }
-    else if (samplingRateTicks <= 1639) // ceil(32768/20Hz)
-    {
-        opMode = AK09916_CONT_MODE_50HZ;
-    }
-    else if (samplingRateTicks <= 3277) // ceil(32768/10Hz)
-    {
-        opMode = AK09916_CONT_MODE_20HZ;
-    }
-    else
+    /* Choose the next highest sampling rate to the if Shimmer's sampling rate
+     * (e.g., if Shimmer's sampling rate is 9Hz, choose 10Hz). Note, choosing
+     * '>=' here as the comparison values are all floored. */
+    if (samplingRateTicks >= 3277) // ceil(32768/10Hz) = 3277. i.e., if <= 9.9994 Hz
     {
         opMode = AK09916_CONT_MODE_10HZ;
     }
+    else if (samplingRateTicks >= 1639) // ceil(32768/20Hz) = 1639. i.e., if <= 19.9927 Hz
+    {
+        opMode = AK09916_CONT_MODE_20HZ;
+    }
+    else if (samplingRateTicks >= 656) // ceil(32768/50Hz) = 656. i.e., if <= 49.9512 Hz
+    {
+        opMode = AK09916_CONT_MODE_50HZ;
+    }
+    else
+    {
+        opMode = AK09916_CONT_MODE_100HZ;
+        /* If Shimmer sampling rate is >threshold, enable sample skip feature to
+         * avoid locking up AK09916 Magnetometer. */
+//        if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz)
+        if (samplingRateTicks < SAMPLING_TIMER_TICKS_512Hz)
+        {
+            magSampleSkipEnabled = 1;
+        }
+    }
+
     ICM20948_setMagMode(opMode);
 }
 
@@ -312,23 +328,80 @@ uint8_t ICM20948_isMagDataRdy(void)
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf)
 {
-    uint8_t status;
-
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
-    *buf = ICM_MAG_XOUT_L;
-    I2C_Read_Packet_From_Sensor(buf, 6);
 
-    //check status register
-    status = ICM_ST2;
-    I2C_Read_Packet_From_Sensor(&status, 1);
-    if (status&0x08)
+    *buf = ICM_MAG_XOUT_L;
+    /* -1 here because we aren't reading the status 1 register in this read operation */
+    I2C_Read_Packet_From_Sensor(buf, (ICM_MAG_RD_SIZE-1));
+
+    //check Status 2 register
+    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
     {
         //either a read error or mag sensor overflow occurred
-        buf[0] = 0xFF;
-        buf[1] = 0x7F;
-        buf[2] = 0xFF;
-        buf[3] = 0x7F;
-        buf[4] = 0xFF;
-        buf[5] = 0x7F;
+        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
     }
+}
+
+uint8_t ICM20948_isMagSampleSkipEnabled(void)
+{
+    return magSampleSkipEnabled;
+}
+
+uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
+{
+    //TODO make more efficient
+
+    /* Mask to 16-bit to simplify calculations */
+    uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
+    uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
+
+    // Check if roll-over has occurred
+    if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
+    {
+        currentSampleTsTicksMasked |= 0x10000;
+    }
+
+    uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
+    if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
+    {
+        /* Mag won't have new sample ready yet so don't read from it */
+        return 0;
+    }
+
+    // Mag should have new sample ready
+    return 1;
+}
+
+uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf)
+{
+    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+
+    *buf = ICM_ST1;
+    I2C_Read_Packet_From_Sensor(buf, ICM_MAG_RD_SIZE);
+
+    // Check Status 1 if Data not ready
+    if (!(*(buf + ICM_MAG_IDX_ST1) & 0x01))
+    {
+        return 0;
+    }
+
+    lastMagSampleTsTicks = currentSampleTsTicks;
+
+    //check Status 2 register
+    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
+    {
+        //either a read error or mag sensor overflow occurred
+        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
+    }
+    return 1;
 }
