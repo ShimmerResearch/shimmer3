@@ -1,6 +1,6 @@
 import serial.tools.list_ports
 
-import shimmer_uart
+from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth
 
 
 def serial_ports_shimmer_dock():
@@ -10,6 +10,15 @@ def serial_ports_shimmer_dock():
         if "USB Serial Port" in item.description \
                 and (("PID=0403:6010" in item.hwid and item.hwid.endswith("B"))
                      or ("PID=0403:6011" in item.hwid and item.hwid.endswith("D"))):
+            serial_port_list_filtered += [item]
+    return serial_port_list_filtered
+
+
+def serial_ports_bluetooth():
+    serial_port_list = serial_ports()
+    serial_port_list_filtered = []
+    for item in serial_port_list:
+        if "Bluetooth" in item.description:
             serial_port_list_filtered += [item]
     return serial_port_list_filtered
 
@@ -40,10 +49,14 @@ class Shimmer3:
     charging_status = None
 
     def __init__(self):
-        self.dock_port = shimmer_uart.ShimmerUart(self)
+        self.dock_port = shimmer_comms_docked.ShimmerUart(self)
+        self.bluetooth_port = shimmer_comms_bluetooth.ShimmerBluetooth(self)
 
     def setup_dock_com_port(self, com_port, debug_txrx_packets=False):
         return self.dock_port.setup_serial_port(com_port, 115200, debug_txrx_packets)
+
+    def setup_bluetooth_com_port(self, com_port, debug_txrx_packets=False):
+        return self.bluetooth_port.setup_serial_port(com_port, 1000000, debug_txrx_packets)
 
     def parse_hw_fw_ver_bytes(self, byte_buf):
         index = 0

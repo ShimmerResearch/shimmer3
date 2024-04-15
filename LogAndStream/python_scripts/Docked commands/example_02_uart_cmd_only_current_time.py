@@ -1,9 +1,7 @@
 #!/usr/bin/python
 import time
 
-import shimmer_app_common
-import shimmer_device
-import util_shimmer_time
+from Shimmer_common import util_shimmer_time, shimmer_device, shimmer_app_common
 
 com_port = shimmer_app_common.get_selected_com_port()
 if not com_port:

@@ -4,8 +4,9 @@ import time
 import serial
 from serial import SerialException
 
-import shimmer_crc as shimmerCrc
-import util_shimmer_time
+from Shimmer_common import shimmer_crc as shimmerCrc
+from Shimmer_common import util_shimmer_time
+from Shimmer_common import util_shimmer
 
 PACKET_HEADER = 0x24  # "$"
 
@@ -45,6 +46,7 @@ class UartProperty:
         INFOMEM = 0x06
         # LED0_STATE = 0x07  # Used by Shimmer SPAN
         # DEVICE_BOOT = 0x08  # Not in use
+        CALIBRATION = 0x07
 
     class Bat:
         # ENABLE = 0x00  # Not in use
@@ -57,42 +59,6 @@ class UartProperty:
 
     class Bluetooth:
         VER = 0x03
-
-
-def byte_array_to_hex_string(data):
-    hex_str = ""
-    first_byte = True
-    for b in data:
-        if not first_byte:
-            hex_str += ' '
-        hex_str += "0x%0.2X" % b
-        first_byte = False
-    return '[' + hex_str + ']'
-
-
-def byte_array_to_int(data, lsb_order=True, is_signed=False):
-    number = 0
-    i = 0
-
-    for b in data:
-        if lsb_order:
-            number += (b << i * 8)
-        else:
-            number = (number << 8) + b
-        i += 1
-
-    # two's compliment
-    if is_signed:
-        bit_length = len(data) * 8
-        # sign_offset = 2 ** (bit_length - 1)
-        # number -= sign_offset
-        # Copied from Java implementation but I'm not sure if the maths is exactly correct
-        if number >= (1 << (bit_length - 1)):
-            number = -((number ^ ((2 ** bit_length) - 1)) + 1)
-
-    # print('data={}, lsb_order={}, is_signed={}, number={}'.format(byte_array_to_hex_string(data), lsb_order, is_signed, number))
-
-    return number
 
 
 def assemble_tx_packet(uart_cmd=None, uart_component=None, uart_property=None, uart_args=None):
@@ -176,7 +142,7 @@ class ShimmerUart:
         if len(response) < 3:
             return False
         else:
-            self.shimmer_device.batt_adc_value = byte_array_to_int(response[0:2])
+            self.shimmer_device.batt_adc_value = util_shimmer.byte_array_to_int(response[0:2])
             self.shimmer_device.charging_status = response[2] & 0xC0
             return True
 
@@ -197,7 +163,7 @@ class ShimmerUart:
         response = self.send_uart(tx_buf)
 
         if len(response) >= 8:
-            ts_ticks = byte_array_to_int(response)
+            ts_ticks = util_shimmer.byte_array_to_int(response)
             ts_ms = ts_ticks / 32.768
             return ts_ms
         else:
@@ -209,7 +175,7 @@ class ShimmerUart:
         response = self.send_uart(tx_buf)
 
         if len(response) >= 8:
-            ts_ticks = byte_array_to_int(response)
+            ts_ticks = util_shimmer.byte_array_to_int(response)
             ts_ms = ts_ticks / 32.768
             return ts_ms
         else:
@@ -300,6 +266,27 @@ class ShimmerUart:
         response = self.set_mem_command(UartComponent.MAIN_PROCESSOR, UartProperty.MainProcessor.INFOMEM, 256, byte_buf)
         return response
 
+    def read_calibration(self):
+        calib_mem = []
+        for i in range(0, 1024, 128):
+            mem = self.get_mem_command(UartComponent.MAIN_PROCESSOR, UartProperty.MainProcessor.CALIBRATION, i, 128)
+            if isinstance(mem, bool):
+                return mem
+            else:
+                calib_mem += mem
+
+        # # TODO parse calibration
+        # self.shimmer_device.parse_infomem(response)
+
+        return calib_mem
+
+    def write_calibration(self, byte_buf):
+        for i in range(0, 1024, 128):
+            result = self.set_mem_command(UartComponent.MAIN_PROCESSOR, UartProperty.MainProcessor.CALIBRATION, i, byte_buf[i:i+128])
+            if not result:
+                return result
+        return result
+
     def get_mem_command(self, uart_component, uart_property, address, size):
         args = [size & 0xFF]
         if uart_component == UartComponent.DAUGHTER_CARD and uart_property == UartProperty.DaughterCard.CARD_ID:
@@ -363,7 +350,7 @@ class ShimmerUart:
                             or rx_buf[1] == UartPacketCmd.BAD_ARG_RESPONSE \
                             or rx_buf[1] == UartPacketCmd.BAD_CRC_RESPONSE:
                         if self.debug_tx_rx_packets:
-                            print("UART RX: " + byte_array_to_hex_string(rx_buf))
+                            print("UART RX: " + util_shimmer.byte_array_to_hex_string(rx_buf))
                         rx_buf = rx_buf[1]
                         break
 
@@ -373,7 +360,7 @@ class ShimmerUart:
                                 print("CRC fail")
                             else:
                                 if self.debug_tx_rx_packets:
-                                    print("UART RX: " + byte_array_to_hex_string(rx_buf))
+                                    print("UART RX: " + util_shimmer.byte_array_to_hex_string(rx_buf))
 
                                 rx_buf = rx_buf[5:len(rx_buf) - 2]
                             break
@@ -386,7 +373,7 @@ class ShimmerUart:
 
     def send_uart(self, tx_buf):
         if self.debug_tx_rx_packets:
-            print("UART TX: " + byte_array_to_hex_string(tx_buf))
+            print("UART TX: " + util_shimmer.byte_array_to_hex_string(tx_buf))
         self.ser.write(tx_buf)
         time.sleep(0.1)
         response = self.wait_for_response()
