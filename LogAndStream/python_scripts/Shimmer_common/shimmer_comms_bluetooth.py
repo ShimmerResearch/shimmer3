@@ -1,6 +1,7 @@
 import binascii
 import serial
 import time
+import struct
 
 from serial import SerialException
 from Shimmer_common import util_shimmer
@@ -189,7 +190,7 @@ class ShimmerBluetooth:
     def close_port(self):
         self.ser.close()
 
-    def write_calibration(self, calib_bytes=[]):
+    def write_calibration(self, calib_bytes): #=[]
 
         len_calib_bytes = len(calib_bytes)
 
@@ -210,7 +211,11 @@ class ShimmerBluetooth:
         return result
 
     def read_calibration(self):
-        self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
+        #self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
+        serial.write(struct.pack('BBBB', BtCmds.GET_CALIB_DUMP_COMMAND, 0x80, 0x00, 0x00))
+        #    wait_for_ack()
+        ddata = serial.read(0x80)
+        print(ddata)
 
     def wait_for_ack(self):
         response = self.wait_for_response(1)
