@@ -1,9 +1,12 @@
 import binascii
+from turtle import delay
+
 import serial
 import time
 import struct
 
-from serial import SerialException
+import serial.win32
+from serial import SerialException, Serial
 from Shimmer_common import util_shimmer
 
 
@@ -187,10 +190,15 @@ class ShimmerBluetooth:
             print("Serial port exception.")
             return False
 
+    def clear_serial_buffer(self):
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        time.sleep(0.5)
+
     def close_port(self):
         self.ser.close()
 
-    def write_calibration(self, calib_bytes): #=[]
+    def write_calibration(self, calib_bytes=[]):
 
         len_calib_bytes = len(calib_bytes)
 
@@ -211,11 +219,26 @@ class ShimmerBluetooth:
         return result
 
     def read_calibration(self):
-        #self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
-        serial.write(struct.pack('BBBB', BtCmds.GET_CALIB_DUMP_COMMAND, 0x80, 0x00, 0x00))
-        #    wait_for_ack()
-        ddata = serial.read(0x80)
-        print(ddata)
+        self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
+        # serial.write(struct.pack('BBBB', BtCmds.GET_CALIB_DUMP_COMMAND, 0x80, 0x00, 0x00))
+        # #    wait_for_ack()
+        # ddata = serial.read(0x80)
+        # print(ddata)
+
+    def write_accel_sensitivity(self, accel_bytes=[]):
+        len_accel_bytes = len(accel_bytes)
+        accel_bytes = [(len_accel_bytes & 0xFF), ((len_accel_bytes >> 8) & 0xFF)] + accel_bytes
+        for i in range(0, len_accel_bytes, 128):
+            bytes_remaining = len_accel_bytes - i
+            buf_len = 128 if bytes_remaining > 128 else bytes_remaining
+
+            self.send_bluetooth([BtCmds.SET_ACCEL_RANGE_COMMAND,
+                                                        buf_len, i & 0xFF, (i >> 8) & 0xFF] +
+                                                       accel_bytes[i:i + buf_len])
+            result = self.wait_for_ack()
+            if not result:
+                return result
+        return result
 
     def wait_for_ack(self):
         response = self.wait_for_response(1)
