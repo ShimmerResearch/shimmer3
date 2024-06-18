@@ -44,6 +44,12 @@ class BtCmds:
     GET_GSR_RANGE_COMMAND = 0x23
     # DEPRECATED_GET_DEVICE_VERSION_COMMAND         = 0x24
     DEVICE_VERSION_RESPONSE = 0x25  # maintain compatibility with Shimmer2/2r BtStream
+    SET_EMG_CALIBRATION_COMMAND = 0x26
+    EMG_CALIBRATION_RESPONSE = 0x27
+    GET_EMG_CALIBRATION_COMMAND = 0x28
+    SET_ECG_CALIBRATION_COMMAND = 0x29
+    ECG_CALIBRATION_RESPONSE = 0x2A
+    GET_ECG_CALIBRATION_COMMAND = 0x2B
     GET_ALL_CALIBRATION_COMMAND = 0x2C
     ALL_CALIBRATION_RESPONSE = 0x2D
     GET_FW_VERSION_COMMAND = 0x2E  # maintain compatibility with Shimmer2/2r BtStream
@@ -51,6 +57,7 @@ class BtCmds:
     SET_CHARGE_STATUS_LED_COMMAND = 0x30
     CHARGE_STATUS_LED_RESPONSE = 0x31
     GET_CHARGE_STATUS_LED_COMMAND = 0x32
+    SET_BUFFER_SIZE_COMMAND = 0x34
     BUFFER_SIZE_RESPONSE = 0x35
     GET_BUFFER_SIZE_COMMAND = 0x36
     SET_MAG_GAIN_COMMAND = 0x37
@@ -191,8 +198,8 @@ class ShimmerBluetooth:
             return False
 
     def clear_serial_buffer(self):
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        self.ser.flushInput()
+        self.ser.flushOutput()
         time.sleep(0.5)
 
     def close_port(self):
@@ -203,7 +210,6 @@ class ShimmerBluetooth:
         len_calib_bytes = len(calib_bytes)
 
         calib_bytes = [(len_calib_bytes & 0xFF), ((len_calib_bytes >> 8) & 0xFF)] + calib_bytes
-
         for i in range(0, len_calib_bytes, 128):
             bytes_remaining = len_calib_bytes - i
             buf_len = 128 if bytes_remaining > 128 else bytes_remaining
@@ -213,31 +219,31 @@ class ShimmerBluetooth:
                  buf_len,
                  i & 0xFF, (i >> 8) & 0xFF] + calib_bytes[i:i + buf_len])
 
-            result = self.wait_for_ack()
-            if not result:
-                return result
-        return result
+        result = self.wait_for_ack()
+        if not result:
+            return result
+        #return result
 
     def read_calibration(self):
         self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
         # serial.write(struct.pack('BBBB', BtCmds.GET_CALIB_DUMP_COMMAND, 0x80, 0x00, 0x00))
-        # #    wait_for_ack()
-        # ddata = serial.read(0x80)
-        # print(ddata)
+        self.wait_for_ack()
+        #ddata = serial.Serial.read(0x80)
+        #print(ddata)
 
     def write_accel_sensitivity(self, accel_bytes=[]):
         len_accel_bytes = len(accel_bytes)
         accel_bytes = [(len_accel_bytes & 0xFF), ((len_accel_bytes >> 8) & 0xFF)] + accel_bytes
-        for i in range(0, len_accel_bytes, 128):
+        for i in range(0, len_accel_bytes, 1):
             bytes_remaining = len_accel_bytes - i
-            buf_len = 128 if bytes_remaining > 128 else bytes_remaining
+            buf_len = 1 if bytes_remaining > 1 else bytes_remaining
 
             self.send_bluetooth([BtCmds.SET_ACCEL_RANGE_COMMAND,
                                                         buf_len, i & 0xFF, (i >> 8) & 0xFF] +
                                                        accel_bytes[i:i + buf_len])
-            result = self.wait_for_ack()
-            if not result:
-                return result
+        result = self.wait_for_ack()
+        if not result:
+            return result
         return result
 
     def wait_for_ack(self):

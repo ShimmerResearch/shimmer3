@@ -28,8 +28,17 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def bt_cmd_test_common(self, tx_cmd_byte, expected_response_cmd_byte, expected_response_len,
                            is_instream_response=False, delay_to_wait_for_response_s=1):
-        if not self.shimmer.bluetooth_port.send_bluetooth([tx_cmd_byte]):
-            self.assertTrue(False, "Error writing command")
+        if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND,
+                                                         0x03 ,0x00])
+        elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND:
+            self.shimmer.bluetooth_port.send_bluetooth([0x8E, 0x80, 0x00, 0x00])
+        elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_ECG_CALIBRATION_COMMAND:
+             self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.GET_ECG_CALIBRATION_COMMAND,
+                                                        0x01])
+        else:
+                if not self.shimmer.bluetooth_port.send_bluetooth([tx_cmd_byte]):
+                    self.assertTrue(False, "Error writing command")
 
         time.sleep(delay_to_wait_for_response_s)
 
@@ -83,7 +92,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.ACCEL_RANGE_RESPONSE, 1)
         print("")
 
-    def test_XX_set_calibration(self):
+    def test_93_set_calibration(self):
         print("Test XX - Set Calibration command:")
 
         calib_bytes = [0x03, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x15, 0x00, 0x00, 0x00, 0x00,
@@ -154,10 +163,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.GSR_RANGE_RESPONSE, 1)
         print("")
 
-    # def test_10_get_EMG_calibration_response(self):
-    #     print("Test 10 - Get EMG Calibration response command")  # no BT command for this
-    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET)
-    #
+    def test_10_get_EMG_calibration_response(self):
+        print("Test 10 - Get EMG Calibration response command")  # no BT
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_EMG_CALIBRATION_COMMAND,
+                                           shimmer_comms_bluetooth.BtCmds.EMG_CALIBRATION_RESPONSE, 1)
+
     def test_11_all_calibration_response(self):
         print("Test 11 - Get all calibration response command")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_ALL_CALIBRATION_COMMAND,
@@ -171,10 +181,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.FW_VERSION_RESPONSE, 6)
         print("")
 
-    # def test_13_get_blink_led_response(self):
-    #     print("Test 13 - Blink LED response command:")
-    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_TOGGLE_LED_COMMAND,
-    #                                        shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND, 1)  # no blink led command
+    def test_13_get_blink_led_response(self):
+        print("Test 13 - Blink LED response command:")
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_BLINK_LED,
+                                           shimmer_comms_bluetooth.BtCmds.BLINK_LED_RESPONSE, 1)  # no blink led command
 
     def test_14_get_buffer_size_command(self):
         print("Test 14 - Buffer size repsonse Command: ")
@@ -189,11 +199,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.MAG_GAIN_RESPONSE, 1)
         print("")
 
-    # def test_16_get_charge_status_led_response(self):
-    #     print("Test 16 - Get Charge Status LED response command:")
-    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
-    #                                        shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE, 3) #not mentioned in Shimmer Bluetooth
-    #     print("")
+    def test_16_get_charge_status_led_response(self):
+        print("Test 16 - Get Charge Status LED response command:")
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
+                                           shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE, 3)
+    #
+    #                                        #not mentioned in Shimmer Bluetooth
+        print("")
 
     def test_17_get_shimmer_version_command_response(self):
         print("Test 17 - Get Shimmer Version response command:")
@@ -207,9 +219,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.NSHIMMER_RESPONSE, 1)
         print("")
 
-    # def test_19_get_ecg_calibration_command_response(self):
-    #     print("Test 19 - Get ECG Calibration response command:")
-    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.) # no ecg in BT commands
+    def test_19_get_ecg_calibration_command_response(self):
+        print("Test 19 - Get ECG Calibration response command:")
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_ECG_CALIBRATION_COMMAND,
+                                           shimmer_comms_bluetooth.BtCmds.ECG_CALIBRATION_RESPONSE, 1) # no ecg in BT commands
 
     def test_20_get_mag_sampling_command(self):
         print("Test 20 - Get Mag sampling Command:")
@@ -272,22 +285,29 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.BMP280_CALIBRATION_COEFFICIENTS_RESPONSE, 24)
         print("")  # works
 
+    def test_30_get_MPU9150_MAG_SENS_ADJ_VALS_RESPONSE(self):
+        print("Test 31 - Get MPU9150 Mag Sens Adj Vals response command:")
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.ALT_MAG_SENS_ADJ_VALS_RESPONSE, 1)
+        print("")
+
     def test_31_get_internal_exp_power_enable_command(self):
         print("Test 31 - Get exp power enable response command:")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_INTERNAL_EXP_POWER_ENABLE_COMMAND,
                                            shimmer_comms_bluetooth.BtCmds.INTERNAL_EXP_POWER_ENABLE_RESPONSE, 1)
         print("")
 
-    def test_32_get_exg_regs_command(self):
-        print("Test 32 - Get ExG Regs command:")
-        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE, 11)
-        print("")
+    # def test_32_get_exg_regs_command(self):
+    #     print("Test 32 - Get ExG Regs command:")
+    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
+    #                                        shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE, 11)
+    #     print("")
 
     def test_33_get_daughter_card_id_command(self):
         print("Test 33 - Get daughter card id command:")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE, 2)  # 3+1 mentioned
+                                           shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE, 3)
+
         print("")
 
     def test_34_get_status(self):
@@ -300,7 +320,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         sensing = (status & 0x02) >> 1
         docked = (status & 0x01)
         print("0x%02x , self: %d, sensing: %d, docked: %d" % (status, self_cmd, sensing, docked))
-
         print("")
 
     def test_35_get_baud_rate_command(self):
@@ -315,18 +334,17 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                            shimmer_comms_bluetooth.BtCmds.DERIVED_CHANNEL_BYTES_RESPONSE, 8)
         print("")
 
-    #
     def test_37_get_trial_config_command(self):
         print("Test 37 - Get trial config command:")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_TRIAL_CONFIG_COMMAND,
                                            shimmer_comms_bluetooth.BtCmds.TRIAL_CONFIG_RESPONSE, 3)
         print("")
 
-    def test_38_get_center_command(self):
-        print("Test 38 - Get Center response command:")
-        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CENTER_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.CENTER_RESPONSE, 1)
-        print("")
+     def test_38_get_center_command(self):
+         print("Test 38 - Get Center response command:")
+         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CENTER_COMMAND,
+                                            shimmer_comms_bluetooth.BtCmds.CENTER_RESPONSE, 1)
+         print("")
 
     def test_39_get_Shimmername_command(self):
         print("Test 39 - Get ShimmerName command:")
@@ -366,11 +384,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #                                        shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 4)
     #     print("")
 
-    # def test_45_get_infomem_command(self):
-    #     print("Test 45 - Get infomem response command:")
-    #     response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND,
-    #                                        shimmer_comms_bluetooth.BtCmds.INFOMEM_RESPONSE, 1)
-    #     print("") #bluetooth command not present
+    def test_45_get_infomem_command(self):
+        print("Test 45 - Get infomem response command:")
+        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND,
+                                           shimmer_comms_bluetooth.BtCmds.INFOMEM_RESPONSE, 128)
+        print("")
 
     def test_46_get_rwc_command(self):
         print("Test 46- Get RWC response command")
@@ -381,27 +399,28 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_47_get_vbatt_command(self):
         print("Test 47 - Get VBatt response command")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_VBATT_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 2)
+                                        shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 3, is_instream_response= True)
+        batt_voltage = ((response[0] & 0xFF) << 8) + (response[0] & 0xFF)
+        charging_status = response[1]
+        print("batt_voltage: %03f , charging_status: %d" % (batt_voltage, charging_status))
         print("")
 
     def test_48_get_BT_FW_VERSION_command(self):
         print("Test 48 - Get BT FW Version response command")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.BT_VERSION_STR_RESPONSE, 1)
+                                           shimmer_comms_bluetooth.BtCmds.BT_VERSION_STR_RESPONSE, 2)
         print("")
 
     # set commands
 
    # def test_49_set_sensors_command(self):
-        # print("Test 49: Set sensor response command")
-        # sensor_bytes = [0x01]
-        #if self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds._SENSORS_COMMAND):
-        #     print("set")
-        #     self.assertTrue(False)
-        #
-        # sensor_bytes =  self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.SENSOR)
-        #     self.assertTrue(False)
-        # print("") no get command for this
+   #      print("Test 49: Set sensor response command")
+   #      sensor_bytes = [0x01]
+   #      if self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds._SENSORS_COMMAND):
+   #          print("set")
+   #          self.assertTrue(False) // need to write this 
+
+
 
     def test_50_set_accel_sensitivity_command(self):
         print("Test 50 - set accel sensitivity command ")
@@ -552,37 +571,44 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.assertTrue(False)
         print("")
 
-    # def test_58_set_emg_calibration_command(self):
-    #     print("Test 58 - Set EMG Calibration Command")
-    #     emg_calib = [0x00, 0x02, 0x00, 0x00]
-    #     len_emg_calib = len(emg_calib)
-    #     for i in range(0, len_emg_calib, 4):
-    #         bytes_remaining = len_emg_calib - i
-    #         buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_EMG,
-    #                                                 buf_len, i & 0xFF, (i >> 8) & 0xFF] + emg_calib[i:i + buf_len])
-    #     result = self.shimmer.bluetooth_port.wait_for_ack()
-    #     if not result:
-    #         return result
-    #     mag_gain = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_MAG_GAIN_COMMAND)
-    #     shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-    #     if isinstance(emg_calib, bool):
-    #         print("Error")
-    #         self.assertTrue(False)
-    #     print("") //emg command not present
+    def test_58_set_emg_calibration_command(self):
+        print("Test 58 - Set EMG Calibration Command")
+        emg_calib = [0x00]
+        len_emg_calib = len(emg_calib)
+        for i in range(0, len_emg_calib, 1):
+            bytes_remaining = len_emg_calib - i
+            buf_len = 1 if bytes_remaining > 1 else bytes_remaining
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_EMG_CALIBRATION_COMMAND,
+                                                    buf_len, i & 0xFF, (i >> 8) & 0xFF] + emg_calib[i:i + buf_len])
+        result = self.shimmer.bluetooth_port.wait_for_ack()
+        if not result:
+            return result
+        emg_calib = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_EMG_CALIBRATION_COMMAND)
+        shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
+        if isinstance(emg_calib, bool):
+            print("Error")
+            self.assertTrue(False)
+        print("")
 
     def test_59_set_ecg_calibration_command(self):
         print("Test 59 - Set ECG calibration command")
-        # ecg_calib = [0x00, 0x02, 0x00, 0x00, 0x15, 0x00, 0x02, 0x00, 0x00, 0x15]
-        # if not self.shimmer.bluetooth_port.send_bluetooth(ecg_calib):
-        #     print("set")
-        #     self.assertTrue(True
-        #
-        # ecg_calib = self.shimmer.bluetooth_port.read_calibration()
-        # if isinstance(ecg_calib, bool):
-        #     print("Error")
-        #     self.assertTrue(False)
-        # print("") //no ecg calib present
+        ecg_calib = [0x15]
+        len_ecg_calib = len(ecg_calib)
+        for i in range(0, len_ecg_calib, 1):
+            bytes_remaining = len_ecg_calib - i
+            buf_len = 1 if bytes_remaining > 1 else bytes_remaining
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_ECG_CALIBRATION_COMMAND,
+                                                    buf_len, i & 0xFF, (i >> 8) & 0xFF] + ecg_calib[i:i + buf_len])
+        result = self.shimmer.bluetooth_port.wait_for_ack()
+        if not result:
+            return result
+        ecg_calib = self.shimmer.bluetooth_port.send_bluetooth(
+                                                            shimmer_comms_bluetooth.BtCmds.GET_EMG_CALIBRATION_COMMAND)
+        shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
+        if isinstance(ecg_calib, bool):
+            print("Error")
+            self.assertTrue(False)
+        print("")
 
     # def test_60_set_blink_led(self):
     #     print("Test 59 - Set Blink LED command")   #no blink led command present
@@ -596,40 +622,40 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #     self.assertTrue(False)
     # print("")
 
-    def test_61_set_gyro_temp_vref_command(self):
-         print("Test 61- Set Gyro Temp Vref Command")
+    # def test_61_set_gyro_temp_vref_command(self):
+        # print("Test 61- Set Gyro Temp Vref Command")
         # gyro_temp = [0x01]
         # len_gyro_temp = len(gyro_temp)
         # for i in range(0, len_gyro_temp, 1):
-        #     bytes_remaining = len_mag_gain - i
-        #     buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-        # self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_MAG_GAIN_COMMAND,
-        #                                             buf_len, i & 0xFF, (i >> 8) & 0xFF] + mag_gain[i:i + buf_len])
+        #         bytes_remaining = len_gyro_temp - i
+        #         buf_len = 1 if bytes_remaining > 1 else bytes_remaining
+        #         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_MAG_GAIN_COMMAND,
+        #                                                 buf_len, i & 0xFF, (i >> 8) & 0xFF] + gyro_temp[i:i + buf_len])
         # result = self.shimmer.bluetooth_port.wait_for_ack()
         # if not result:
-        #     return result
-        # mag_gain = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_MAG_GAIN_COMMAND)
+        #         return result
+        # gyro_temp = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_MAG_GAIN_COMMAND)
         # shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-        # print("") //no response present
+        # print("")
 
     def test_62_set_buffer_size_command(self):
         print("test 62- Set Buffer Size Command")
-        # buffer_size = [0x01]
-        # len_buffer_size = len(buffer_size)
-        # for i in range(0, len_buffer_size, 1):
-        #     bytes_remaining = len_buffer_size - i
-        #     buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-        # self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_B,
-        #                                             buf_len, i & 0xFF, (i >> 8) & 0xFF] + mag_gain[i:i + buf_len])
-        # result = self.shimmer.bluetooth_port.wait_for_ack()
-        # if not result:
-        #     return result
-        # mag_gain = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_MAG_GAIN_COMMAND)
-        # shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-        # if isinstance(mag_gain, bool):
-        #     print("Error")
-        #     self.assertTrue(False)
-        # print("") //no Set command present
+        buffer_size = [0x01]
+        len_buffer_size = len(buffer_size)
+        for i in range(0, len_buffer_size, 1):
+            bytes_remaining = len_buffer_size - i
+            buf_len = 1 if bytes_remaining > 1 else bytes_remaining
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_BUFFER_SIZE_COMMAND,
+                                                    buf_len, i & 0xFF, (i >> 8) & 0xFF] + buffer_size[i:i + buf_len])
+        result = self.shimmer.bluetooth_port.wait_for_ack()
+        if not result:
+            return result
+        mag_gain = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.GET_BUFFER_SIZE_COMMAND)
+        shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
+        if isinstance(mag_gain, bool):
+            print("Error")
+            self.assertTrue(False)
+        print("")
 
     def test_64_set_mag_sampling_rate_command(self):
         print("Test 64 - Set Mag Sampling rate command")
@@ -638,7 +664,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         for i in range(0, len_mag_sampling_rate, 1):
             bytes_remaining = len_mag_sampling_rate - i
             buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_MAG_SAMPLING_RATE_COMMAND,
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_MAG_SAMPLING_RATE_COMMAND,
                                                     buf_len,i & 0xFF, (i >> 8) & 0xFF] +
                                                    mag_sampling_rate[i:i + buf_len])
         result = self.shimmer.bluetooth_port.wait_for_ack()
@@ -764,7 +790,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         # for i in range(0, len_bmp180_pres_resolution, 1):
         #     bytes_remaining = len_bmp180_pres_resolution - i
         #     buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-        # self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_,
+        # self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.,
         #                                             buf_len, i & 0xFF, (i >> 8) & 0xFF] +
         #                                            bmp180_pres_resolution[i:i + buf_len])
         # result = self.shimmer.bluetooth_port.wait_for_ack()
@@ -776,7 +802,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         # if isinstance(bmp180_pres_resolution, bool):
         #     print("Error")
         #     self.assertTrue(False)
-        # print("")
+        # print("")     //conflict in pres resolution
 
     # def test_71_set_bmp180_pres_calibration_command(self):
     #     print("Test 71 - Set BMp180 Pres Calibration command")
@@ -791,8 +817,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #         self.assertTrue(False)
     #     print("")
     #
-    # def test_72_set_bmp180_calibration_coefficient_response(self):
-    #     print("Test 72 - Set BMp180 Pres Calibration coefficient")
+    def test_72_set_bmp180_calibration_coefficient_response(self):
+         print("Test 72 - Set BMp180 Pres Calibration coefficient")
     #     bmp180_calibration_coefficient = [0x03, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x15, 0x00,
     #                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0xCD, 0x08, 0xCD]
     #     if self.shimmer.bluetooth_port.send_bluetooth(bmp180_calibration_coefficient):
@@ -873,25 +899,25 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_76_set_exg_regs_response(self):
         print("Test 76 - Set ExG Regs Response")
-        exg_regs_response = [0x01, 0x00, 0x03, 0x01, 0x04, 0x06]
-        len_exg_regs_response = len(exg_regs_response)
-    #    exg_regs_response = [(len_exg_regs_response & 0xFF), ((len_exg_regs_response >> 8) & 0xFF)] + exg_regs_response
-        for i in range(0, len_exg_regs_response, 6):
-            bytes_remaining = len_exg_regs_response - i
-            buf_len = 6 if bytes_remaining > 6 else bytes_remaining
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND,
-                                                    buf_len, i & 0xFF, (i >> 8) & 0xFF] +
-                                                   exg_regs_response[i:i + buf_len])
-        result = self.shimmer.bluetooth_port.wait_for_ack()
-        if not result:
-            return result
-        exg_regs_response = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.
-                                                                    GET_EXG_REGS_COMMAND)
-        shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-        if isinstance(exg_regs_response, bool):
-            print("Error")
-            self.assertTrue(False)
-        print("")
+    #     exg_regs_response = [0x01, 0x00, 0x03, 0x01, 0x04, 0x06]
+    #     len_exg_regs_response = len(exg_regs_response)
+    # #    exg_regs_response = [(len_exg_regs_response & 0xFF), ((len_exg_regs_response >> 8) & 0xFF)] + exg_regs_response
+    #     for i in range(0, len_exg_regs_response, 6):
+    #         bytes_remaining = len_exg_regs_response - i
+    #         buf_len = 6 if bytes_remaining > 6 else bytes_remaining
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND,
+    #                                                 buf_len, i & 0xFF, (i >> 8) & 0xFF] +
+    #                                                exg_regs_response[i:i + buf_len])
+    #     result = self.shimmer.bluetooth_port.wait_for_ack()
+    #     if not result:
+    #         return result
+    #     exg_regs_response = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.
+    #                                                                 GET_EXG_REGS_COMMAND)
+    #     shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
+    #     if isinstance(exg_regs_response, bool):
+    #         print("Error")
+    #         self.assertTrue(False)
+    #     print("")
 
         # no set daughter card id command - Test 77
 
@@ -902,18 +928,20 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         for i in range(0, len_baud_rate_response, 1):
             bytes_remaining = len_baud_rate_response - i
             buf_len = 1 if bytes_remaining > 1 else bytes_remaining
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_BT_COMMS_BAUD_RATE,
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_BT_COMMS_BAUD_RATE,
                                                     buf_len, i & 0xFF, (i >> 8) & 0xFF] +
                                                    baud_rate_response[i:i + buf_len])
-        result = self.shimmer.bluetooth_port.wait_for_ack()
-        if not result:
-            return result
-        baud_rate_response = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.
-                                                                    GET_BT_COMMS_BAUD_RATE)
-        shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-        if isinstance(baud_rate_response, bool):
-            print("Error")
-            self.assertTrue(False)
+
+            result = self.shimmer.bluetooth_port.wait_for_ack()
+        # # if not result:
+        # #     return result
+        # baud_rate_response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_BT_COMMS_BAUD_RATE,
+        #                                     shimmer_comms_bluetooth.BtCmds.BT_COMMS_BAUD_RATE_RESPONSE, 1)
+        #
+        # self.shimmer.bluetooth_port.wait_for_ack()
+        # if isinstance(baud_rate_response, bool):
+        #     print("Error")
+        #     self.assertTrue(False)
         print("")
 
     def test_79_set_derived_channel_bytes_command(self):
@@ -1163,10 +1191,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_91_UPD_calib_dump_command(self):  # not present in set
         print("Test 91 - UPD Calib Dump Command")
-        upd_calib_dump = [0x01]
-        # self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.UPD_CALIB_DUMP_COMMAND)
+        # response = self.shimmer.bluetooth_port.send_bluetooth(shimmer_comms_bluetooth.BtCmds.UPD_CALIB_DUMP_COMMAND)
         # shimmer_comms_bluetooth.ShimmerBluetooth.wait_for_ack()
-        # print("")
+        print("")
 
     def test_92_UPD_SDlog_Cfg_command(self):
         print("Test 92 - UPD SDlog Cfg Command")
