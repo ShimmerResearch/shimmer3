@@ -3364,7 +3364,7 @@ void ProcessCommand(void)
     case GET_BT_VERSION_STR_COMMAND:
         btVerResponse = 1;
         break;
-    case SET_DATA_RATE_TEST_MODE:
+    case SET_DATA_RATE_TEST:
         /* Stop test before ACK is sent */
         if (args[0] == 0)
         {
