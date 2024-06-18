@@ -51,10 +51,8 @@ uint16_t numBytesInBtRxBufWhenLastProcessed = 0;
 uint16_t indexOfFirstEol;
 uint32_t firstProcessFailTicks = 0;
 
-dataRateTestMode_t btDataRateTestMode;
+uint8_t btDataRateTestState;
 uint32_t btDataRateTestCounter;
-uint16_t btDataRateTestTxRate;
-uint8_t btDataRateTestTxPacketCount;
 
 #if BT_DMA_USED_FOR_RX
 /* Return of 1 brings MSP out of low-power mode */
@@ -757,16 +755,6 @@ uint8_t Dma2ConversionDone(void)
                     }
                     setDmaWaitingForResponse(numberOfCharRemaining);
                     return bringUcOutOfSleep;
-                }
-                else if (*(gActionPtr) == SET_DATA_RATE_TEST_MODE)
-                {
-                    if(!waitingForArgsLength
-                            && btRxBuff[0]==DATA_RATE_TEST_MODE_BULK_TX)
-                    {
-                        waitingForArgsLength = 3U;
-                        setDmaWaitingForResponse(waitingForArgsLength);
-                        return 0;
-                    }
                 }
                 else if (*(gActionPtr) == ACK_COMMAND_PROCESSED)
                 {
@@ -2185,8 +2173,7 @@ void btCommsProtocolInit(uint8_t (*newBtCmdToProcessCb)(void),
 
     memset(btVerStrResponse, 0x00, sizeof(btVerStrResponse) / sizeof(btVerStrResponse[0]));
 
-    btDataRateTestMode = DATA_RATE_TEST_MODE_DISABLED;
-    btDataRateTestCounter = 0;
+    setBtDataRateTestState(0);
 }
 
 void triggerBtRfCommStateChangeCallback(bool state)
@@ -2234,71 +2221,21 @@ COMMS_CRC_MODE getBtCrcMode(void)
     return btCrcMode;
 }
 
-void setBtDataRateTestMode(dataRateTestMode_t mode, uint16_t txRate, uint8_t packetCount)
+void setBtDataRateTestState(uint8_t state)
 {
-    btDataRateTestMode = mode;
+    btDataRateTestState = state;
     btDataRateTestCounter = 0;
-    btDataRateTestTxRate = txRate;
-    btDataRateTestTxPacketCount = packetCount;
 
-    BT_setSendNextChar_cb(btDataRateTestMode==DATA_RATE_TEST_MODE_CONTINOUS? loadBtTxBufForDataRateTest:0);
+    BT_setSendNextChar_cb(btDataRateTestState==1? loadBtTxBufForDataRateTest:0);
 }
 
-void setBtDataRateTestModeDisabled()
-{
-    setBtDataRateTestMode(DATA_RATE_TEST_MODE_DISABLED, 0, 0);
-}
-
-dataRateTestMode_t getBtDataRateTestMode(void)
-{
-    return btDataRateTestMode;
-}
-
-uint16_t getBtDataRateTestTxRate(void)
-{
-    return btDataRateTestTxRate;
-}
-
-//TODO simplify logic
 void loadBtTxBufForDataRateTest(void)
 {
     uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
-    uint16_t i;
-
-    if (btDataRateTestMode == DATA_RATE_TEST_MODE_CONTINOUS)
+    if (spaceInTxBuf > DATA_RATE_TEST_PACKET_SIZE)
     {
-        if (spaceInTxBuf > DATA_RATE_TEST_PACKET_SIZE)
-        {
-            pushByteToBtTxBuf(DATA_RATE_TEST_RESPONSE);
-            pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
-            btDataRateTestCounter++;
-        }
-    }
-    else if (btDataRateTestMode == DATA_RATE_TEST_MODE_BULK_TX)
-    {
-        if (btDataRateTestTxPacketCount == 255) // Fill buffer
-        {
-            if (spaceInTxBuf > DATA_RATE_TEST_PACKET_SIZE)
-            {
-                for (i = 0; i < (spaceInTxBuf/DATA_RATE_TEST_PACKET_SIZE); i++ )
-                {
-                    pushByteToBtTxBuf(DATA_RATE_TEST_RESPONSE);
-                    pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
-                    btDataRateTestCounter++;
-                }
-            }
-        }
-        else
-        {
-            if (spaceInTxBuf > (DATA_RATE_TEST_PACKET_SIZE*btDataRateTestTxPacketCount))
-            {
-                for (i = 0; i < btDataRateTestTxPacketCount; i++ )
-                {
-                    pushByteToBtTxBuf(DATA_RATE_TEST_RESPONSE);
-                    pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
-                    btDataRateTestCounter++;
-                }
-            }
-        }
+        pushByteToBtTxBuf(DATA_RATE_TEST_RESPONSE);
+        pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
+        btDataRateTestCounter++;
     }
 }

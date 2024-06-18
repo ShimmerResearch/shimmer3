@@ -12,13 +12,6 @@
 #include "../../shimmer_btsd.h"
 #include "../5xx_HAL/hal_CRC.h"
 
-typedef enum
-{
-    DATA_RATE_TEST_MODE_DISABLED = 0,
-    DATA_RATE_TEST_MODE_CONTINOUS,
-    DATA_RATE_TEST_MODE_BULK_TX
-} dataRateTestMode_t;
-
 // Packet Types// Packet Types
 #define DATA_PACKET                                   0x00
 #define INQUIRY_COMMAND                               0x01
@@ -225,10 +218,7 @@ char * getBtVerStrPtr(void);
 void setBtCrcMode(COMMS_CRC_MODE btCrcModeNew);
 COMMS_CRC_MODE getBtCrcMode(void);
 
-void setBtDataRateTestMode(dataRateTestMode_t mode, uint16_t txRate, uint8_t packetCount);
-void setBtDataRateTestModeDisabled();
-dataRateTestMode_t getBtDataRateTestMode(void);
-uint16_t getBtDataRateTestTxRate(void);
+void setBtDataRateTestState(uint8_t state);
 void loadBtTxBufForDataRateTest(void);
 
 #endif /* SHIMMER3_COMMON_SOURCE_BLUETOOTH_SD_SHIMMER_BT_COMMS_H_ */
