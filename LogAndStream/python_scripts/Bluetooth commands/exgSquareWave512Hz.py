@@ -12,6 +12,25 @@ def wait_for_ack():
     return
 
 
+def convert_exg_gain_setting_to_value(setting):
+    if setting == 0:
+        return 6
+    elif setting == 1:
+        return 1
+    elif setting == 2:
+        return 2
+    elif setting == 3:
+        return 3
+    elif setting == 4:
+        return 4
+    elif setting == 5:
+        return 8
+    elif setting == 6:
+        return 12
+    else:
+        return -1  # -1 means invalid value
+
+
 if len(sys.argv) < 2:
     print("No device specified.")
     print("Specify the serial port of the device you wish to connect to.")
@@ -46,16 +65,20 @@ else:
     # write SET_EXG_REGS_COMMAND, chip identifier ('0' for chip1, '1' for chip2), starting byte, number of bytes to write, followed by the exgtestsignalconfiguration bytes
 
     # configure chip 1
-    if (srNumber == 47 and srRev >= 4):
-        ser.write(struct.pack('BBBBBBBBBBBBBB', 0x61, 0x00, 0x00, 0x0A, 0x03, 0xAB, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01))  # Config byte for CHIP1 in SR47-4
-
-    else:
-        ser.write(struct.pack('BBBBBBBBBBBBBB', 0x61, 0x00, 0x00, 0x0A, 0x03, 0xA3, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01))  # Config byte for CHIP1 in SR47-1 and SR37-3
+    c1_reg_write_header = 0x61, 0x00, 0x00, 0x0A
+    c1_reg_contents = 0x03, 0xA3, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01  # Config byte for CHIP1 in SR47-1 and SR37-3
+    if srNumber == 47 and srRev >= 4:
+        c1_reg_contents = 0x03, 0xAB, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01  # Config byte for CHIP1 in SR47-4
+    c1_reg_write = c1_reg_write_header + c1_reg_contents
+    ser.write(struct.pack('B'*len(c1_reg_write), *c1_reg_write))
 
     wait_for_ack()
 
     # configure chip 2
-    ser.write(struct.pack('BBBBBBBBBBBBBB', 0x61, 0x01, 0x00, 0x0A, 0x03, 0xA3, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01))  # Config byte for CHIP2 in all ExG units
+    c2_reg_write_header = 0x61, 0x01, 0x00, 0x0A
+    c2_reg_contents = 0x03, 0xA3, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01  # Config byte for CHIP2 in all ExG units
+    c2_reg_write = c2_reg_write_header + c2_reg_contents
+    ser.write(struct.pack('B'*len(c2_reg_write), *c2_reg_write))
     wait_for_ack()
     print("Configuration sent...")
 
@@ -68,6 +91,11 @@ else:
     ddata = bytes()
     numbytes = 0
     framesize = 18  # 1byte packet type + 2byte timestamp + 14byte ExG data
+
+    c1ch1gain = convert_exg_gain_setting_to_value((c1_reg_contents[3] >> 4) & 7)
+    c1ch2gain = convert_exg_gain_setting_to_value((c1_reg_contents[4] >> 4) & 7)
+    c2ch1gain = convert_exg_gain_setting_to_value((c2_reg_contents[3] >> 4) & 7)
+    c2ch2gain = convert_exg_gain_setting_to_value((c2_reg_contents[4] >> 4) & 7)
 
     print("Packet Type,Timestamp,Chip1 Status,Chip1 Channel1,Chip1 Channel2,Chip2 Status,Chip2 Channel1,Chip2 Channel2")
     try:
@@ -91,14 +119,24 @@ else:
             # c1ch2 = struct.unpack('>i', (data[8:11] + '\0'))[0] >> 8
             c1ch1 = int.from_bytes(data[5:8], 'big', signed=True)
             c1ch2 = int.from_bytes(data[8:11], 'big', signed=True)
+            c1ch1Cal = c1ch1 * (((2.42 * 1000) / c1ch1gain) / ((2 ** 23) - 1))
+            c1ch2Cal = c1ch2 * (((2.42 * 1000) / c1ch2gain) / ((2 ** 23) - 1))
+
             # (c2status,) = struct.unpack('B', data[11])
             c2status = data[11]
             # c2ch1 = struct.unpack('>i', (data[12:15] + '\0'))[0] >> 8
             # c2ch2 = struct.unpack('>i', (data[15:18] + '\0'))[0] >> 8
             c2ch1 = int.from_bytes(data[12:15], 'big', signed=True)
             c2ch2 = int.from_bytes(data[15:18], 'big', signed=True)
-            print("0x%02x,%06x,\t0x%02x,%8d,%8d,\t0x%02x,%8d,%8d" % (
-            packettype, timestamp, c1status, c1ch1, c1ch2, c2status, c2ch1, c2ch2))
+            c2ch1Cal = c1ch1 * (((2.42 * 1000) / c2ch1gain) / ((2 ** 23) - 1))
+            c2ch2Cal = c1ch2 * (((2.42 * 1000) / c2ch2gain) / ((2 ** 23) - 1))
+
+            # # Print uncalibrated values
+            # print("0x%02x,%06x,\t0x%02x,%8d,%8d \t0x%02x,%8d,%8d" % (
+            # packettype, timestamp, c1status, c1ch1, c1ch2, c2status, c2ch1, c2ch2))
+            # Print calibrated values
+            print("0x%02x,%06x,\t0x%02x,%.6f,%.6f \t0x%02x,%.6f,%.6f" % (
+            packettype, timestamp, c1status, c1ch1Cal, c1ch2Cal, c2status, c2ch1Cal, c2ch2Cal))
 
     except KeyboardInterrupt:
         # send stop streaming command
@@ -108,3 +146,4 @@ else:
         ser.close()
         print("")
         print("All done!")
+
