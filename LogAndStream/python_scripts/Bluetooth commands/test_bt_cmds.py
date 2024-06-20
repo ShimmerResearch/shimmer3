@@ -44,7 +44,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             if not self.shimmer.bluetooth_port.send_bluetooth(tx_cmd_byte_array):
                 self.assertTrue(False, "Error writing command")
 
-        response = self.shimmer.bluetooth_port.wait_for_response(2 + expected_response_len,
+        header_byte_count = 3 if is_instream_response else 2
+        response = self.shimmer.bluetooth_port.wait_for_response(header_byte_count + expected_response_len,
                                                                  delay_to_wait_for_response_ms)
         self.assertFalse(isinstance(response, bool), "Error reading inquiry response")
         self.assertFalse(response is None, "Error reading inquiry response")
@@ -288,7 +289,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_34_get_status(self):
         print("Test 34 - Get status command:")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_STATUS_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.STATUS_RESPONSE, 2, is_instream_response=True)
+                                           shimmer_comms_bluetooth.BtCmds.STATUS_RESPONSE, 1, is_instream_response=True)
 
         status = response[0]
         self_cmd = (status & 0x04) >> 2
@@ -360,7 +361,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_47_get_vbatt_command(self):
         print("Test 47 - Get VBatt response command")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_VBATT_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 3, is_instream_response=True)
+                                           shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 2, is_instream_response=True)
         batt_voltage = ((response[0] & 0xFF) << 8) + (response[0] & 0xFF)
         charging_status = response[1]
         print("batt_voltage: %03f , charging_status: %d" % (batt_voltage, charging_status))
