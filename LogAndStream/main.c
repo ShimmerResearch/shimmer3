@@ -2920,7 +2920,6 @@ uint8_t timeStampLen;
 __interrupt void TIMER0_B0_ISR(void)
 {
     uint16_t timer_b0 = GetTB0();
-
     TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
 
     if (!streamDataInProc)
