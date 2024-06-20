@@ -199,7 +199,6 @@ class ShimmerBluetooth:
     def clear_serial_buffer(self):
         self.ser.flushInput()
         self.ser.flushOutput()
-        time.sleep(0.5)
 
     def close_port(self):
         self.ser.close()
@@ -245,16 +244,16 @@ class ShimmerBluetooth:
             return result
         return result
 
-    def wait_for_ack(self):
-        response = self.wait_for_response(1)
-        return True if response is BtCmds.ACK_COMMAND_PROCESSED else False
+    def wait_for_ack(self, timeout_ms=500):
+        response = self.wait_for_response(1, timeout_ms)
+        return True if response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
 
-    def wait_for_response(self, expected_len):
+    def wait_for_response(self, expected_len, timeout_ms=500):
         flag = True
 
         loop_count = 0
         wait_interval_ms = 100
-        loop_count_total = self.serial_port_timeout_ms / wait_interval_ms
+        loop_count_total = timeout_ms / wait_interval_ms
 
         rx_buf = []
 
