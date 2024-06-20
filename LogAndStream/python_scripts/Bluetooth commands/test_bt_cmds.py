@@ -87,7 +87,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def setUp(self):
         print("")
         self.shimmer.bluetooth_port.clear_serial_buffer()
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
     def test_01_get_inquiry_response(self):
         print("\r\nTest 01 - Inquiry command:")
@@ -388,12 +388,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_50_set_accel_sensitivity_command(self):
         print("Test 50 - set accel sensitivity command ")
-        accel_bytes = [0x01]
-        if self.shimmer.bluetooth_port.write_accel_sensitivity(accel_bytes):
-            print("Error, exiting")
-            self.assertTrue(False)
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.GET_ACCEL_RANGE_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+        tx_bytes = [0x01]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ACCEL_RANGE_COMMAND,
+                                    tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_ACCEL_RANGE_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.ACCEL_RANGE_RESPONSE)
 
     def test_51_set_config_byte0_command(self):
         print("Test 51 - set Config Byte0 command ")
@@ -534,8 +533,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.GET_GYRO_RANGE_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.GYRO_RANGE_RESPONSE)
 
-    def test_69_set_gyro_sampling_range_command(self):
-        print("Test 69 - Set Gyro Sampling Range Command")
+    def test_69_set_gyro_sampling_rate_command(self):
+        print("Test 69 - Set Gyro Sampling Rate Command")
         tx_bytes = [0x00, 0x01]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_GYRO_SAMPLING_RATE_COMMAND,
                                     tx_bytes,
