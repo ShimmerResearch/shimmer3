@@ -68,6 +68,8 @@ uint8_t starting;
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
 void (*BT_write)(uint8_t *buf, uint8_t len, btResponseType responseType);
+void (*sendNextChar_cb)(void);
+
 uint8_t btRebootRequired; //boolean for checking if new commands are added
 volatile uint8_t messageInProgress, txOverflow;
 uint8_t txie_reg;
@@ -213,6 +215,11 @@ void BT_startDone_cb(void (*cb)(void))
 void BT_baudRateChange_cb(void (*cb)(void))
 {
     baudRateChange_cb = cb;
+}
+
+void BT_setSendNextChar_cb(void (*cb)(void))
+{
+    sendNextChar_cb = cb;
 }
 
 /* TODO create common boot sequence for both BT modules */
@@ -1695,6 +1702,11 @@ uint8_t isBtModuleOverflowPinHigh(void)
 
 void sendNextChar(void)
 {
+    if(sendNextChar_cb)
+    {
+        sendNextChar_cb();
+    }
+
     if (!RINGFIFO_EMPTY(gBtTxFifo)
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
             && (rn4678RtsLockDetected || !isBtModuleOverflowPinHigh())
@@ -1818,6 +1830,8 @@ void BT_init(void)
     BT_setRn4678BleConnectionParameters("0001,001C,0000,0200");
 
     BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
+
+    BT_setSendNextChar_cb(0);
 }
 
 void BT_start(void)

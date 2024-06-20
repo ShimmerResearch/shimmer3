@@ -222,7 +222,7 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
-        useAckPrefixForInstreamResponses;
+        useAckPrefixForInstreamResponses, btDataRateTestResponse;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
 uint8_t resPacket[RESPONSE_PACKET_SIZE + 2]; //+2 for crc checksum bytes;
@@ -772,6 +772,7 @@ void Init(void)
     gsrRangeResponse = 0;
     btCommsBaudRateResponse = 0;
     derivedChannelResponse = 0;
+    btDataRateTestResponse = 0;
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
     uartSendRspAck = 0;
     uartSendRspMac = 0;
@@ -2162,6 +2163,9 @@ void HandleBtRfCommStateChange(bool isOpen)
 #if FW_IS_LOGANDSTREAM
         btstreamReady = 0;
         enableBtstream = 0;
+
+        setBtDataRateTestState(0);
+
         clearBtTxBuf(0);
 #endif
         setBtCrcMode(CRC_OFF);
@@ -2915,6 +2919,7 @@ uint8_t timeStampLen;
 __interrupt void TIMER0_B0_ISR(void)
 {
     uint16_t timer_b0 = GetTB0();
+
     uint8_t rtc_temp[4];
     TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
 
@@ -3358,6 +3363,15 @@ void ProcessCommand(void)
         break;
     case GET_BT_VERSION_STR_COMMAND:
         btVerResponse = 1;
+        break;
+    case SET_DATA_RATE_TEST:
+        /* Stop test before ACK is sent */
+        if (args[0] == 0)
+        {
+            setBtDataRateTestState(0);
+            clearBtTxBuf(1);
+        }
+        btDataRateTestResponse = 1;
         break;
     case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
         if (args[0] < 10)
@@ -4556,6 +4570,16 @@ void SendResponse(void)
             packet_length += btVerStrLen;
 
             btVerResponse = 0;
+        }
+        else if (btDataRateTestResponse)
+        {
+            /* Start test after ACK is sent - this will be handled by the
+             * interrupt after ACK byte is transmitted */
+            if (args[0] != 0)
+            {
+                setBtDataRateTestState(1);
+            }
+            btDataRateTestResponse = 0;
         }
     }
 

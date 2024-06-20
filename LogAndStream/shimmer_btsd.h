@@ -58,7 +58,7 @@
 #define FW_VER_MAJOR          0     //Major version number: 0-65535
 #define FW_VER_MINOR          22    //Minor version number: 0-255
 #endif
-#define FW_VER_REL            1     //internal version number: 0-255
+#define FW_VER_REL            4     //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE    (1)

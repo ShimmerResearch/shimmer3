@@ -51,6 +51,9 @@ uint16_t numBytesInBtRxBufWhenLastProcessed = 0;
 uint16_t indexOfFirstEol;
 uint32_t firstProcessFailTicks = 0;
 
+uint8_t btDataRateTestState;
+uint32_t btDataRateTestCounter;
+
 #if BT_DMA_USED_FOR_RX
 /* Return of 1 brings MSP out of low-power mode */
 uint8_t Dma2ConversionDone(void)
@@ -892,6 +895,7 @@ uint8_t Dma2ConversionDone(void)
                 case SET_CONFIGTIME_COMMAND:
                 case SET_CRC_COMMAND:
                 case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+                case SET_DATA_RATE_TEST:
                     *(gActionPtr) = data;
                     waitingForArgs = 1U;
                     break;
@@ -1803,6 +1807,7 @@ uint8_t processShimmerBtCmd(void)
     case SET_NSHIMMER_COMMAND:
     case SET_CRC_COMMAND:
     case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE
+    case SET_DATA_RATE_TEST:
         if(numBytesInBtRxBufWhenLastProcessed>=(1U+1U))
         {
             readActionAndArgBytes(1U);
@@ -2074,6 +2079,7 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case SET_CONFIGTIME_COMMAND:
     case SET_CRC_COMMAND:
     case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+    case SET_DATA_RATE_TEST:
     case SET_SAMPLING_RATE_COMMAND:
     case GET_DAUGHTER_CARD_ID_COMMAND:
     case SET_SENSORS_COMMAND:
@@ -2166,6 +2172,8 @@ void btCommsProtocolInit(uint8_t (*newBtCmdToProcessCb)(void),
 #endif
 
     memset(btVerStrResponse, 0x00, sizeof(btVerStrResponse) / sizeof(btVerStrResponse[0]));
+
+    setBtDataRateTestState(0);
 }
 
 void triggerBtRfCommStateChangeCallback(bool state)
@@ -2211,4 +2219,23 @@ void setBtCrcMode(COMMS_CRC_MODE btCrcModeNew)
 COMMS_CRC_MODE getBtCrcMode(void)
 {
     return btCrcMode;
+}
+
+void setBtDataRateTestState(uint8_t state)
+{
+    btDataRateTestState = state;
+    btDataRateTestCounter = 0;
+
+    BT_setSendNextChar_cb(btDataRateTestState==1? loadBtTxBufForDataRateTest:0);
+}
+
+void loadBtTxBufForDataRateTest(void)
+{
+    uint16_t spaceInTxBuf = getSpaceInBtTxBuf();
+    if (spaceInTxBuf > DATA_RATE_TEST_PACKET_SIZE)
+    {
+        pushByteToBtTxBuf(DATA_RATE_TEST_RESPONSE);
+        pushBytesToBtTxBuf((uint8_t *) &btDataRateTestCounter, sizeof(btDataRateTestCounter));
+        btDataRateTestCounter++;
+    }
 }
