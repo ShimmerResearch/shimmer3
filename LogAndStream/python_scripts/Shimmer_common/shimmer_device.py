@@ -1,6 +1,24 @@
 import serial.tools.list_ports
+from enum import Enum
 
 from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth
+
+
+class SrBoardCodes(Enum):
+    EXP_BRD_BR_AMP = 8
+    EXP_BRD_GSR = 14
+    SHIMMER3_IMU = 31
+    EXP_BRD_PROTO3_MINI = 36
+    EXP_BRD_EXG = 37
+    EXP_BRD_PROTO3_DELUXE = 38
+    EXP_BRD_ADXL377_ACCEL_200G = 44
+    EXP_BRD_EXG_UNIFIED = 47
+    EXP_BRD_GSR_UNIFIED = 48
+    EXP_BRD_BR_AMP_UNIFIED = 49
+    EXP_BRD_H3LIS331DL_ACCEL_HIGH_G = 55
+    SHIMMER_GQ_LR = 56
+    SHIMMER_GQ_SR = 57
+    SHIMMER_ECG_MD = 59
 
 
 def serial_ports_shimmer_dock():
@@ -67,6 +85,9 @@ class Shimmer3:
             self.hw_ver = (byte_buf[index] | (byte_buf[index + 1] << 8))
             index += 2
 
+        self.parse_fw_ver_bytes(byte_buf, index)
+
+    def parse_fw_ver_bytes(self, byte_buf, index=0):
         self.fw_id = ((byte_buf[index]) | (byte_buf[index + 1] << 8))
         index += 2
         self.fw_ver_major = ((byte_buf[index]) | (byte_buf[index + 1] << 8))
@@ -101,3 +122,46 @@ class Shimmer3:
 
     def print_batt_status(self):
         print("ADC Value=" + str(self.batt_adc_value) + ", Charging status=" + str(self.charging_status))
+
+    def is_expansion_board_set(self):
+        return (self.daughter_card_id is not None
+                and self.daughter_card_rev_major is not None
+                and self.daughter_card_rev_minor is not None)
+
+    def is_icm20948_present(self):
+        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU and (self.daughter_card_rev_major == 9
+                                                                                   or self.daughter_card_rev_major == 10))
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED and (self.daughter_card_rev_major == 5
+                                                                                   or self.daughter_card_rev_major == 6))
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED and (self.daughter_card_rev_major == 4
+                                                                                   or self.daughter_card_rev_major == 5))
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED and self.daughter_card_rev_major == 3)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE and (self.daughter_card_rev_major == 3
+                                                                                     or self.daughter_card_rev_major == 4))
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI and (self.daughter_card_rev_major == 3
+                                                                                   or self.daughter_card_rev_major == 4))
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G and (
+                        self.daughter_card_rev_major == 2 or self.daughter_card_rev_major == 3)))
+
+    def is_bmp180_present(self):
+        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU and self.daughter_card_rev_major <= 5)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED and self.daughter_card_rev_major <= 2)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED and self.daughter_card_rev_major <= 2)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED and self.daughter_card_rev_major == 1)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE and self.daughter_card_rev_major <= 2)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI and self.daughter_card_rev_major <= 2)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G and self.daughter_card_rev_major == 1))
+
+    def is_bmp280_present(self):
+        return (not self.is_bmp180_present and
+                (self.daughter_card_rev_major == 171
+                 or (self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU and self.daughter_card_rev_major <= 10)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED and self.daughter_card_rev_major <= 6)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED and self.daughter_card_rev_major <= 5)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED and self.daughter_card_rev_major <= 3)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE and self.daughter_card_rev_major <= 4)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI and self.daughter_card_rev_major <= 4)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G and self.daughter_card_rev_major <= 3)))
