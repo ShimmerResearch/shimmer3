@@ -29,15 +29,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def bt_cmd_test_common(self, tx_cmd_byte, expected_response_cmd_byte, expected_response_len,
                            is_instream_response=False, delay_to_wait_for_response_ms=2000):
 
+        if isinstance(tx_cmd_byte, list):
+            tx_cmd_byte_array = tx_cmd_byte
+            tx_cmd_byte = tx_cmd_byte_array[0]
+        else:
+            tx_cmd_byte_array = [tx_cmd_byte]
+
         if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
             self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND,
                                                         0x03, 0x00])
         elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND:
-            self.shimmer.bluetooth_port.send_bluetooth([0x8E, 0x80, 0x00, 0x00])
-        elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND:
-            self.shimmer.bluetooth_port.send_bluetooth([0x63, 0x0B])
+            self.shimmer.bluetooth_port.send_bluetooth([tx_cmd_byte, 0x80, 0x00, 0x00])
         else:
-            if not self.shimmer.bluetooth_port.send_bluetooth([tx_cmd_byte]):
+            if not self.shimmer.bluetooth_port.send_bluetooth(tx_cmd_byte_array):
                 self.assertTrue(False, "Error writing command")
 
         response = self.shimmer.bluetooth_port.wait_for_response(2 + expected_response_len,
@@ -67,11 +71,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             if isinstance(response_channels, bool):
                 self.assertTrue(False, "Error reading inquiry response channels")
             response = response + response_channels
-        elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
+        elif (tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
+              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
+              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND):
             response = self.shimmer.bluetooth_port.wait_for_response(response[i])
-            i = 0
             if isinstance(response, bool):
-                self.assertTrue(False, "Error reading daughter card ID channels")
+                if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
+                    self.assertTrue(False, "Error reading daughter card ID channels")
+                elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND:
+                    self.assertTrue(False, "Error reading daughter card ID channels")
+                elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND:
+                    self.assertTrue(False, "Error reading directory")
+            i = 0
 
         return response[i:len(response)]
 
@@ -264,8 +275,15 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_32_get_exg_regs_command(self):
         print("Test 32 - Get ExG Regs command:")
-        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE, 11)
+        # Expecting 3 additional bytes, exgChip index, exgStartAddr, exgLength
+
+        # Chip 0
+        response = self.bt_cmd_test_common([shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND, 0, 0, 10],
+                                           shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE, 1)
+
+        # Chip 1
+        response = self.bt_cmd_test_common([shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND, 1, 0, 10],
+                                           shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE, 1)
 
     def test_34_get_status(self):
         print("Test 34 - Get status command:")
@@ -295,8 +313,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_38_get_center_command(self):
         print("Test 38 - Get Center response command:")
-        response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CENTER_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.CENTER_RESPONSE, 1)
+        # TODO GET_CENTER_COMMAND not currently supported in LogAndStream but could be added in the future
+        # response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_CENTER_COMMAND,
+        #                                    shimmer_comms_bluetooth.BtCmds.CENTER_RESPONSE, 1)
 
     def test_39_get_shimmer_name_command(self):
         print("Test 39 - Get ShimmerName command:")
@@ -326,7 +345,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_44_get_dir_command(self):
         print("Test 43 - Get dir response command:")
         response = self.bt_cmd_test_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
-                                           shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 4)
+                                           shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1, is_instream_response=True)
 
     def test_45_get_infomem_command(self):
         print("Test 45 - Get infomem response command:")
