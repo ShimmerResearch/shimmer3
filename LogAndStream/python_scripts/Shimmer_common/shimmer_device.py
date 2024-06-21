@@ -66,6 +66,8 @@ class Shimmer3:
     batt_adc_value = None
     charging_status = None
 
+    bt_crc_byte_count = 0
+
     def __init__(self):
         self.dock_port = shimmer_comms_docked.ShimmerUart(self)
         self.bluetooth_port = shimmer_comms_bluetooth.ShimmerBluetooth(self)
