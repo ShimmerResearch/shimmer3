@@ -5,6 +5,15 @@ from Shimmer_common import shimmer_comms_bluetooth, util_shimmer_time, util_shim
 from Shimmer_common import shimmer_device, shimmer_app_common
 
 
+def does_response_include_length_byte(get_cmd):
+    return (get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND)
+
+
 class TestShimmerBluetoothCommunication(unittest.TestCase):
     shimmer = None
 
@@ -70,12 +79,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             i = 0
             response = self.shimmer.bluetooth_port.wait_for_response(currentMemLength)
 
-        elif (tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
-              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
-              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND
-              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND
-              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
-              or tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND):
+        elif does_response_include_length_byte(tx_cmd_byte):
             response = self.shimmer.bluetooth_port.wait_for_response(response[i])
             if isinstance(response, bool):
                 if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
@@ -105,20 +109,21 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         comparison_offset = 0
         length_to_read = len(set_bytes)
-        if (get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
-              or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
-              or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND
-              or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND
-              or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
-              or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND):
+        if does_response_include_length_byte(get_cmd):
             length_to_read = 1
             comparison_offset = 1
 
         response = self.bt_cmd_test_get_common(get_cmd, response_cmd, length_to_read)
 
-        for i in range(0, len(set_bytes) - comparison_offset):
-            if set_bytes[i+comparison_offset] is not response[i]:
-                self.assertTrue(False, "rx byte != tx byte")
+        if get_cmd == shimmer_comms_bluetooth.BtCmds.GET_RWC_COMMAND:
+            ts_s_written = util_shimmer_time.shimmer_rtc_bytes_to_s(set_bytes)
+            ts_s_read = util_shimmer_time.shimmer_rtc_bytes_to_s(response)
+            if ts_s_read - ts_s_written > 0.5:
+                self.assertTrue(False, "RWC time out of range")
+        else:
+            for i in range(0, len(set_bytes) - comparison_offset):
+                if set_bytes[i + comparison_offset] is not response[i]:
+                    self.assertTrue(False, "rx byte != tx byte")
 
     def bt_cmd_test_wait_for_ack(self, timeout_ms=500):
         result = self.shimmer.bluetooth_port.wait_for_ack(timeout_ms)
@@ -169,8 +174,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_06_get_daughter_card_id_command(self):
         print("Test 06 - Get daughter card id command:")
         # Read 1 byte as the first byte in the response is the length of the number of bytes in the rest of the response
-        response = self.bt_cmd_test_get_common([shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
-                                               shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE, 1)
+        response = self.bt_cmd_test_get_common(
+            [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
+            shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE, 1)
 
         self.shimmer.parse_daughter_card_id(response)
         self.shimmer.print_daughter_card_id()
@@ -313,7 +319,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_34_get_status(self):
         print("Test 34 - Get status command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_STATUS_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.STATUS_RESPONSE, 1, is_instream_response=True)
+                                               shimmer_comms_bluetooth.BtCmds.STATUS_RESPONSE, 1,
+                                               is_instream_response=True)
 
         status = response[0]
         self_cmd = (status & 0x04) >> 2
@@ -372,7 +379,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_44_get_dir_command(self):
         print("Test 43 - Get dir response command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1, is_instream_response=True)
+                                               shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
+                                               is_instream_response=True)
 
     def test_45_get_infomem_command(self):
         print("Test 45 - Get infomem response command:")
@@ -430,7 +438,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_47_get_vbatt_command(self):
         print("Test 47 - Get VBatt response command")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_VBATT_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 3, is_instream_response=True)
+                                               shimmer_comms_bluetooth.BtCmds.VBATT_RESPONSE, 3,
+                                               is_instream_response=True)
         batt_voltage = ((response[0] & 0xFF) << 8) + (response[0] & 0xFF)
         charging_status = response[1]
         print("batt_voltage: %03f , charging_status: %d" % (batt_voltage, charging_status))
@@ -659,7 +668,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_89_set_crc_command(self):
         print("Test 89 - Set CRC Command")
         self.shimmer.bt_crc_byte_count = 1  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
+        self.shimmer.bluetooth_port.send_bluetooth(
+            [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
         self.bt_cmd_test_wait_for_ack()
 
         # Using inquiry command here to test whether CRC has been enabled
@@ -667,7 +677,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
 
         self.shimmer.bt_crc_byte_count = 0  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
+        self.shimmer.bluetooth_port.send_bluetooth(
+            [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
         self.bt_cmd_test_wait_for_ack()
 
         # Make sure CRC gets disabled
@@ -676,7 +687,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_90_set_rwc_command(self):
         print("Test 90 - Set RWC command")
-        tx_bytes = [0x01]
+        ts_ms = time.time()
+        tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_RWC_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_RWC_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.RWC_RESPONSE)
