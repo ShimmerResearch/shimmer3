@@ -18,6 +18,11 @@ def ms_to_shimmer_rtc_bytes(ts_ms):
     return time_bytes
 
 
+def shimmer_rtc_bytes_to_s(time_bytes):
+    ts_ticks = int.from_bytes(time_bytes, "little")
+    ts_ms = ts_ticks / 32768
+    return ts_ms
+
 def seconds_to_time_str(seconds, show_microseconds):
     if seconds >= (2 ** 31) - 1:
         return "Not valid"

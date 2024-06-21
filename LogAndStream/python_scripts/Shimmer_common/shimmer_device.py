@@ -144,24 +144,24 @@ class Shimmer3:
                         self.daughter_card_rev_major == 2 or self.daughter_card_rev_major == 3)))
 
     def is_bmp180_present(self):
-        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU and self.daughter_card_rev_major <= 5)
-                or self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED and self.daughter_card_rev_major <= 2)
-                or self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED and self.daughter_card_rev_major <= 2)
-                or self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED and self.daughter_card_rev_major == 1)
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE and self.daughter_card_rev_major <= 2)
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI and self.daughter_card_rev_major <= 2)
-                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G and self.daughter_card_rev_major == 1))
+        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 5)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG.value
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 2)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR.value
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED.value and self.daughter_card_rev_major <= 2)
+                or self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP.value
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED.value and self.daughter_card_rev_major == 1)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE.value and self.daughter_card_rev_major <= 2)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI.value and self.daughter_card_rev_major <= 2)
+                or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major == 1))
 
     def is_bmp280_present(self):
-        return (not self.is_bmp180_present and
+        return ((not self.is_bmp180_present()) and
                 (self.daughter_card_rev_major == 171
-                 or (self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU and self.daughter_card_rev_major <= 10)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED and self.daughter_card_rev_major <= 6)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED and self.daughter_card_rev_major <= 5)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED and self.daughter_card_rev_major <= 3)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE and self.daughter_card_rev_major <= 4)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI and self.daughter_card_rev_major <= 4)
-                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G and self.daughter_card_rev_major <= 3)))
+                 or (self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 10)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 6)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR_UNIFIED.value and self.daughter_card_rev_major <= 5)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_BR_AMP_UNIFIED.value and self.daughter_card_rev_major <= 3)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE.value and self.daughter_card_rev_major <= 4)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI.value and self.daughter_card_rev_major <= 4)
+                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major <= 3)))
