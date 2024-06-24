@@ -660,18 +660,22 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_82_set_shimmerName_command(self):
         print("Test 82 - Set Shimmer Name Command ")
-        tx_bytes = [0x0C, 0x53, 0x68, 0x69, 0x6D, 0x6D, 0x65, 0x72, 0x5F, 0x36, 0x41, 0x31, 0x41]
-           #[0x09, 0x38, 0x40, 0x00, 0x09, 0x0B, 0x01, 0x02, 0x03, 0x04, 0x11, 0x12]
-        # default [0x0C 0x53 0x68 0x69 0x6D 0x6D 0x65 0x72 0x5F 0x36 0x41 0x31 0x41]
+
+        shimmer_name = "UnitTest82"
+        tx_bytes = [ord(c) for c in shimmer_name]
+        tx_bytes = [len(tx_bytes)] + tx_bytes
+
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_SHIMMERNAME_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_SHIMMERNAME_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.SHIMMERNAME_RESPONSE)
 
     def test_83_set_ExpID_command(self):
         print("Test 83 - Set ExpId command")
-        tx_bytes =  [0x0C,0x53,0x68,0x69,0x6D,0x6D,0x65,0x72,0x5F,0x36,0x41,0x31,0x41]
-            #[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12]
-        # default = [0x0C 0x53 0x68 0x69 0x6D 0x6D 0x65 0x72 0x5F 0x36 0x41 0x31 0x41]
+
+        experiment_id = "UnitTest83"
+        tx_bytes = [ord(c) for c in experiment_id]
+        tx_bytes = [len(tx_bytes)] + tx_bytes
+
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXPID_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_EXPID_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.EXPID_RESPONSE)
