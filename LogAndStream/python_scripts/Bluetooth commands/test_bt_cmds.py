@@ -320,9 +320,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_28_get_BMPX80_Calibration_coefficients_command(self):
         print("Test 28 - Get BMPX80 Calibration response command:")
+
         if not self.shimmer.is_expansion_board_set():
-            self.assertTrue(False, "Expansion board details not read yet")
-        elif self.shimmer.is_bmp180_present():
+            self.test_06_get_daughter_card_id_command()
+
+        if self.shimmer.is_bmp180_present():
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP180_CALIBRATION_COEFFICIENTS_RESPONSE, 22)
@@ -337,16 +339,17 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         # Shimmer3 utilising ICM-20948 instead of MPU9150/MPU9250 will only respond back with ACK as the ICM-20948
         # does not support changing the mag range.
         print("Test 31 - Get alternative Mag Sens Adj Vals response command:")
+
         if not self.shimmer.is_expansion_board_set():
-            self.assertTrue(False, "Expansion board details not read yet")
-        elif self.shimmer.is_icm20948_present():
-            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND,
-                                                   shimmer_comms_bluetooth.BtCmds.ALT_MAG_SENS_ADJ_VALS_RESPONSE, 1)
-        else:
+            self.test_06_get_daughter_card_id_command()
+
+        if self.shimmer.is_icm20948_present():
             self.shimmer.bluetooth_port.send_bluetooth(
                 [shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND])
             self.bt_cmd_test_wait_for_ack()
-            self.bt_cmd_test_wait_for_ack()
+        else:
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND,
+                                                   shimmer_comms_bluetooth.BtCmds.ALT_MAG_SENS_ADJ_VALS_RESPONSE, 1)
 
     def test_31_get_internal_exp_power_enable_command(self):
         print("Test 31 - Get exp power enable response command:")
@@ -707,6 +710,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_87_set_InfoMem_command(self):
         print("Test 87 - Set InfoMem Command")
 
+        # self.shimmer.bluetooth_port.send_bluetooth(
+        #     [shimmer_comms_bluetooth.BtCmds.RESET_TO_DEFAULT_CONFIGURATION_COMMAND])
+        # self.bt_cmd_test_wait_for_ack()
+        #
+        # time.sleep(2)
+        #
+        # self.shimmer.bluetooth_port.send_bluetooth(
+        #     [shimmer_comms_bluetooth.BtCmds.RESET_CALIBRATION_VALUE_COMMAND])
+        # self.bt_cmd_test_wait_for_ack()
+        #
+        # time.sleep(2)
+
         #  Config generated below from Consensys in-which:
         #  Trial name = UnitTests
         #  Sampling rate = 512 Hz
@@ -738,7 +753,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_INFOMEM_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.INFOMEM_RESPONSE)
+                                    shimmer_comms_bluetooth.BtCmds.INFOMEM_RESPONSE, 2)
 
     def test_88_set_calib_dump_command(self):
         print("Test 88 - Set Calib Command")
@@ -746,13 +761,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         tx_bytes = [0x52, 0x01,
                     0x03, 0x00, 0x02, 0x00, 0x00, 0x00, 0x16, 0x04,
 
-                    # SC_SENSOR_ANALOG_ACCEL
+                    # 0x02 = SC_SENSOR_ANALOG_ACCEL
                     0x02, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
                     0x08, 0xCD, 0x08, 0xCD, 0x08, 0xCD, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x9C, 0x00, 0x9C,
                     0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # SC_SENSOR_GYRO
+                    # 0x1E = SC_SENSOR_GYRO
                     0x1E, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x33, 0x2C, 0x33, 0x2C, 0x33, 0x2C, 0x00, 0x9C, 0x00, 0x9C,
@@ -770,7 +785,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x68, 0x06, 0x68, 0x06, 0x68, 0x00, 0x9C, 0x00, 0x9C,
                     0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # SC_SENSOR_WR_ACCEL
+                    # 0x1F = SC_SENSOR_WR_ACCEL
                     0x1F, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x87, 0x06, 0x87, 0x06, 0x87, 0x00, 0x9C, 0x00, 0x64,
@@ -788,7 +803,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xA2, 0x01, 0xA2, 0x01, 0xA2, 0x00, 0x9C, 0x00, 0x64,
                     0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # SC_SENSOR_WR_MAG
+                    # 0x20 = SC_SENSOR_WR_MAG
                     0x20, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x9B, 0x02, 0x9B, 0x02, 0x9B, 0x00, 0x9C, 0x00, 0x64,
