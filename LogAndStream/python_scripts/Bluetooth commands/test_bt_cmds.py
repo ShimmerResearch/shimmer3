@@ -103,7 +103,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         return response[i:len(response)]
 
-    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd):
+    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd) -> object:
         self.shimmer.bluetooth_port.send_bluetooth([set_cmd] + set_bytes)
         self.bt_cmd_test_wait_for_ack(2000)
 
@@ -373,7 +373,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("Test 43- Get Config Time Response Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.CONFIGTIME_RESPONSE, 1)
-
         print(util_shimmer_time.seconds_to_time_str(int(bytes(response)), True))
 
     def test_44_get_dir_command(self):
@@ -568,17 +567,24 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_75_set_internal_exp_power_enable_command(self):
         print("Test 75 - Set Internal exp power enable command")
         tx_bytes = [0x01]  # Power on = 1, power off = 0 (default = 0)
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_INTERNAL_EXP_POWER_ENABLE_COMMAND, tx_bytes,
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_INTERNAL_EXP_POWER_ENABLE_COMMAND,
+                                    tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_INTERNAL_EXP_POWER_ENABLE_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.INTERNAL_EXP_POWER_ENABLE_RESPONSE)
 
     # def test_76_set_exg_regs_response(self):
-    #     tx_bytes = [0x01, 0x00, 0x03, 0x01, 0x04, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00]
-    #     self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, tx_bytes,
-    #                             shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
-    #                             shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
+    # # tx_bytes = [0x01, 0x00, 0x03, 0x01, 0x04, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00]
+    # # # default 0x63 0x00 0x00 0x0A
+    # # # Chip 0
+    #     # self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, tx_bytes,
+    #     #                             shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
+    #     #                             shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
+    #     # # Chip 1
+    #     # self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, tx_bytes,
+    #     #                             shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
+    #     #                             shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
 
-    # no set daughter card id command - Test 77
+   # no set daughter card id command - Test 77
 
     def test_78_set_baud_rate_command(self):
         print("Test 78 - Set baud Rate Command")
@@ -592,7 +598,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_79_set_derived_channel_bytes_command(self):
         print("Test 79 - Set Derived Channel bytes Command")
-        tx_bytes = [0x00, 0x01, 0x02]
+        tx_bytes = [0x00, 0x01, 0x02, 0x00, 0x00, 0x06, 0x05, 0x04]  # default [0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_DERIVED_CHANNEL_BYTES, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_DERIVED_CHANNEL_BYTES,
                                     shimmer_comms_bluetooth.BtCmds.DERIVED_CHANNEL_BYTES_RESPONSE)
@@ -614,14 +620,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_82_set_shimmerName_command(self):
         print("Test 82 - Set Shimmer Name Command ")
-        tx_bytes = [0x01]
+        tx_bytes = [0x0C, 0x53, 0x68, 0x69, 0x6D, 0x6D, 0x65, 0x72, 0x5F, 0x36, 0x41, 0x31, 0x41]
+           #[0x09, 0x38, 0x40, 0x00, 0x09, 0x0B, 0x01, 0x02, 0x03, 0x04, 0x11, 0x12]
+        # default [0x0C 0x53 0x68 0x69 0x6D 0x6D 0x65 0x72 0x5F 0x36 0x41 0x31 0x41]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_SHIMMERNAME_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_SHIMMERNAME_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.SHIMMERNAME_RESPONSE)
 
     def test_83_set_ExpID_command(self):
         print("Test 83 - Set ExpId command")
-        tx_bytes = [0x01]
+        tx_bytes =  [0x0C,0x53,0x68,0x69,0x6D,0x6D,0x65,0x72,0x5F,0x36,0x41,0x31,0x41]
+            #[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12]
+        # default = [0x0C 0x53 0x68 0x69 0x6D 0x6D 0x65 0x72 0x5F 0x36 0x41 0x31 0x41]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXPID_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_EXPID_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.EXPID_RESPONSE)
