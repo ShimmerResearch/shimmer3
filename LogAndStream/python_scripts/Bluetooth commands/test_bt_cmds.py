@@ -375,10 +375,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                is_instream_response=True)
 
         status = response[0]
-        self_cmd = (status & 0x04) >> 2
-        sensing = (status & 0x02) >> 1
-        docked = (status & 0x01)
-        print("0x%02x , self: %d, sensing: %d, docked: %d" % (status, self_cmd, sensing, docked))
+        self.shimmer.parse_status(status)
 
     def test_35_get_baud_rate_command(self):
         print("Test 34 - Get baud rate response command:")
@@ -429,9 +426,15 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_44_get_dir_command(self):
         print("Test 43 - Get dir response command:")
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
-                                               is_instream_response=True)
+
+        self.test_34_get_status()
+
+        if self.shimmer.status_is_docked:
+            self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
+        else:
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
+                                                   shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
+                                                   is_instream_response=True)
 
     def test_45_get_infomem_command(self):
         print("Test 45 - Get infomem response command:")

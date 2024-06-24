@@ -66,6 +66,15 @@ class Shimmer3:
     batt_adc_value = None
     charging_status = None
 
+    status_toggle_led_red = None
+    status_sd_error = None
+    status_sd_in_slot = None
+    status_is_streaming = None
+    status_is_logging = None
+    status_is_rwc_time_set = None
+    status_is_sensing = None
+    status_is_docked = None
+
     bt_crc_byte_count = 0
 
     def __init__(self):
@@ -124,6 +133,26 @@ class Shimmer3:
 
     def print_batt_status(self):
         print("ADC Value=" + str(self.batt_adc_value) + ", Charging status=" + str(self.charging_status))
+
+    def parse_status(self, status):
+
+        self.status_toggle_led_red = (status >> 7) & 0x01
+        self.status_sd_error = (status >> 6) & 0x01
+        self.status_sd_in_slot = (status >> 5) & 0x01
+        self.status_is_streaming = (status >> 4) & 0x01
+        self.status_is_logging = (status >> 3) & 0x01
+        self.status_is_rwc_time_set = (status >> 2) & 0x01
+        self.status_is_sensing = (status >> 1) & 0x01
+        self.status_is_docked = (status >> 0) & 0x01
+        print("0x%02x , Red LED state: %d, sd error: %d, sd in slot: %d, isStreaming: %d, isLogging: %d, "
+              "isRwcTimeSet: %d, isSensing: %d, isDocked: %d" % (status, self.status_toggle_led_red,
+                                                                 self.status_sd_error,
+                                                                 self.status_sd_in_slot,
+                                                                 self.status_is_streaming,
+                                                                 self.status_is_logging,
+                                                                 self.status_is_rwc_time_set,
+                                                                 self.status_is_sensing,
+                                                                 self.status_is_docked))
 
     def is_expansion_board_set(self):
         return (self.daughter_card_id is not None
