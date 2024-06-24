@@ -203,46 +203,105 @@ class ShimmerBluetooth:
     def close_port(self):
         self.ser.close()
 
-    def write_calibration(self, calib_bytes=[]):
+    def write_calibration(self, calib_bytes=None, timeout_ms=2000):
 
+        if calib_bytes is None:
+            calib_bytes = []
         len_calib_bytes = len(calib_bytes)
 
-        calib_bytes = [(len_calib_bytes & 0xFF), ((len_calib_bytes >> 8) & 0xFF)] + calib_bytes
+        # calib_bytes = [(len_calib_bytes & 0xFF), ((len_calib_bytes >> 8) & 0xFF)] + calib_bytes
         for i in range(0, len_calib_bytes, 128):
             bytes_remaining = len_calib_bytes - i
             buf_len = 128 if bytes_remaining > 128 else bytes_remaining
 
-            self.send_bluetooth(
-                [BtCmds.SET_CALIB_DUMP_COMMAND,
-                 buf_len,
-                 i & 0xFF, (i >> 8) & 0xFF] + calib_bytes[i:i + buf_len])
+            if not self.send_bluetooth(
+                    [BtCmds.SET_CALIB_DUMP_COMMAND, buf_len, i & 0xFF, (i >> 8) & 0xFF] + calib_bytes[i:i + buf_len]):
+                return False
 
-        result = self.wait_for_ack()
-        if not result:
-            return result
-        #return result
+            if not self.wait_for_ack(timeout_ms):
+                return False
 
-    def read_calibration(self):
-        self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND])
-        # serial.write(struct.pack('BBBB', BtCmds.GET_CALIB_DUMP_COMMAND, 0x80, 0x00, 0x00))
-        self.wait_for_ack()
-        #ddata = serial.Serial.read(0x80)
-        #print(ddata)
+        return True
 
-    def write_accel_sensitivity(self, accel_bytes=[]):
-        len_accel_bytes = len(accel_bytes)
-        accel_bytes = [(len_accel_bytes & 0xFF), ((len_accel_bytes >> 8) & 0xFF)] + accel_bytes
-        for i in range(0, len_accel_bytes, 1):
-            bytes_remaining = len_accel_bytes - i
-            buf_len = 1 if bytes_remaining > 1 else bytes_remaining
+    def read_calibration(self, timeout_ms=500):
 
-            self.send_bluetooth([BtCmds.SET_ACCEL_RANGE_COMMAND,
-                                                        buf_len, i & 0xFF, (i >> 8) & 0xFF] +
-                                                       accel_bytes[i:i + buf_len])
-        result = self.wait_for_ack()
-        if not result:
-            return result
-        return result
+        calib_dump_concat = []
+        overall_mem_length = 0
+        length_read_so_far = 0
+        first_read = True
+        while length_read_so_far == 0 or length_read_so_far < overall_mem_length:
+            length_left_to_read = 128 if first_read else overall_mem_length - length_read_so_far + 2
+            length_to_read = 128 if (length_left_to_read >= 128) else length_left_to_read
+            address = length_read_so_far
+
+            if not self.send_bluetooth([BtCmds.GET_CALIB_DUMP_COMMAND, length_to_read, address & 0xFF,
+                                        (address >> 8) & 0xFF]):
+                return False
+
+            if not self.wait_for_ack(timeout_ms):
+                return False
+
+            rsp_byte = self.wait_for_response(1)
+            if rsp_byte[0] != BtCmds.RSP_CALIB_DUMP_COMMAND:
+                return False
+
+            # +3 for 1 length byte followed byte 2 bytes address
+            rx_bytes = self.wait_for_response(length_to_read + 3, timeout_ms)
+            if len(rx_bytes) == 0:
+                return False
+
+            calib_dump_concat += rx_bytes[3:len(rx_bytes)]
+
+            if first_read:
+                overall_mem_length = (calib_dump_concat[1] << 8) | calib_dump_concat[0]
+                first_read = False
+
+            length_read_so_far += length_to_read
+
+        return calib_dump_concat
+
+    def write_configuration(self, tx_bytes=None, timeout_ms=500):
+
+        if tx_bytes is None:
+            tx_bytes = []
+        len_tx_bytes = len(tx_bytes)
+
+        for i in range(0, len_tx_bytes, 128):
+            bytes_remaining = len_tx_bytes - i
+            buf_len = 128 if bytes_remaining > 128 else bytes_remaining
+
+            if not self.send_bluetooth(
+                    [BtCmds.SET_INFOMEM_COMMAND,
+                     buf_len,
+                     i & 0xFF, (i >> 8) & 0xFF] + tx_bytes[i:i + buf_len]):
+                return False
+
+            if not self.wait_for_ack(timeout_ms):
+                return False
+
+        return True
+
+    def read_configuration(self, timeout_ms=500):
+
+        len_config_bytes = 384
+        config_bytes = []
+        for i in range(0, len_config_bytes, 128):
+            bytes_remaining = len_config_bytes - i
+            buf_len = 128 if bytes_remaining > 128 else bytes_remaining
+
+            if not self.send_bluetooth([BtCmds.GET_INFOMEM_COMMAND, buf_len, i & 0xFF, (i >> 8) & 0xFF]):
+                return False
+
+            if not self.wait_for_ack(timeout_ms):
+                return False
+
+            rx_bytes = self.wait_for_response(buf_len + 2, timeout_ms)
+            if len(rx_bytes) == 0:
+                return False
+
+            config_bytes += rx_bytes[2:len(rx_bytes)]
+
+        return config_bytes
 
     def wait_for_ack(self, timeout_ms=500):
         response = self.wait_for_response(1, timeout_ms)
