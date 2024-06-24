@@ -134,7 +134,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         get_cmd_byte = get_cmd[0] if isinstance(get_cmd, list) else get_cmd
         if does_response_include_length_byte(get_cmd_byte):
             length_to_read = 1
-            comparison_offset = 1
+            if get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND:
+                comparison_offset = 1
 
         # Delay to allow the Shimmer to enact the changes
         time.sleep(set_delay_s)
@@ -472,13 +473,28 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     # set commands
 
-    # def test_49_set_sensors_command(self):
-    #     print("Test 50 - set accel sensitivity command ")
-    #     tx_bytes = [0x01]
-    #     self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_SENSORS_COMMAND,
-    #                                 tx_bytes,
-    #                                 shimmer_comms_bluetooth.BtCmds.GET_SENSO,
-    #                                 shimmer_comms_bluetooth.BtCmds.ACCEL_RANGE_RESPONSE)
+    def test_49_set_sensors(self):
+        print("Test 49 - set sensors command ")
+
+        # Enable: LN Accel, Gyro, Mag, ExtCh7, ExtCh6, Battery, WR Accel, ExtCh15, IntCh1, IntCh12, IntCh13, IntCh14, Pressure (i.e., 11 analog ch and 11 digital ch)
+        tx_bytes = [0xE3, 0x3F, 0x84]
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_SENSORS_COMMAND] + tx_bytes)
+        self.bt_cmd_test_wait_for_ack()
+
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
+        if response[6] != 22:
+            self.assertTrue(False)
+
+        # reenable default config: LN accel, gyro, mag and battery voltage enabled (i.e., 4 analog ch and 6 digital ch)
+        tx_bytes = [0xE0, 0x20, 0x00]
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_SENSORS_COMMAND] + tx_bytes)
+        self.bt_cmd_test_wait_for_ack()
+
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
+        if response[6] != 10:
+            self.assertTrue(False)
 
     def test_50_set_accel_sensitivity_command(self):
         print("Test 50 - set accel sensitivity command ")
@@ -594,20 +610,20 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.INTERNAL_EXP_POWER_ENABLE_RESPONSE)
 
     def test_76_set_exg_regs_response(self):
-        # TODO implement the following
-        self.assertTrue(False)
-    # # tx_bytes = [0x01, 0x00, 0x03, 0x01, 0x04, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00]
-    # # # default 0x63 0x00 0x00 0x0A
-    # # # Chip 0
-    #     # self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, tx_bytes,
-    #     #                             shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
-    #     #                             shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
-    #     # # Chip 1
-    #     # self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, tx_bytes,
-    #     #                             shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND,
-    #     #                             shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
+        # Chip 0
+        # tx_bytes = [0x00, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01]  # default = ExG off
+        tx_bytes = [0x03, 0xAB, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01]  # Square wave @ 512 Hz
+        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, 0, 0, 10], tx_bytes,
+                                    [shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND, 0, 0, 10],
+                                    shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
+        # Chip 1
+        # tx_bytes = [0x00, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01]  # default = ExG off
+        tx_bytes = [0x03, 0xA3, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01]  # Square wave @ 512 Hz
+        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_EXG_REGS_COMMAND, 1, 0, 10], tx_bytes,
+                                    [shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND, 1, 0, 10],
+                                    shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
 
-   # no set daughter card id command - Test 77
+   # TODO no set daughter card id command - Test 77
 
     def test_78_set_baud_rate_command(self):
         print("Test 78 - Set baud Rate Command")
