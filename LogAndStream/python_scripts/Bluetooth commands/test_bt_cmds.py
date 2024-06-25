@@ -167,6 +167,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                           and ((128 + 96) <= i <= (128 + 101))):
                         # print("Skipping infomem C MAC ID")
                         continue
+                    elif (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND
+                          and (2 <= i <= 9)):
+                        # print("Skipping device and firmware version from calib file header")
+                        continue
                     else:
                         failed_indexes += [i]
 
@@ -768,8 +772,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_88_set_calib_dump(self):
         print("Test 88 - Set Calib Command")
 
-        tx_bytes = [0x52, 0x01,
-                    0x03, 0x00, 0x02, 0x00, 0x00, 0x00, 0x16, 0x04,
+        tx_bytes = [0x52, 0x01,  # Calib byte length
+                    0x03, 0x00,  # Device version
+                    0x02, 0x00, 0x00,  # Firmware identifier
+                    0x00, 0x16, 0x04,  # FW version
 
                     # 0x02 = SC_SENSOR_ANALOG_ACCEL
                     0x02, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
