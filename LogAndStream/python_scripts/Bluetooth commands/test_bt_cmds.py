@@ -562,6 +562,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     # set commands
 
+    def test_50_set_sampling_rate(self):
+        print("Test 50 - set accel sensitivity command ")
+
+        sampling_rate_hz = 102.4
+        sampling_rate_ticks = int(32768/sampling_rate_hz)
+
+        tx_bytes = [sampling_rate_ticks & 0xFF, (sampling_rate_ticks >> 8) & 0xFF]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_SAMPLING_RATE_COMMAND,
+                                    tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_SAMPLING_RATE_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.SAMPLING_RATE_RESPONSE)
+
     def test_49_set_sensors(self):
         print("Test 49 - set sensors command ")
 
