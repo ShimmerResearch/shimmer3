@@ -330,6 +330,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE, 1)
 
+        if response[0] == 0:
+            print("Battery High")
+        elif response[0] == 1:
+            print("Battery Mid")
+        elif response[0] == 2:
+            print("Battery Low")
+
     def test_18_get_mag_sampling(self):
         print("Test 18 - Get Mag sampling Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_SAMPLING_RATE_COMMAND,
@@ -525,12 +532,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.BT_VERSION_STR_RESPONSE, 1)
         print(bytes(response))
 
-    def test_44_get_charge_status_LED(self):
-        print("Test 44 - Get Charge status LED")
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE, 1)
-        print(bytes(response))
-
     def test_45_get_unique_serial_response(self):
         print("Test 45 - Unique Serial Response")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_UNIQUE_SERIAL_COMMAND,
@@ -710,7 +711,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_66_set_daughter_card_id(self):
         print("Test 66 - Set daughter card ID")
-        # self.assertTrue(False, "Test not implemented yet")
 
         if not self.shimmer.is_expansion_board_set():
             self.test_06_get_daughter_card_id(True)
@@ -940,10 +940,14 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.UPD_SDLOG_CFG_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-    def test_82_set_charge_status(self):
-        # TODO no set charge status LED - Test 93
-        print("Test 82 - Set charge status LED")
-        self.assertTrue(False, "Test not implemented yet")
+    # TODO set charge status not supported in LogAndStream
+    # def test_82_set_charge_status(self):
+    #     print("Test 82 - Set charge status LED")
+    #
+    #     tx_bytes = [0x01]
+    #     self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CHARGE_STATUS_LED_COMMAND, tx_bytes,
+    #                                 shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
+    #                                 shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE)
 
     def test_83_set_alt_accel(self):
         print("Test 82 - Set alt_accel")
@@ -977,7 +981,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
                                     shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
 
-
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
     #     print("Test 86 - streaming and logging")
@@ -990,23 +993,27 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_SDBT_COMMAND])
     #     self.bt_cmd_test_wait_for_ack()
 
-    def test_88_set_data_rate_test(self):
-        # TODO no data rate test present in FW
-        print("Test 88 - Set data rate test")
-        self.assertTrue(False, "Test not implemented yet")
+    # TODO decide what to do about this command
+    # def test_88_set_data_rate_test(self):
+    #     print("Test 88 - Set data rate test")
+    #     self.assertTrue(False, "Test not implemented yet")
 
     def test_89_set_instream_response(self):
         print(" Test 89: Instream response ack")
-        tx_bytes = [0x00] # default 1
+        tx_bytes = [0x00]  # default 1
         self.shimmer.bluetooth_port.send_bluetooth(
                                 [shimmer_comms_bluetooth.BtCmds.SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE] + tx_bytes)
         self.bt_cmd_test_wait_for_ack()
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.INSTREAM_CMD_RESPONSE])
 
     def test_90_set_sd_sync_response(self):
-        # TODO
         print("test 90: Set SD Sync")
-        self.assertTrue(False, "Test not implemented yet")
+
+        ts_ms = time.time()
+        tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
+        tx_bytes = [0x00] + tx_bytes + [0x00]  # first byte is to mock whether sensor isSensing, last byte mocks CRC
+        self.shimmer.bluetooth_port.send_bluetooth(
+                                [shimmer_comms_bluetooth.BtCmds.SET_SD_SYNC_COMMAND] + tx_bytes)
+        self.bt_cmd_test_wait_for_ack()
 
     # TODO decide what to do about this command
     # def test_91_start_logging(self):
@@ -1022,23 +1029,40 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_93_toggle_LED(self):
         print("Test 93 - toggle LED")
+
+        self.test_28_get_status(True)
+        red_led_state_before = self.shimmer.status_toggle_led_red
+
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
         self.bt_cmd_test_wait_for_ack()
+
+        self.test_28_get_status(True)
+
+        red_led_state_after = self.shimmer.status_toggle_led_red
+        self.assertTrue(red_led_state_before != red_led_state_after, "LED state didn't change in status")
+
+        # Turn LED off at end of test
+        if self.shimmer.status_toggle_led_red:
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
+            self.bt_cmd_test_wait_for_ack()
 
     def test_94_dummy_command(self):
         print("Test 94 - DummyCommand")
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.DUMMY_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-    def test_95_Start_Streaming(self):
-        print("Test 95 - Start Streaming")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_STREAMING_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_95_Start_Streaming(self):
+    #     print("Test 95 - Start Streaming")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_STREAMING_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
 
-    def test_96_Stop_Streaming(self):
-        print("Test 95 - Stop Streaming")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_STREAMING_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_96_Stop_Streaming(self):
+    #     print("Test 95 - Stop Streaming")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_STREAMING_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
+
 
 if __name__ == '__main__':
     unittest.main()
