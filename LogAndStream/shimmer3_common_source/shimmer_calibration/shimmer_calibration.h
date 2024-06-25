@@ -51,6 +51,7 @@ typedef union shimmer_calib_data_u
         int8_t align_zy;
         int8_t align_zz;
     } dd; //default data structure: 21byte as declared above in sc_default_t
+    uint8_t fillerByte;
 } sc_data_u;
 
 typedef struct shimmer_calib_t
@@ -147,5 +148,7 @@ extern uint8_t ShimmerCalib_ramRead(uint8_t* buf, uint8_t length,
                                     uint16_t offset);
 
 void ShimmerCalib_default(uint8_t sensor);
+
+void ShimmerCalib_singleSensorWriteFromInfoMem(uint16_t id, uint8_t range, uint8_t data_len, uint8_t *ptr);
 
 #endif //SHIMMER_CALIBRATION_H

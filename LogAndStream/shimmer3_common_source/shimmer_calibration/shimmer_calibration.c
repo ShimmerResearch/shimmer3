@@ -559,6 +559,15 @@ void ShimmerCalib_default(uint8_t sensor)
         sc1.data.dd.align_zz = -100;
         ShimmerCalib_singleSensorWrite(&sc1);
     }
-
 }
 
+void ShimmerCalib_singleSensorWriteFromInfoMem(uint16_t id, uint8_t range, uint8_t data_len, uint8_t *ptr)
+{
+    sc_t sc1;
+    sc1.id = id;
+    sc1.range = range;
+    sc1.data_len = data_len;
+    *(uint64_t*) (sc1.ts) = getRwcTime();
+    memcpy(sc1.data.raw, ptr, sc1.data_len);
+    ShimmerCalib_singleSensorWrite(&sc1);
+}
