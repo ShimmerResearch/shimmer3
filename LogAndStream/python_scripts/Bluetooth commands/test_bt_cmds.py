@@ -1011,6 +1011,15 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.DUMMY_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
+    def test_95_Start_Streaming(self):
+        print("Test 95 - Start Streaming")
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_STREAMING_COMMAND])
+        self.bt_cmd_test_wait_for_ack()
+
+    def test_96_Stop_Streaming(self):
+        print("Test 95 - Stop Streaming")
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_STREAMING_COMMAND])
+        self.bt_cmd_test_wait_for_ack()
 
 if __name__ == '__main__':
     unittest.main()
