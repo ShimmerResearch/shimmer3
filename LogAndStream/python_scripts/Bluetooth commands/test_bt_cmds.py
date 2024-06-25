@@ -117,20 +117,22 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         return response[i:len(response)]
 
-    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd, set_delay_s=0.5):
+    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd, set_delay_s=0.5, check_original_value=True):
 
         comparison_offset = 0
         length_to_read = len(set_bytes)
         get_cmd_byte = get_cmd[0] if isinstance(get_cmd, list) else get_cmd
         if does_response_include_length_byte(get_cmd_byte):
             length_to_read = 1
-            if get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND:
+            if get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND\
+                    and get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
                 comparison_offset = 1
 
-        # Make sure the value being set isn't the same as the one that's already set in the Shimmer - otherwise it's not a valid test
-        print("Reading original setting from Shimmer:")
-        response = self.bt_cmd_test_get_common(get_cmd, response_cmd, length_to_read)
-        self.compare_set_get_arrays(set_bytes, response, comparison_offset, get_cmd_byte, True)
+        if check_original_value:
+            # Make sure the value being set isn't the same as the one that's already set in the Shimmer - otherwise it's not a valid test
+            print("Reading original setting from Shimmer:")
+            response = self.bt_cmd_test_get_common(get_cmd, response_cmd, length_to_read)
+            self.compare_set_get_arrays(set_bytes, response, comparison_offset, get_cmd_byte, True)
 
         bytes_to_send = set_cmd if isinstance(set_cmd, list) else [set_cmd]
         bytes_to_send += set_bytes
@@ -672,9 +674,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.EXG_REGS_RESPONSE)
 
     def test_77_set_daughter_card_id(self):
-        # TODO no set daughter card id command - Test 77
         print("Test 77 - Set daughter card ID")
-        self.assertTrue(False, "Test not implemented yet")
+        # self.assertTrue(False, "Test not implemented yet")
+
+        if not self.shimmer.is_expansion_board_set():
+            self.test_06_get_daughter_card_id(True)
+
+        # Not going to risk changing the daughter card ID here so just going to try and write the same one back
+        tx_bytes = [self.shimmer.daughter_card_id, self.shimmer.daughter_card_rev_major, self.shimmer.daughter_card_rev_minor]
+        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
+                                    tx_bytes,
+                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
+                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE,
+                                    check_original_value=False)
 
     def test_78_set_baud_rate(self):
         print("Test 78 - Set baud Rate Command")
