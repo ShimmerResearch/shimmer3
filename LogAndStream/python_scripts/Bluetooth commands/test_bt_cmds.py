@@ -154,6 +154,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             if (ts_s_read - ts_s_written) > (0.5 + set_delay_s):
                 self.assertTrue(False, "RWC time out of range")
         else:
+            failed_indexes = []
+
             for i in range(0, len(set_bytes) - comparison_offset):
                 if set_bytes[i + comparison_offset] is not response[i]:
                     # FIXME something is overwriting byte index 96 infomem D from 256 to 8 (note index 96 is the same index
@@ -166,13 +168,20 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                         # print("Skipping infomem C MAC ID")
                         continue
                     else:
-                        print("Comparison offset = ", comparison_offset)
-                        print("Failure index = ", i + comparison_offset)
-                        print("TX bytes = ",
-                              util_shimmer.byte_array_to_hex_string(set_bytes[comparison_offset:len(set_bytes)]))
-                        print("RX bytes = ", util_shimmer.byte_array_to_hex_string(response))
+                        failed_indexes += [i]
 
-                        self.assertTrue(False, ("RX byte != TX byte at index %i", i))
+            if len(failed_indexes) > 0:
+                print("Comparison offset = ", comparison_offset)
+                print("Failure indexes = ", failed_indexes)
+                print("Indexes =  [", end="")
+                for x in range(len(set_bytes)):
+                    print(f"{x:4}", end=" ")
+                print("")
+                print("TX bytes =",
+                      util_shimmer.byte_array_to_hex_string(set_bytes[comparison_offset:len(set_bytes)]))
+                print("RX bytes =", util_shimmer.byte_array_to_hex_string(response))
+
+                self.assertTrue(False, ("RX byte != TX byte at index %i", i))
 
     def bt_cmd_test_wait_for_ack(self, timeout_ms=500):
         result = self.shimmer.bluetooth_port.wait_for_ack(timeout_ms)
@@ -719,17 +728,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_87_set_InfoMem(self):
         print("Test 87 - Set InfoMem Command")
 
-        # self.shimmer.bluetooth_port.send_bluetooth(
-        #     [shimmer_comms_bluetooth.BtCmds.RESET_TO_DEFAULT_CONFIGURATION_COMMAND])
-        # self.bt_cmd_test_wait_for_ack()
-        #
-        # time.sleep(2)
-        #
-        # self.shimmer.bluetooth_port.send_bluetooth(
-        #     [shimmer_comms_bluetooth.BtCmds.RESET_CALIBRATION_VALUE_COMMAND])
-        # self.bt_cmd_test_wait_for_ack()
-        #
-        # time.sleep(2)
+        # self.test_02_reset_default_config()
+        # self.test_03_reset_default_calib()
 
         #  Config generated below from Consensys in-which:
         #  Trial name = UnitTests
@@ -760,6 +760,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_INFOMEM_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.INFOMEM_RESPONSE, 2)
@@ -816,11 +817,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     0x20, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x9B, 0x02, 0x9B, 0x02, 0x9B, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x08]  # Calibration bytes
+                    0x00, 0x00, 0x00, 0x00, 0x9C]  # Calibration bytes
 
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CALIB_DUMP_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND)
+                                    shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND, 2)
 
     def test_89_set_crc(self):
         print("Test 89 - Set CRC Command")
