@@ -485,6 +485,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         if self.shimmer.status_is_docked:
             self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
+        elif not self.shimmer.status_sd_in_slot:
+            self.assertTrue(False, "No SD card detected")
+        elif not self.shimmer.status_sd_error:
+            self.assertTrue(False, "SD card error detected")
         else:
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
                                                    shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
