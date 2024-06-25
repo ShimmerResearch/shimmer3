@@ -251,7 +251,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.DEVICE_VERSION_RESPONSE, 1)
         self.shimmer.hw_ver = response[0]
 
-    def test_05_FW_Version_response(self):
+    def test_05_get_fw_version(self):
         print("Test 05 - Get FW response command")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_FW_VERSION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.FW_VERSION_RESPONSE, 6)
@@ -456,7 +456,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MYID_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.MYID_RESPONSE, 1)
 
-    def test_36_NSHIMMER(self):
+    def test_36_get_number_of_shimmers_in_trial(self):
         print("Test 36 - Get nshimmer response command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_NSHIMMER_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.NSHIMMER_RESPONSE, 1)
@@ -533,19 +533,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.UNIQUE_SERIAL_RESPONSE, 1)
         print(response)
 
-    def test_46_Get_pres_oversampling_ratio(self):
+    def test_46_get_pres_oversampling_ratio(self):
         print("Test 46 - Pres Oversampling")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_PRES_OVERSAMPLING_RATIO_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.PRES_OVERSAMPLING_RATIO_RESPONSE, 1)
         print(response)
 
-    def test_47_alt_accel_range(self):
+    def test_47_get_alt_accel_range(self):
         print("Test 47 - ALT accel range")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_RANGE_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_RANGE_RESPONSE, 1)
         print(response)
 
-    def test_48_daughter_card_mem(self):
+    def test_48_get_daughter_card_mem(self):
         # TODO no set daughter card id command - Test 48
         print("Test 48 - Get daughter card mem")
         self.assertTrue(False, "Test not implemented yet")
@@ -925,12 +925,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.GET_RWC_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.RWC_RESPONSE)
 
-    def test_80_UPD_calib_dump(self):  # not present in set
+    def test_80_update_calib_dump(self):  # not present in set
         print("Test 80 - UPD Calib Dump Command")
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.UPD_CALIB_DUMP_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-    def test_81_UPD_SDlog_Cfg(self):
+    def test_81_update_sdlog_cfg(self):
         print("Test 81 - UPD SDlog Cfg Command")
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.UPD_SDLOG_CFG_COMMAND])
         self.bt_cmd_test_wait_for_ack()
@@ -959,15 +959,17 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("Test 85 - Set daughter card mem")
         self.assertTrue(False, "Test not implemented yet")
 
-    def test_86_start_sdbt(self):
-        print("Test 86 - SDBT")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_SDBT_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_86_start_streaming_and_logging(self):
+    #     print("Test 86 - streaming and logging")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_SDBT_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
 
-    def test_87_stop_sdbt(self):
-        print("Test 87 - SDBT")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_SDBT_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_87_stop_streaming_and_logging(self):
+    #     print("Test 87 - streaming and logging")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_SDBT_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
 
     def test_88_set_data_rate_test(self):
         # TODO no data rate test present in FW
@@ -987,15 +989,17 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("test 90: Set SD Sync")
         self.assertTrue(False, "Test not implemented yet")
 
-    def test_91_start_logging(self):
-        print("Test 91 - Start logging")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_LOGGING_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_91_start_logging(self):
+    #     print("Test 91 - Start logging")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_LOGGING_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
 
-    def test_92_stop_logging(self):
-        print("Test 92 - Stop logging")
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_LOGGING_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
+    # TODO decide what to do about this command
+    # def test_92_stop_logging(self):
+    #     print("Test 92 - Stop logging")
+    #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_LOGGING_COMMAND])
+    #     self.bt_cmd_test_wait_for_ack()
 
     def test_93_toggle_LED(self):
         print("Test 93 - toggle LED")
