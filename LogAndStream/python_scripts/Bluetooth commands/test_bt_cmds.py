@@ -7,6 +7,7 @@ from Shimmer_common import shimmer_device, shimmer_app_common
 
 def does_response_include_length_byte(get_cmd):
     return (get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND
@@ -96,6 +97,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 if isinstance(response, bool) or response is None or len(response) == 0:
                     if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
                         self.assertTrue(False, "Error reading daughter card ID ")
+                    elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND:
+                        self.assertTrue(False, "Error reading daughter card memory")
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND:
                         self.assertTrue(False, "Error reading exg regs")
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND:
@@ -124,8 +127,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         get_cmd_byte = get_cmd[0] if isinstance(get_cmd, list) else get_cmd
         if does_response_include_length_byte(get_cmd_byte):
             length_to_read = 1
-            if get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND\
-                    and get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND:
+            if (get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_EXG_REGS_COMMAND
+                    and get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
+                    and get_cmd_byte != shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND):
                 comparison_offset = 1
 
         if check_original_value:
@@ -546,9 +550,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print(response)
 
     def test_48_get_daughter_card_mem(self):
-        # TODO no set daughter card id command - Test 48
         print("Test 48 - Get daughter card mem")
-        self.assertTrue(False, "Test not implemented yet")
+        response = self.bt_cmd_test_get_common([shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, 10, 0, 0],
+                                               shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE, 1)
+        print(response)
 
     # set commands
 
@@ -955,9 +960,23 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.PRES_OVERSAMPLING_RATIO_RESPONSE)
 
     def test_85_set_daughter_card_mem(self):
-        # TODO no set daughter card mem - Test 85
         print("Test 85 - Set daughter card mem")
-        self.assertTrue(False, "Test not implemented yet")
+
+        shimmer_name = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        tx_bytes = [ord(c) for c in shimmer_name]
+
+        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                                    tx_bytes,
+                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
+
+        # Reset the EEPROM memory
+        tx_bytes = [0xFF] * len(shimmer_name)
+        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                                    tx_bytes,
+                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
+
 
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
