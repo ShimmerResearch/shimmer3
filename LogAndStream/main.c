@@ -3821,18 +3821,15 @@ void ProcessCommand(void)
                 && (dcMemLength + dcMemOffset <= 16))
             dcIdResponse = 1;
         break;
-
     case SET_DAUGHTER_CARD_ID_COMMAND:
-#if FACTORY_TEST
-            dcMemLength = args[0];
-            dcMemOffset = args[1];
-            if ((dcMemLength <= 16) && (dcMemOffset <= 15)
-                    && (dcMemLength + dcMemOffset <= 16))
-            {
-                eepromReadWrite(dcMemOffset, dcMemLength, args + 2U, EEPROM_WRITE);
-            }
-            break;
-#endif
+        dcMemLength = args[0];
+        dcMemOffset = args[1];
+        if ((dcMemLength <= 16) && (dcMemOffset <= 15)
+                && (dcMemLength + dcMemOffset <= 16))
+        {
+            eepromReadWrite(dcMemOffset, dcMemLength, args + 2U, EEPROM_WRITE);
+        }
+        break;
     case GET_DAUGHTER_CARD_MEM_COMMAND:
         dcMemLength = args[0];
         dcMemOffset = args[1] + (args[2] << 8);

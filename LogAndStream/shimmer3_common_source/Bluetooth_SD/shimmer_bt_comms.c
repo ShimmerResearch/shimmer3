@@ -286,42 +286,43 @@ uint8_t Dma2ConversionDone(void)
         {
             if (waitingForArgs)
             {
-                if ((!waitingForArgsLength)
-                        && ((*(gActionPtr) == SET_EXG_REGS_COMMAND)
-                                && (waitingForArgs == 3)))
+                if ((!waitingForArgsLength) && (waitingForArgs == 3)
+                        && (*(gActionPtr) == SET_INFOMEM_COMMAND
+                                || *(gActionPtr) == SET_CALIB_DUMP_COMMAND
+                                || *(gActionPtr) == SET_DAUGHTER_CARD_MEM_COMMAND
+                                || *(gActionPtr) == SET_EXG_REGS_COMMAND))
                 {
                     gArgsPtr[0] = btRxBuff[0];
                     gArgsPtr[1] = btRxBuff[1];
                     gArgsPtr[2] = btRxBuff[2];
-                    waitingForArgsLength = gArgsPtr[2];
+                    if (*(gActionPtr) == SET_EXG_REGS_COMMAND)
+                    {
+                        waitingForArgsLength = gArgsPtr[2];
+                    }
+                    else
+                    {
+                        waitingForArgsLength = gArgsPtr[0];
+                    }
                     setDmaWaitingForResponse(waitingForArgsLength);
                     return 0;
                 }
-                else if ((!waitingForArgsLength)
-                        && (((*(gActionPtr) == SET_INFOMEM_COMMAND)
-                                && (waitingForArgs == 3))
-                                || ((*(gActionPtr) == SET_CALIB_DUMP_COMMAND)
-                                        && (waitingForArgs == 3))))
+                else if ((!waitingForArgsLength) && (waitingForArgs == 2)
+                        && (*(gActionPtr) == SET_DAUGHTER_CARD_ID_COMMAND))
                 {
                     gArgsPtr[0] = btRxBuff[0];
                     gArgsPtr[1] = btRxBuff[1];
-                    gArgsPtr[2] = btRxBuff[2];
-                    waitingForArgsLength = gArgsPtr[0];
-                    setDmaWaitingForResponse(waitingForArgsLength);
+                    if (gArgsPtr[0])
+                    {
+                        waitingForArgsLength = gArgsPtr[0];
+                        setDmaWaitingForResponse(waitingForArgsLength);
+                    }
                     return 0;
                 }
-                else if ((!waitingForArgsLength) && (
-                //                ((*(gActionPtr) == SET_DAUGHTER_CARD_ID_COMMAND) && (waitingForArgs == 1)) ||
-                        ((*(gActionPtr) == SET_DAUGHTER_CARD_MEM_COMMAND)
-                                && (waitingForArgs == 1))
-                                || ((*(gActionPtr) == SET_CENTER_COMMAND)
-                                        && (waitingForArgs == 1))
-                                || ((*(gActionPtr) == SET_CONFIGTIME_COMMAND)
-                                        && (waitingForArgs == 1))
-                                || ((*(gActionPtr) == SET_EXPID_COMMAND)
-                                        && (waitingForArgs == 1))
-                                || ((*(gActionPtr) == SET_SHIMMERNAME_COMMAND)
-                                        && (waitingForArgs == 1))))
+                else if ((!waitingForArgsLength) && (waitingForArgs == 1)
+                        && (*(gActionPtr) == SET_CENTER_COMMAND
+                                || *(gActionPtr) == SET_CONFIGTIME_COMMAND
+                                || *(gActionPtr) == SET_EXPID_COMMAND
+                                || *(gActionPtr) == SET_SHIMMERNAME_COMMAND))
                 {
                     gArgsPtr[0] = btRxBuff[0];
                     if (gArgsPtr[0])
@@ -901,7 +902,7 @@ uint8_t Dma2ConversionDone(void)
                     break;
                 case SET_SAMPLING_RATE_COMMAND:
                 case GET_DAUGHTER_CARD_ID_COMMAND:
-                    //                case SET_DAUGHTER_CARD_ID_COMMAND:
+                case SET_DAUGHTER_CARD_ID_COMMAND:
                     *(gActionPtr) = data;
                     waitingForArgs = 2U;
                     break;
@@ -1818,6 +1819,7 @@ uint8_t processShimmerBtCmd(void)
     /* 1 command byte, 2 argument bytes */
     case SET_SAMPLING_RATE_COMMAND:
     case GET_DAUGHTER_CARD_ID_COMMAND:
+    case SET_DAUGHTER_CARD_ID_COMMAND:
         if(numBytesInBtRxBufWhenLastProcessed>=(1U+2U))
         {
             readActionAndArgBytes(2U);
@@ -2082,6 +2084,7 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case SET_DATA_RATE_TEST:
     case SET_SAMPLING_RATE_COMMAND:
     case GET_DAUGHTER_CARD_ID_COMMAND:
+    case SET_DAUGHTER_CARD_ID_COMMAND:
     case SET_SENSORS_COMMAND:
     case GET_EXG_REGS_COMMAND:
     case SET_EXG_REGS_COMMAND:
