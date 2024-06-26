@@ -1,12 +1,15 @@
 import sys
 
-import shimmer_device
+from Shimmer_common import shimmer_device
 
 
-def get_selected_com_port():
+def get_selected_com_port(dock_ports=True):
     com_port = ''
     if len(sys.argv) < 2:
-        options = shimmer_device.serial_ports_shimmer_dock()
+        if dock_ports:
+            options = shimmer_device.serial_ports_shimmer_dock()
+        else:
+            options = shimmer_device.serial_ports_bluetooth()
 
         if len(options) > 0:
             user_input = ''
