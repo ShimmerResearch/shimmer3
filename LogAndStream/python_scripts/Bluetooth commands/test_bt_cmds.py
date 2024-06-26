@@ -232,14 +232,16 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
 
-    def test_02_reset_default_config(self):
-        print("Test 02 - Reset Default config:")
+    def test_02_reset_default_config(self, run_with_other_test=False):
+        if not run_with_other_test:
+            print("Test 02 - Reset Default config:")
         self.shimmer.bluetooth_port.send_bluetooth(
             [shimmer_comms_bluetooth.BtCmds.RESET_TO_DEFAULT_CONFIGURATION_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-    def test_03_reset_default_calib(self):
-        print("Test 03 - Reset Default calib:")
+    def test_03_reset_default_calib(self, run_with_other_test=False):
+        if not run_with_other_test:
+            print("Test 03 - Reset Default calib:")
         self.shimmer.bluetooth_port.send_bluetooth(
             [shimmer_comms_bluetooth.BtCmds.RESET_CALIBRATION_VALUE_COMMAND])
         self.bt_cmd_test_wait_for_ack()
@@ -1067,6 +1069,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #     print("Test 95 - Stop Streaming")
     #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_STREAMING_COMMAND])
     #     self.bt_cmd_test_wait_for_ack()
+
+    def test_99_reset_config_and_calib_after_testing(self):
+        print("\r\nResetting Shimmer's config and calibration\r\n")
+        self.test_02_reset_default_config(True)
+        self.test_03_reset_default_calib(True)
 
 
 if __name__ == '__main__':
