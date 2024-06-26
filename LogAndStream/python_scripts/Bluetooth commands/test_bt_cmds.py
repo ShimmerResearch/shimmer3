@@ -182,14 +182,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             if ((len(response) > i)
                     and ((check_original_value and (set_bytes[i + comparison_offset] is response[i]))
                          or (not check_original_value and (set_bytes[i + comparison_offset] is not response[i])))):
-                # FIXME something is overwriting byte index 96 infomem D from 256 to 8 (note index 96 is the same index
-                #  in infomem C for mac id protection)
                 if (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
-                        and i == 96):
-                    print("FIXME: Skipping != @ infomem D byte index 96 comparison")
-                elif (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
                       and ((128 + 96) <= i <= (128 + 101))):
-                    # print("Skipping infomem C MAC ID")
+                    # print("Skipping MAC ID in infomem C")
                     continue
                 elif (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND
                       and (2 <= i <= 9)):
@@ -486,7 +481,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
         elif not self.shimmer.status_sd_in_slot:
             self.assertTrue(False, "No SD card detected")
-        elif not self.shimmer.status_sd_error:
+        elif self.shimmer.status_sd_error:
             self.assertTrue(False, "SD card error detected")
         else:
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
@@ -773,7 +768,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_71_set_shimmerName(self):
         print("Test 71 - Set Shimmer Name Command ")
-        shimmer_name = "Shimmer3"
+        shimmer_name = "UnitTest71"
         tx_bytes = [ord(c) for c in shimmer_name]
         tx_bytes = [len(tx_bytes)] + tx_bytes
 
@@ -783,7 +778,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_72_set_ExpID(self):
         print("Test 72 - Set ExpId command")
-        experiment_id = "ExPID"
+        experiment_id = "UnitTest72"
         tx_bytes = [ord(c) for c in experiment_id]
         tx_bytes = [len(tx_bytes)] + tx_bytes
 
