@@ -245,6 +245,7 @@ uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
 uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20,
         blinkCnt50;
 uint64_t firstTs, fileLastHour, fileLastMin;
+volatile uint8_t currentSampleTsTicks[4];
 
 volatile uint8_t fileBad, fileBadCnt, toggleLedRed;
 static FRESULT ff_result;
@@ -2920,8 +2921,6 @@ uint8_t timeStampLen;
 __interrupt void TIMER0_B0_ISR(void)
 {
     uint16_t timer_b0 = GetTB0();
-
-    uint8_t rtc_temp[4];
     TB0CCR0 = timer_b0 + *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
 
     if (!streamDataInProc)
@@ -2932,26 +2931,18 @@ __interrupt void TIMER0_B0_ISR(void)
         {
             firstTs = RTC_get64();
             firstTsFlag = 2;
-            *(uint32_t*) rtc_temp = (uint64_t) firstTs;
+            *(uint32_t*) currentSampleTsTicks = (uint64_t) firstTs;
         }
         else
         {
-            *(uint32_t*) rtc_temp = RTC_get32();
+            *(uint32_t*) currentSampleTsTicks = RTC_get32();
         }
-        if (currentBuffer)
-        {
-            //*((uint16_t *)(txBuff1+2)) = timer_b0;   //the first two bytes are packet type bytes. reserved for BTstream
-            txBuff1[1] = rtc_temp[0];
-            txBuff1[2] = rtc_temp[1];
-            txBuff1[3] = rtc_temp[2];
-        }
-        else
-        {
-            //*((uint16_t *)(txBuff0+2)) = timer_b0;
-            txBuff0[1] = rtc_temp[0];
-            txBuff0[2] = rtc_temp[1];
-            txBuff0[3] = rtc_temp[2];
-        }
+
+        uint8_t *current_buffer_ptr = currentBuffer ? txBuff1 : txBuff0;
+        // The first byte is packet type byte when Bluetooth streaming
+        current_buffer_ptr[1] = currentSampleTsTicks[0];
+        current_buffer_ptr[2] = currentSampleTsTicks[1];
+        current_buffer_ptr[3] = currentSampleTsTicks[2];
 #else
         if(currentBuffer)
         {
@@ -7229,14 +7220,31 @@ void StreamData()
         digi_offset += 6;
     }
 
-    uint8_t icm20948MagBuf[6] = {0};
+    uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = {0};
     uint8_t icm20948MagRdy = 0;
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
             || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
-        if(icm20948MagRdy = ICM20948_isMagDataRdy())
+        if (ICM20948_isMagSampleSkipEnabled())
         {
-            ICM20948_getMag(&icm20948MagBuf[0]);
+            /* This system tries to avoid lock-up scenario in the ICM20948 Mag
+             * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
+             * if the chip was being read from too often. */
+            if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
+            {
+                icm20948MagRdy = ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+            }
+        }
+        else
+        {
+            /* Original approach in-which the status 1 register is read first
+             * before reading the remaining bytes. This approach was found to
+             * work fine <512Hz but after that it would cause packet loss due
+             * to the length of time the I2C operations take to finish. */
+            if(icm20948MagRdy = ICM20948_isMagDataRdy())
+            {
+                ICM20948_getMag(&icm20948MagBuf[1]);
+            }
         }
     }
 
@@ -7276,14 +7284,14 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[0U];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[1U];
+                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
 
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[2U];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[3U];
+                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
 
                 //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
-                int16_t signInvertBuffer = - ((int16_t)((icm20948MagBuf[5U] << 8) | icm20948MagBuf[4U]));
+                int16_t signInvertBuffer = - ((int16_t)((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8) | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
                 current_buffer_ptr[digi_offset + 4U] = signInvertBuffer & 0xFF;
                 current_buffer_ptr[digi_offset + 5U] = (signInvertBuffer >> 8) & 0xFF;
             }
@@ -7329,12 +7337,12 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[0U];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[1U];
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[2U];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[3U];
-                current_buffer_ptr[digi_offset + 4U] = icm20948MagBuf[4U];
-                current_buffer_ptr[digi_offset + 5U] = icm20948MagBuf[5U];
+                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+                current_buffer_ptr[digi_offset + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
+                current_buffer_ptr[digi_offset + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
             }
             else
             {

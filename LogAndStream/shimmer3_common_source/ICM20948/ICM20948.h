@@ -104,7 +104,25 @@
 #define CNTL2                   0x31
 #define CNTL3                   0x32
 
-typedef enum AK09916_OP_MODE {
+#define SAMPLING_TIMER_TICKS_100Hz   328 // ceil(32768/100Hz) = 328. i.e., 99.90244Hz
+#define SAMPLING_TIMER_TICKS_512Hz   64 // 32768/512Hz = 64
+
+enum ICM_MAG_ALTERNATIVE_READ_IDX
+{
+    ICM_MAG_IDX_ST1,
+    ICM_MAG_IDX_XOUT_L,
+    ICM_MAG_IDX_XOUT_H,
+    ICM_MAG_IDX_YOUT_L,
+    ICM_MAG_IDX_YOUT_H,
+    ICM_MAG_IDX_ZOUT_L,
+    ICM_MAG_IDX_ZOUT_H,
+    ICM_MAG_IDX_TMPS,
+    ICM_MAG_IDX_ST2,
+    ICM_MAG_RD_SIZE
+};
+
+typedef enum AK09916_OP_MODE
+{
     AK09916_PWR_DOWN           = 0x00,
     AK09916_TRIGGER_MODE       = 0x01,
     AK09916_CONT_MODE_10HZ     = 0x02,
@@ -176,6 +194,10 @@ uint8_t ICM20948_isMagDataRdy(void);
 //if values are 32767 they are not valid
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf);
+
+uint8_t ICM20948_isMagSampleSkipEnabled(void);
+uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks);
+uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf);
 
 //read the x, y and z mag sensitivity adjustment values
 void ICM20948_getMagSensitivityAdj(uint8_t *buf);
