@@ -13,7 +13,8 @@ def does_response_include_length_byte(get_cmd):
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_CONFIGTIME_COMMAND
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_SHIMMERNAME_COMMAND
             or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_EXPID_COMMAND
-            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND)
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND
+            or get_cmd == shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND)
 
 
 class TestShimmerBluetoothCommunication(unittest.TestCase):
@@ -108,6 +109,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_SHIMMERNAME_COMMAND:
                         self.assertTrue(False, "Error reading directory")
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND:
+                        self.assertTrue(False, "Error bt version command")
+                    elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
                         self.assertTrue(False, "Error bt version command")
                     else:
                         self.assertTrue(False, "Error - unhandled")
@@ -246,14 +249,16 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             [shimmer_comms_bluetooth.BtCmds.RESET_CALIBRATION_VALUE_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-    def test_04_get_shimmer_new_version(self):
-        print("Test 04 - Get new Shimmer version response command:")
+    def test_04_get_shimmer_new_version(self, run_with_other_test=False):
+        if not run_with_other_test:
+            print("Test 04 - Get new Shimmer version response command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DEVICE_VERSION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.DEVICE_VERSION_RESPONSE, 1)
         self.shimmer.hw_ver = response[0]
 
-    def test_05_get_fw_version(self):
-        print("Test 05 - Get FW response command")
+    def test_05_get_fw_version(self, run_with_other_test=False):
+        if not run_with_other_test:
+            print("Test 05 - Get FW response command")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_FW_VERSION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.FW_VERSION_RESPONSE, 6)
         self.shimmer.parse_fw_ver_bytes(response)
@@ -380,11 +385,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 shimmer_comms_bluetooth.BtCmds.GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP280_CALIBRATION_COEFFICIENTS_RESPONSE, 24)
         else:
-         #   print("Skipping test, BMPX80 not present in device")
-            print(" Get Common Pressure Calibration Chip")
-            response = self.bt_cmd_test_get_common(
-                shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND,
-                shimmer_comms_bluetooth.BtCmds.PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE, 2)
+            print("Skipping test, BMP180/BMP280 not present in device")
 
     def test_25_get_alt_mag_sens_adj_vals_response(self):
         # Shimmer3 utilising ICM-20948 instead of MPU9150/MPU9250 will only respond back with ACK as the ICM-20948
@@ -1074,10 +1075,25 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_STREAMING_COMMAND])
     #     self.bt_cmd_test_wait_for_ack()
 
+    def test_95_get_Pressure_Calibration_coefficients(self):
+        print("Test 95 - Get Common Pressure Calibration Chip")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_05_get_fw_version(True)
+
+        if self.shimmer.is_bt_cmd_common_pressure_calibation_supported():
+            response = self.bt_cmd_test_get_common(
+                shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND,
+                shimmer_comms_bluetooth.BtCmds.PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE, 1)
+        else:
+            print("Skipping test, command not supported in firmware")
+
     def test_99_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
         self.test_02_reset_default_config(True)
         self.test_03_reset_default_calib(True)
+
 
 
 if __name__ == '__main__':

@@ -1,8 +1,12 @@
 import serial.tools.list_ports
 from enum import Enum
 
-from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth
+from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth, util_shimmer
 
+
+class SrHwVer(Enum):
+    SHIMMER3 = 3
+    SHIMMER3R = 10
 
 class SrBoardCodes(Enum):
     EXP_BRD_BR_AMP = 8
@@ -159,6 +163,14 @@ class Shimmer3:
                 and self.daughter_card_rev_major is not None
                 and self.daughter_card_rev_minor is not None)
 
+    def is_hardware_version_set(self):
+        return self.hw_ver is not None
+
+    def is_firmware_version_set(self):
+        return (self.fw_ver_major is not None
+                and self.fw_ver_minor is not None
+                and self.fw_ver_internal is not None)
+
     def is_icm20948_present(self):
         return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and (self.daughter_card_rev_major == 9
                                                                                    or self.daughter_card_rev_major == 10))
@@ -196,3 +208,12 @@ class Shimmer3:
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE.value and self.daughter_card_rev_major <= 4)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI.value and self.daughter_card_rev_major <= 4)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major <= 3)))
+
+    def is_bt_cmd_common_pressure_calibation_supported(self):
+        return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0, 16, 6))
+        # TODO update this with the actual SHIMMER3R HW and FW ID once fully implemented
+                or (self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(1, 0, 0)))
+
+    def compare_versions(self, comp_major, comp_minor, comp_internal):
+        return util_shimmer.compare_versions(self.fw_ver_major, self.fw_ver_minor, self.fw_ver_internal, comp_major,
+                                             comp_minor, comp_internal)
