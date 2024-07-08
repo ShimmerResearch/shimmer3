@@ -380,7 +380,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 shimmer_comms_bluetooth.BtCmds.GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP280_CALIBRATION_COEFFICIENTS_RESPONSE, 24)
         else:
-            print("Skipping test, BMPX80 not present in device")
+         #   print("Skipping test, BMPX80 not present in device")
+            print(" Get Common Pressure Calibration Chip")
+            response = self.bt_cmd_test_get_common(
+                shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND,
+                shimmer_comms_bluetooth.BtCmds.PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE, 2)
 
     def test_25_get_alt_mag_sens_adj_vals_response(self):
         # Shimmer3 utilising ICM-20948 instead of MPU9150/MPU9250 will only respond back with ACK as the ICM-20948
