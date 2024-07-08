@@ -211,8 +211,7 @@ class Shimmer3:
 
     def is_bt_cmd_common_pressure_calibation_supported(self):
         return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0, 16, 6))
-        # TODO update this with the actual SHIMMER3R HW and FW ID once fully implemented
-                or (self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(1, 0, 0)))
+                or (self.hw_ver == SrHwVer.SHIMMER3R.value and self.compare_versions(0, 1, 0)))
 
     def compare_versions(self, comp_major, comp_minor, comp_internal):
         return util_shimmer.compare_versions(self.fw_ver_major, self.fw_ver_minor, self.fw_ver_internal, comp_major,

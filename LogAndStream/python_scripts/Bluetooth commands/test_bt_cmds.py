@@ -121,6 +121,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 print("Clear CRC byte(s)")
                 self.shimmer.bluetooth_port.wait_for_response(1)
 
+            time.sleep(0.2)
+            unexpected_byte_len = self.shimmer.bluetooth_port.get_qty_waiting_in_port()
+            if unexpected_byte_len > 0:
+                unexpected_bytes = self.shimmer.bluetooth_port.wait_for_response(unexpected_byte_len)
+                print("Unexpected RX bytes =", util_shimmer.byte_array_to_hex_string(unexpected_bytes))
+                self.assertTrue(False, "Unexpected bytes in COM port")
+
         return response[i:len(response)]
 
     def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd, set_delay_s=0.5, check_original_value=True):
@@ -539,9 +546,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_44_get_unique_serial_response(self):
         print("Test 44 - Unique Serial Response")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
+
+        expected_len = 1
+        if self.shimmer.hw_ver == shimmer_device.SrHwVer.SHIMMER3.value:
+            expected_len = 8
+        elif self.shimmer.hw_ver == shimmer_device.SrHwVer.SHIMMER3R.value:
+            expected_len = 12
+
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_UNIQUE_SERIAL_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.UNIQUE_SERIAL_RESPONSE, 1)
-        print(response)
+                                               shimmer_comms_bluetooth.BtCmds.UNIQUE_SERIAL_RESPONSE, expected_len)
+
+        print("MCU's unique serial ID: ", response)
 
     def test_45_get_pres_oversampling_ratio(self):
         print("Test 45 - Pres Oversampling")
