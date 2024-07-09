@@ -172,7 +172,7 @@ class Shimmer3:
                 and self.fw_ver_internal is not None)
 
     def is_icm20948_present(self):
-        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and (self.daughter_card_rev_major == 9
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and (self.daughter_card_rev_major == 9
                                                                                    or self.daughter_card_rev_major == 10))
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and (self.daughter_card_rev_major == 5
                                                                                    or self.daughter_card_rev_major == 6))
@@ -187,7 +187,7 @@ class Shimmer3:
                         self.daughter_card_rev_major == 2 or self.daughter_card_rev_major == 3)))
 
     def is_bmp180_present(self):
-        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 5)
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 5)
                 or self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG.value
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 2)
                 or self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR.value
@@ -199,7 +199,7 @@ class Shimmer3:
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major == 1))
 
     def is_bmp280_present(self):
-        return ((not self.is_bmp180_present()) and
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((not self.is_bmp180_present()) and
                 (self.daughter_card_rev_major == 171
                  or (self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 10)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 6)

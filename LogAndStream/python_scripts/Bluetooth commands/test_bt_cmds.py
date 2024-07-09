@@ -380,6 +380,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_24_get_BMPX80_Calibration_coefficients(self):
         print("Test 24 - Get BMPX80 Calibration response command:")
 
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
         if not self.shimmer.is_expansion_board_set():
             self.test_06_get_daughter_card_id(True)
 
@@ -399,16 +401,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         # does not support changing the mag range.
         print("Test 25 - Get alternative Mag Sens Adj Vals response command:")
 
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
         if not self.shimmer.is_expansion_board_set():
             self.test_06_get_daughter_card_id(True)
 
-        if self.shimmer.is_icm20948_present():
+        if self.shimmer.hw_ver == shimmer_device.SrHwVer.SHIMMER3R.value or self.shimmer.is_icm20948_present():
             self.shimmer.bluetooth_port.send_bluetooth(
                 [shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND])
             self.bt_cmd_test_wait_for_ack()
         else:
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SENS_ADJ_VALS_COMMAND,
-                                                   shimmer_comms_bluetooth.BtCmds.ALT_MAG_SENS_ADJ_VALS_RESPONSE, 1)
+                                                   shimmer_comms_bluetooth.BtCmds.ALT_MAG_SENS_ADJ_VALS_RESPONSE, 3)
 
     def test_26_get_internal_exp_power_enable(self):
         print("Test 26 - Get exp power enable response command:")
