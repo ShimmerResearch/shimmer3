@@ -668,7 +668,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_56_set_mag_gain(self):
         print("Test 56 - Set Mag gain command")
-        tx_bytes = [0x01]
+        tx_bytes = [0x02]  # Default = 1, "set_config_bytes" test sets it to 0, choosing 2 here
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_MAG_GAIN_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_MAG_GAIN_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.MAG_GAIN_RESPONSE)
@@ -830,7 +830,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_75_set_ConfigTime(self):
         print("Test 75 - Set ConfigTime Command")
-        test_config_time_s = "832103100"
+        test_config_time_s = "832103100"  # Tuesday, 14 May 1996 19:45:00
         tx_bytes = [ord(c) for c in test_config_time_s]
         tx_bytes = [len(tx_bytes)] + tx_bytes
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CONFIGTIME_COMMAND, tx_bytes,
@@ -982,7 +982,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     #                                 shimmer_comms_bluetooth.BtCmds.GET_CHARGE_STATUS_LED_COMMAND,
     #                                 shimmer_comms_bluetooth.BtCmds.CHARGE_STATUS_LED_RESPONSE)
 
-    def test_83_set_alt_accel(self):
+    def test_83_set_alt_accel_range(self):
         print("Test 83 - Set alt accel")
         tx_bytes = [0x01]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_RANGE_COMMAND, tx_bytes,
