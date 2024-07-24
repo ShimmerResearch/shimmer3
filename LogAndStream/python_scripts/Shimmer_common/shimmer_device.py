@@ -131,9 +131,10 @@ class Shimmer3:
               + "." + str(self.fw_ver_internal))
 
     def print_daughter_card_id(self):
-        print("SR" + str(self.daughter_card_id)
-              + "." + str(self.daughter_card_rev_major)
-              + "." + str(self.daughter_card_rev_minor))
+        res = "SR" + str(self.daughter_card_id) + "." + str(self.daughter_card_rev_major) + "." + str(self.daughter_card_rev_minor)
+        if self.daughter_card_id == 255 and self.daughter_card_rev_major == 255 and self.daughter_card_rev_minor == 255:
+            res += " (No expansion board detected)"
+        print(res)
 
     def print_batt_status(self):
         print("ADC Value=" + str(self.batt_adc_value) + ", Charging status=" + str(self.charging_status))

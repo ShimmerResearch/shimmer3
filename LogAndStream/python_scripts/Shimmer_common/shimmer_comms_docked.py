@@ -186,6 +186,8 @@ class ShimmerUart:
 
         if isinstance(response, bool):
             return response
+        elif len(response) == 0:
+            return False
         else:
             self.shimmer_device.parse_daughter_card_id(response)
             return True
@@ -298,7 +300,9 @@ class ShimmerUart:
         tx_buf = assemble_tx_packet(UartPacketCmd.READ, uart_component, uart_property, args)
         response = self.send_uart(tx_buf)
 
-        if len(response) > 0:
+        if isinstance(response, bool):
+            return response
+        elif len(response) > 0:
             return response
         else:
             return False
@@ -334,7 +338,9 @@ class ShimmerUart:
             time.sleep(wait_interval_ms / 1000)
             loop_count += 1
             if loop_count >= loop_count_total:
-                break
+                if len(rx_buf) > 0:
+                    print("UART RX (incomplete due to timeout): " + util_shimmer.byte_array_to_hex_string(rx_buf))
+                return False
 
             buf_len = self.ser.inWaiting()
             if buf_len > 0:
