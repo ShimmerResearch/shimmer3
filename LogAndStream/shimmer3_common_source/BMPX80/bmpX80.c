@@ -51,7 +51,7 @@
 
 uint8_t bmpInUse;
 static uint8_t bmpX80Address;
-
+uint8_t bmpX80Calib[BMP280_CALIB_DATA_SIZE];
 
 //configure I2C
 void BMPX80_init(void) {
@@ -200,4 +200,35 @@ uint8_t isBmp180InUse(void)
 uint8_t isBmp280InUse(void)
 {
     return bmpInUse == BMP280_IN_USE;
+}
+
+void loadBmpCalibration(void)
+{
+    memset(bmpX80Calib, 0, sizeof(bmpX80Calib));
+
+    BMPX80_init();
+
+    BMPX80_getCalibCoeff(bmpX80Calib);
+    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
+}
+
+uint8_t *get_bmp_calib_data_bytes(void)
+{
+    return &bmpX80Calib[0];
+}
+
+uint8_t get_bmp_calib_data_bytes_len(void)
+{
+    if (isBmp180InUse())
+    {
+        return BMP180_CALIB_DATA_SIZE;
+    }
+    else if (isBmp280InUse())
+    {
+        return BMP280_CALIB_DATA_SIZE;
+    }
+    else
+    {
+        return 0;
+    }
 }
