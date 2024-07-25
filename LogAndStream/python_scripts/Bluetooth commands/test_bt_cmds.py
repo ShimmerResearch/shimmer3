@@ -111,7 +111,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND:
                         self.assertTrue(False, "Error bt version command")
                     elif tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
-                        self.assertTrue(False, "Error bt version command")
+                        self.assertTrue(False, "Error get pressure calibration")
                     else:
                         self.assertTrue(False, "Error - unhandled")
                 i = 0
