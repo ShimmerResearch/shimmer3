@@ -352,5 +352,8 @@ void setBmpInUse(uint8_t bmp_in_use);
 
 uint8_t isBmp180InUse(void);
 uint8_t isBmp280InUse(void);
+void loadBmpCalibration(void);
+uint8_t *get_bmp_calib_data_bytes(void);
+uint8_t get_bmp_calib_data_bytes_len(void);
 
 #endif //BMPX80_H

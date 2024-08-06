@@ -71,7 +71,7 @@ void Init(void);
 void handleIfDockedStateOnBoot(void);
 void detectI2cSlaves(void);
 void loadSensorConfigurationAndCalibration(void);
-void loadBmpCalibration(void);
+void saveBmpCalibrationToSdHeader(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void BlinkTimerStart(void);
@@ -223,7 +223,8 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
-        useAckPrefixForInstreamResponses, btDataRateTestResponse;
+        useAckPrefixForInstreamResponses, btDataRateTestResponse,
+        bmpGenericCalibrationCoefficientsResponse;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
 uint8_t resPacket[RESPONSE_PACKET_SIZE + 2]; //+2 for crc checksum bytes;
@@ -235,7 +236,7 @@ DIRS dir;               //Directory object
 FIL dataFile;
 /* make dir for SDLog files*/
 uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
-        bmpX80Calib[BMP280_CALIB_DATA_SIZE], expIdName[MAX_CHARS],
+        expIdName[MAX_CHARS],
         shimmerName[MAX_CHARS], daughtCardId[PAGE_SIZE], firstTsFlag,
         fileName[64],
         configTimeText[UINT32_LEN], //,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
@@ -775,6 +776,8 @@ void Init(void)
     btCommsBaudRateResponse = 0;
     derivedChannelResponse = 0;
     btDataRateTestResponse = 0;
+    bmpGenericCalibrationCoefficientsResponse = 0;
+
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
     uartSendRspAck = 0;
     uartSendRspMac = 0;
@@ -849,6 +852,7 @@ void Init(void)
 
     detectI2cSlaves();
     loadBmpCalibration();
+    saveBmpCalibrationToSdHeader();
 
     memset(daughtCardId, 0, PAGE_SIZE);
     eepromRead(DAUGHT_CARD_ID, PAGE_SIZE, daughtCardId);
@@ -1027,21 +1031,15 @@ void loadSensorConfigurationAndCalibration(void)
     ShimmerCalibSyncFromDumpRamAll();
 }
 
-void loadBmpCalibration(void)
+void saveBmpCalibrationToSdHeader(void)
 {
-    memset(bmpX80Calib, 0, BMP280_CALIB_DATA_SIZE);
-
-    BMPX80_init();
-
-    BMPX80_getCalibCoeff(bmpX80Calib);
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-
-    memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
+    uint8_t *bmpX80CalibPtr = get_bmp_calib_data_bytes();
+    memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80CalibPtr,
     BMP180_CALIB_DATA_SIZE);
     if (isBmp280InUse())
     {
         memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
-               &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
+               bmpX80CalibPtr + BMP180_CALIB_DATA_SIZE,
                BMP280_CALIB_XTRA_BYTES);
     }
 }
@@ -3327,6 +3325,9 @@ void ProcessCommand(void)
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
         bmp280CalibrationCoefficientsResponse = 1;
         break;
+    case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
+        bmpGenericCalibrationCoefficientsResponse = 1;
+        break;
     case GET_MPU9150_SAMPLING_RATE_COMMAND:
         mpu9150SamplingRateResponse = 1;
         break;
@@ -4233,13 +4234,14 @@ void SendResponse(void)
             *(resPacket + packet_length++) =
             BMP180_CALIBRATION_COEFFICIENTS_RESPONSE;
 
+            uint8_t *bmpX80CalibPtr = get_bmp_calib_data_bytes();
             if (isBmp280InUse())
             {
                 // Dummy bytes sent if incorrect calibration bytes requested.
-                memset(bmpX80Calib, 0x01, BMP180_CALIB_DATA_SIZE);
+                memset(bmpX80CalibPtr, 0x01, BMP180_CALIB_DATA_SIZE);
             }
-            memcpy(resPacket + packet_length, bmpX80Calib,
-            BMP180_CALIB_DATA_SIZE);
+            memcpy(resPacket + packet_length, bmpX80CalibPtr,
+                   BMP180_CALIB_DATA_SIZE);
             packet_length += BMP180_CALIB_DATA_SIZE;
 
             bmp180CalibrationCoefficientsResponse = 0;
@@ -4250,11 +4252,32 @@ void SendResponse(void)
             {
                 *(resPacket + packet_length++) =
                 BMP280_CALIBRATION_COEFFICIENTS_RESPONSE;
-                memcpy(resPacket + packet_length, bmpX80Calib,
+                memcpy(resPacket + packet_length, get_bmp_calib_data_bytes(),
                 BMP280_CALIB_DATA_SIZE);
                 packet_length += BMP280_CALIB_DATA_SIZE;
             }
             bmp280CalibrationCoefficientsResponse = 0;
+        }
+        else if (bmpGenericCalibrationCoefficientsResponse)
+        {
+            uint8_t bmpCalibByteLen = get_bmp_calib_data_bytes_len();
+            *(resPacket + packet_length++) = PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE;
+            *(resPacket + packet_length++) = 1U + bmpCalibByteLen;
+            if (isBmp180InUse())
+            {
+                *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP180;
+            }
+            else if (isBmp280InUse())
+            {
+                *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP280;
+            }
+            else
+            {
+                *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP390;
+            }
+            memcpy(resPacket + packet_length, get_bmp_calib_data_bytes(), bmpCalibByteLen);
+            packet_length += bmpCalibByteLen;
+            bmpGenericCalibrationCoefficientsResponse = 0;
         }
         else if (mpu9150SamplingRateResponse)
         {
@@ -5320,14 +5343,7 @@ void Config2SdHead(void)
 
     memcpy(&sdHeadText[SDH_MAC_ADDR], &storedConfig[NV_MAC_ADDRESS], 6);
     memcpy(&sdHeadText[SDH_CONFIG_TIME_0], &storedConfig[NV_SD_CONFIG_TIME], 4);
-    memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
-    BMP180_CALIB_DATA_SIZE);
-    if (isBmp280InUse())
-    {
-        memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
-               &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
-               BMP280_CALIB_XTRA_BYTES);
-    }
+    saveBmpCalibrationToSdHeader();
 
     /* memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION], &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
      * memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION], &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
@@ -5807,14 +5823,7 @@ void CalibFromFile()
         //      BMP180_init();
         //      BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-        memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
-        BMP180_CALIB_DATA_SIZE);
-        if (isBmp280InUse())
-        {
-            memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
-                   &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
-                   BMP280_CALIB_XTRA_BYTES);
-        }
+        saveBmpCalibrationToSdHeader();
     }
 }
 
@@ -6151,14 +6160,7 @@ void CalibAll()
         //      BMP180_init();
         //      BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-        memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
-        BMP180_CALIB_DATA_SIZE);
-        if (isBmp280InUse())
-        {
-            memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
-                   &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
-                   BMP280_CALIB_XTRA_BYTES);
-        }
+        saveBmpCalibrationToSdHeader();
     }
 }
 void CalibFromInfoAll()
@@ -6191,14 +6193,7 @@ void CalibFromInfoAll()
         //      BMP180_init();
         //      BMP180_getCalibCoeff(&sdHeadText[SDH_TEMP_PRES_CALIBRATION]);
         //      P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-        memcpy(&sdHeadText[SDH_TEMP_PRES_CALIBRATION], bmpX80Calib,
-        BMP180_CALIB_DATA_SIZE);
-        if (isBmp280InUse())
-        {
-            memcpy(&sdHeadText[BMP280_XTRA_CALIB_BYTES],
-                   &(bmpX80Calib[BMP180_CALIB_DATA_SIZE]),
-                   BMP280_CALIB_XTRA_BYTES);
-        }
+        saveBmpCalibrationToSdHeader();
     }
 }
 
