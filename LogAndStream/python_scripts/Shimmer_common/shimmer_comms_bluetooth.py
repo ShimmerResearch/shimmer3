@@ -165,6 +165,8 @@ class BtCmds:
     SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE = 0xA3
     SET_DATA_RATE_TEST_MODE = 0xA4
     DATA_RATE_TEST_RESPONSE = 0xA5
+    PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE = 0xA6
+    GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND = 0xA7
     SET_SD_SYNC_COMMAND = 0xE0
     SD_SYNC_RESPONSE = 0xE1
     ACK_COMMAND_PROCESSED = 0xFF
@@ -307,7 +309,10 @@ class ShimmerBluetooth:
         response = self.wait_for_response(1, timeout_ms)
         return True if response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
 
-    def wait_for_response(self, expected_len, timeout_ms=500):
+    def get_qty_waiting_in_port(self):
+        return self.ser.inWaiting()
+
+    def wait_for_response(self, expected_len, timeout_ms=500, console_print_timeout_msg=True):
         flag = True
 
         loop_count = 0
@@ -320,7 +325,8 @@ class ShimmerBluetooth:
             time.sleep(wait_interval_ms / 1000)
             loop_count += 1
             if loop_count >= loop_count_total:
-                print("Timeout while waiting for response")
+                if console_print_timeout_msg:
+                    print("Timeout while waiting for response")
                 break
 
             buf_len = self.ser.inWaiting()

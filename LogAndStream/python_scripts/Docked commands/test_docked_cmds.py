@@ -91,7 +91,8 @@ class TestShimmerDockCommunication(unittest.TestCase):
         if self.shimmer.dock_port.read_daughter_card_id():
             self.shimmer.print_daughter_card_id()
         else:
-            print("No expansion board detected")
+            print("Error")
+            self.assertTrue(False)
         print("")
 
     def test_09_write_daughter_card_id(self):
@@ -114,7 +115,8 @@ class TestShimmerDockCommunication(unittest.TestCase):
         print("Read Daughter Card Mem:")
         eeprom_bytes = self.shimmer.dock_port.read_daughter_card_mem()
         if isinstance(eeprom_bytes, bool):
-            print("No expansion board detected")
+            print("Error")
+            self.assertTrue(False)
         else:
             print(util_shimmer.byte_array_to_hex_string(eeprom_bytes))
             self.eeprom_bytes_backup = eeprom_bytes

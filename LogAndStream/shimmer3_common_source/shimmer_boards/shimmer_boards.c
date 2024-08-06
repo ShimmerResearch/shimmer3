@@ -10,7 +10,7 @@
 #include "shimmer_boards.h"
 #include "../BMPX80/bmpX80.h"
 
-char daughtCardIdStr[25];
+char daughtCardIdStr[26];
 uint8_t wrAccelAndMagInUse, gyroInUse, eepromIsPresent;
 
 uint8_t isAds1292Present(uint8_t srId)

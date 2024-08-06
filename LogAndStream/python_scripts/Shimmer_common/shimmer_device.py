@@ -1,8 +1,12 @@
 import serial.tools.list_ports
 from enum import Enum
 
-from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth
+from Shimmer_common import shimmer_comms_docked, shimmer_comms_bluetooth, util_shimmer
 
+
+class SrHwVer(Enum):
+    SHIMMER3 = 3
+    SHIMMER3R = 10
 
 class SrBoardCodes(Enum):
     EXP_BRD_BR_AMP = 8
@@ -127,9 +131,10 @@ class Shimmer3:
               + "." + str(self.fw_ver_internal))
 
     def print_daughter_card_id(self):
-        print("SR" + str(self.daughter_card_id)
-              + "." + str(self.daughter_card_rev_major)
-              + "." + str(self.daughter_card_rev_minor))
+        res = "SR" + str(self.daughter_card_id) + "." + str(self.daughter_card_rev_major) + "." + str(self.daughter_card_rev_minor)
+        if self.daughter_card_id == 255 and self.daughter_card_rev_major == 255 and self.daughter_card_rev_minor == 255:
+            res += " (No expansion board detected)"
+        print(res)
 
     def print_batt_status(self):
         print("ADC Value=" + str(self.batt_adc_value) + ", Charging status=" + str(self.charging_status))
@@ -159,8 +164,16 @@ class Shimmer3:
                 and self.daughter_card_rev_major is not None
                 and self.daughter_card_rev_minor is not None)
 
+    def is_hardware_version_set(self):
+        return self.hw_ver is not None
+
+    def is_firmware_version_set(self):
+        return (self.fw_ver_major is not None
+                and self.fw_ver_minor is not None
+                and self.fw_ver_internal is not None)
+
     def is_icm20948_present(self):
-        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and (self.daughter_card_rev_major == 9
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and (self.daughter_card_rev_major == 9
                                                                                    or self.daughter_card_rev_major == 10))
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and (self.daughter_card_rev_major == 5
                                                                                    or self.daughter_card_rev_major == 6))
@@ -175,7 +188,7 @@ class Shimmer3:
                         self.daughter_card_rev_major == 2 or self.daughter_card_rev_major == 3)))
 
     def is_bmp180_present(self):
-        return ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 5)
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 5)
                 or self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG.value
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 2)
                 or self.daughter_card_id == SrBoardCodes.EXP_BRD_GSR.value
@@ -187,7 +200,7 @@ class Shimmer3:
                 or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major == 1))
 
     def is_bmp280_present(self):
-        return ((not self.is_bmp180_present()) and
+        return self.hw_ver == SrHwVer.SHIMMER3.value and ((not self.is_bmp180_present()) and
                 (self.daughter_card_rev_major == 171
                  or (self.daughter_card_id == SrBoardCodes.SHIMMER3_IMU.value and self.daughter_card_rev_major <= 10)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_EXG_UNIFIED.value and self.daughter_card_rev_major <= 6)
@@ -196,3 +209,11 @@ class Shimmer3:
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_DELUXE.value and self.daughter_card_rev_major <= 4)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI.value and self.daughter_card_rev_major <= 4)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major <= 3)))
+
+    def is_bt_cmd_common_pressure_calibation_supported(self):
+        return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0, 16, 6))
+                or (self.hw_ver == SrHwVer.SHIMMER3R.value and self.compare_versions(0, 1, 0)))
+
+    def compare_versions(self, comp_major, comp_minor, comp_internal):
+        return util_shimmer.compare_versions(self.fw_ver_major, self.fw_ver_minor, self.fw_ver_internal, comp_major,
+                                             comp_minor, comp_internal)

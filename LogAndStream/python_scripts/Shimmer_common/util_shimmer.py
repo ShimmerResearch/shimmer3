@@ -33,3 +33,9 @@ def byte_array_to_int(data, lsb_order=True, is_signed=False):
     # print('data={}, lsb_order={}, is_signed={}, number={}'.format(byte_array_to_hex_string(data), lsb_order, is_signed, number))
 
     return number
+
+
+def compare_versions(this_major, this_minor, this_internal, comp_major, comp_minor, comp_internal):
+    return ((this_major > comp_major)
+            or (this_major == comp_major and this_minor > comp_minor)
+            or (this_major == comp_major and this_minor == comp_minor and this_internal >= comp_internal))
