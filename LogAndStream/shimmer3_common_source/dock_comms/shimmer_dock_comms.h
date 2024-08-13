@@ -42,6 +42,7 @@
 #define UART_COMP_D_ACCEL           0x04
 #define UART_COMP_GSR               0x05
 #define UART_COMP_BT                0x0A
+#define UART_COMP_TEST              0x0B
 //================= WP uart 3.0: property names ==============
 // component == UART_COMP_SHIMMER:
 #define UART_PROP_ENABLE            0x00 // this is for all sensors
@@ -72,6 +73,10 @@
 //#define UART_PROP_SAMPLE_RATE       0x01
 //#define UART_PROP_RANGE             0x03
 //#define UART_PROP_DIVIDER           0x05
+#define UART_PROP_TEST_ALL          0x00
+#define UART_PROP_TEST_LED_START    0x01
+#define UART_PROP_TEST_STOP         0x02
+
 //== new uart ends ==
 #define CBUF_SIZE             27
 #define CBUF_PARAM_LEN_MAX    (CBUF_SIZE-6)
@@ -85,7 +90,8 @@
 #define UART_CMD_RDT 7
 #define UART_CMD_TIM 8
 
-void UartCommsInit(void);
+void dock_uart_init(void);
+void dock_uart_reset_variables(void);
 uint8_t UartCallback(uint8_t data);
 void UartProcessCmd(void);
 void UartSendRsp(void);

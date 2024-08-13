@@ -530,7 +530,8 @@ typedef enum
    TASK_SDLOG_CFG_UPDATE    = (0x00000001UL << 12U),
 //   TASK_STOPSENSING         = (0x00000001UL << 13U),
    TASK_STARTSENSING        = (0x00000001UL << 14U),
-   TASK_WR2SD               = (0x00000001UL << 15U)
+   TASK_WR2SD               = (0x00000001UL << 15U),
+   TASK_FACTORY_TEST        = (0x00000001UL << 16U)
 } TASK_FLAGS;
 #define TASK_SIZE    32
 

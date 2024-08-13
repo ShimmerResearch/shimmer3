@@ -166,6 +166,7 @@ void SdInfoSync();
 void ChangeBtBaudRateFunc();
 #endif
 inline uint8_t Skip65ms();
+void run_factory_test(void);
 void SetStartSensing();
 void setStopSensing(uint8_t state);
 void ReadWriteSDTest(void);
@@ -584,7 +585,84 @@ void main(void)
             Write2SD();
         }
 
+        if (taskList & TASK_FACTORY_TEST)
+        {
+            TaskClear(TASK_FACTORY_TEST);
+            run_factory_test();
+        }
     }
+}
+
+void run_factory_test(void)
+{
+    // Stop watch dog timer while running LED test
+    WDTCTL = WDTPW | WDTHOLD;
+
+    BlinkTimerStop();
+
+    UART_write("//**************************** TEST START ************************************//\r\n", 82);
+
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED GREEN LWR ON\r\n", 18);
+    Board_ledOn(LED_GREEN0);
+    __delay_cycles(24000000);
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED YELLOW ON\r\n", 15);
+    Board_ledOn(LED_YELLOW);
+    __delay_cycles(24000000);
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED RED ON\r\n", 12);
+    Board_ledOn(LED_RED);
+    __delay_cycles(24000000);
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED GREEN UPR ON\r\n", 18);
+    Board_ledOn(LED_GREEN1);
+    __delay_cycles(24000000);
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED BLUE ON\r\n", 13);
+    Board_ledOn(LED_BLUE);
+    __delay_cycles(24000000);
+    Board_ledOff(LED_ALL);
+
+    UART_write("LED ALL OFF\r\n", 13);
+    __delay_cycles(24000000);
+
+    UART_write("LED ALL ON\r\n", 12);
+    Board_ledOn(LED_ALL);
+    __delay_cycles(24000000);
+
+    BlinkTimerStart();
+
+    // Reset Watchdog timer
+    WDTCTL = WDTPW + WDTSSEL__ACLK + WDTCNTCL + WDTIS_4;
+
+    if (!(P4IN & BIT1))
+    {
+      UART_write("SD Card Detection: PASS\r\n", 25);
+      if(!SD_ERROR)
+      {
+          ReadWriteSDTest();
+      }
+      if(SD_ERROR)
+      {
+          UART_write("SD Card test: FAIL\r\n", 20);
+      }
+      else
+      {
+          UART_write("SD Card test: PASS\r\n", 20);
+      }
+    }
+    else
+    {
+        UART_write("SD Card Detection: FAIL\r\n", 25);
+    }
+
+    UART_write("//***************************** TEST END *************************************//\r\n", 82);
 }
 
 void SetStartSensing()
@@ -788,9 +866,7 @@ void Init(void)
     /* Globally enable interrupts */
     _enable_interrupts();
 
-    UCA0_isrInit();
-    UartCommsInit();
-    UART_init(UartCallback);
+    dock_uart_init();
 
     /* exp power */
     P3OUT &= ~BIT3;      //set low

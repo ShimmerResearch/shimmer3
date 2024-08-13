@@ -46,90 +46,130 @@
 #include "hal_CRC.h"
 #include <string.h>
 
-uint8_t uart_messageBuffer[137];
-uint8_t uart_messageInProgress, uart_charsSent, uart_messageLength, uart_isr_number_uart;
+/* Buffer read / write macros                                                 */
+#define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
+#define RINGFIFO_WR(ringFifo, dataIn, mask)     {ringFifo.data[mask & ringFifo.wrIdx++] = (dataIn);}
+#define RINGFIFO_RD(ringFifo, dataOut, mask)    {ringFifo.rdIdx++; dataOut = ringFifo.data[mask & (ringFifo.rdIdx-1)];}
+#define RINGFIFO_EMPTY(ringFifo)                (ringFifo.rdIdx == ringFifo.wrIdx)
+#define RINGFIFO_FULL(ringFifo, mask)           ((mask & ringFifo.rdIdx) == (mask & (ringFifo.wrIdx+1)))
+#define RINGFIFO_COUNT(ringFifo, mask)          (mask & (ringFifo.wrIdx - ringFifo.rdIdx))
+
+volatile RingFifoDockTx_t gDockTxFifo;
+
+uint8_t uart_messageInProgress;
 uint8_t (*uartCallbackFunc)(uint8_t data);
 
-void uartRxEnable(){   UARTIE |= UCRXIE;}
-void uartTxEnable(){   UARTIE |= UCTXIE;}
-void uartRxDisable(){   UARTIE &= ~UCRXIE;}
-void uartTxDisable(){   UARTIE &= ~UCTXIE;}
-
-void UART_init(uint8_t (*uart_cb)(uint8_t data)){
-   uartCallbackFunc = uart_cb;
-   //uart_num_registered_cmds=0;
+void uartRxEnable(void)
+{
+    UARTIE |= UCRXIE;
 }
 
-void UART_config(){
-   UARTSEL |= UARTTXD+UARTRXD;
+void uartTxEnable(void)
+{
+    UARTIE |= UCTXIE;
+}
 
-   UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
-   UARTCTL0 = 0;
-   UARTCTL1 |= UCSSEL_2;                     // SMCLK
+void uartRxDisable(void)
+{
+    UARTIE &= ~UCRXIE;
+}
 
-   /* 1000000 baud would be a better setting compared with 115200 (even clock
-    * divider) but Consensys is currently set to use 115200 baud */
+void uartTxDisable(void)
+{
+    UARTIE &= ~UCTXIE;
+}
+
+void UART_init(uint8_t (*uart_cb)(uint8_t data))
+{
+    uartCallbackFunc = uart_cb;
+    //uart_num_registered_cmds=0;
+
+    RINGFIFO_RESET(gDockTxFifo);
+    memset(gDockTxFifo.data, 0x00,
+           sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
+}
+
+void UART_config()
+{
+    UARTSEL |= UARTTXD + UARTRXD;
+
+    UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
+    UARTCTL0 = 0;
+    UARTCTL1 |= UCSSEL_2;                     // SMCLK
+
+    /* 1000000 baud would be a better setting compared with 115200 (even clock
+     * divider) but Consensys is currently set to use 115200 baud */
 //   UARTBR0 = 24;                          //24MHz 1000000
 //   UARTMCTL = 0;                           //24MHz 1000000
 //   UCA1MCTL = UCBRS_0 + UCBRF_0; //Modln UCBRSx=0, UCBRFx=0, no over sampling
+    //UARTBR0 = 0x03;                           // 24MHz 460800
+    //UARTBR1 = 0;
+    //UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
+    //UARTBR0 = 0x06;                           // 24MHz 230400
+    //UARTBR1 = 0;
+    //UARTMCTL =  UCBRS_0 + UCBRF_8 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
+    UARTBR0 = 0x0d;                           // 24MHz 115200
+    UARTBR1 = 0;
+    UARTMCTL = UCBRS_0 + UCBRF_0 + UCOS16; // Modln UCBRSx=0, UCBRFx=0, over sampling
+    //UARTBR0 = 156;                            // 24MHz 9600
+    //UARTBR1 = 0;
+    //UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
 
-   //UARTBR0 = 0x03;                           // 24MHz 460800
-   //UARTBR1 = 0;
-   //UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
-   //UARTBR0 = 0x06;                           // 24MHz 230400
-   //UARTBR1 = 0;
-   //UARTMCTL =  UCBRS_0 + UCBRF_8 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
-   UARTBR0 = 0x0d;                           // 24MHz 115200
-   UARTBR1 = 0;
-   UARTMCTL =  UCBRS_0 + UCBRF_0 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
-   //UARTBR0 = 156;                            // 24MHz 9600
-   //UARTBR1 = 0;
-   //UARTMCTL =  UCBRS_0 + UCBRF_4 + UCOS16;   // Modln UCBRSx=0, UCBRFx=0, over sampling
+    UARTCTL1 &= ~UCSWRST;                   // **Initialize USCI state machine**
 
-   UARTCTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
-
-   uart_messageInProgress = 0;
-   UARTIFG=0;
-   uartRxEnable();
-   uartTxEnable();
+    uart_messageInProgress = 0;
+    UARTIFG = 0;
+    uartRxEnable();
+    uartTxEnable();
 }
 
-void uartSendNextChar() {
-   if(uart_charsSent < uart_messageLength){
-      while (UARTIFG & UCTXIFG); //ensure no tx interrupt is pending
-      UARTTXBUF = *(uart_messageBuffer + uart_charsSent++);
-   }
-   else
-      uart_messageInProgress = 0; //false
+void uartSendNextChar(void)
+{
+    if (!RINGFIFO_EMPTY(gDockTxFifo))
+    {
+        while (UARTIFG & UCTXIFG)
+            ; //ensure no tx interrupt is pending
+        uart_messageInProgress = 1;
+        RINGFIFO_RD(gDockTxFifo, UARTTXBUF, DOCK_TX_BUF_MASK);
+    }
+    else
+    {
+        uart_messageInProgress = 0; //false
+    }
 }
 
-void UART_write(uint8_t *buf, uint8_t len) {
-   if(uart_messageInProgress)
-      return;   //fail
+void UART_write(uint8_t *buf, uint8_t len)
+{
+    if (getSpaceInDockTxBuf() <= len)
+    {
+        return; //fail
+    }
 
-   uart_charsSent = 0;
-   memcpy(uart_messageBuffer, buf, len);
-   uart_messageLength = len;
+    pushBytesToDockTxBuf(buf, len);
 
-   uart_messageInProgress = 1;
-   uartSendNextChar();
+    if (!uart_messageInProgress)
+    {
+        uartSendNextChar();
+    }
 }
 
-uint8_t uartUca0TxIsr(){
-   uartSendNextChar();
-   return 0;
+uint8_t uartUca0TxIsr()
+{
+    uartSendNextChar();
+    return 0;
 }
 
-uint8_t uartUca0RxIsr(){
-   uint8_t rx_char = UARTRXBUF;
-   if(uartCallbackFunc)
-      return uartCallbackFunc(rx_char);
-   return 0;
+uint8_t uartUca0RxIsr()
+{
+    uint8_t rx_char = UARTRXBUF;
+    if (uartCallbackFunc)
+        return uartCallbackFunc(rx_char);
+    return 0;
 }
 
 void UART_setState(uint8_t state)
 {
-    if(state)
+    if (state)
     {
         UART_activate();
     }
@@ -139,36 +179,77 @@ void UART_setState(uint8_t state)
     }
 }
 
-void UART_deactivate(){
-   UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
+void UART_deactivate()
+{
+    UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
 
-   UARTSEL &= ~(UARTTXD+UARTRXD);
+    UARTSEL &= ~(UARTTXD + UARTRXD);
 
-   P6SEL |= BIT1;
-   P6DIR &= ~BIT1;
+    P6SEL |= BIT1;
+    P6DIR &= ~BIT1;
 
-   P7SEL |= BIT6;
-   P7DIR &= ~BIT6;
+    P7SEL |= BIT6;
+    P7DIR &= ~BIT6;
 
-   P3SEL &= ~BIT3;
-   P3DIR |= BIT3;
-   P3OUT &= ~BIT3;
+    P3SEL &= ~BIT3;
+    P3DIR |= BIT3;
+    P3OUT &= ~BIT3;
 }
 
-void UART_activate(){
-   P6SEL &= ~BIT1;
-   P6DIR |= BIT1;
-   P6OUT |= BIT1;
+void UART_activate()
+{
+    P6SEL &= ~BIT1;
+    P6DIR |= BIT1;
+    P6OUT |= BIT1;
 
-   P7SEL &= ~BIT6;
-   P7DIR |= BIT6;
-   P7OUT |= BIT6;
+    P7SEL &= ~BIT6;
+    P7DIR |= BIT6;
+    P7OUT |= BIT6;
 
-   P3SEL &= ~BIT3;
-   P3DIR |= BIT3;
-   P3OUT |= BIT3;
+    P3SEL &= ~BIT3;
+    P3DIR |= BIT3;
+    P3OUT |= BIT3;
 
-   UCA0_isrActivate(UCA0_isrRegister(uartUca0RxIsr, uartUca0TxIsr));
+    UCA0_isrActivate(UCA0_isrRegister(uartUca0RxIsr, uartUca0TxIsr));
 
-   UART_config();
+    UART_config();
+}
+
+void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)
+{
+    /* if enough space at after head, copy it in */
+    uint16_t spaceAfterHead = DOCK_TX_BUF_SIZE
+            - (gDockTxFifo.wrIdx & DOCK_TX_BUF_MASK);
+    if (spaceAfterHead > len)
+    {
+        memcpy(&gDockTxFifo.data[(gDockTxFifo.wrIdx & DOCK_TX_BUF_MASK)], buf,
+               len);
+        gDockTxFifo.wrIdx += len;
+    }
+    else
+    {
+        /* Fill from head to end of buf */
+        memcpy(&gDockTxFifo.data[(gDockTxFifo.wrIdx & DOCK_TX_BUF_MASK)], buf,
+               spaceAfterHead);
+        gDockTxFifo.wrIdx += spaceAfterHead;
+
+        /* Fill from start of buf. We already checked above whether there is
+         * enough space in the buf (getSpaceInDockTxBuf()) so we don't need to
+         * worry about the tail position. */
+        uint16_t remaining = len - spaceAfterHead;
+        memcpy(&gDockTxFifo.data[(gDockTxFifo.wrIdx & DOCK_TX_BUF_MASK)],
+               buf + spaceAfterHead, remaining);
+        gDockTxFifo.wrIdx += remaining;
+    }
+}
+
+uint16_t getUsedSpaceInDockTxBuf(void)
+{
+    return RINGFIFO_COUNT(gDockTxFifo, DOCK_TX_BUF_MASK);
+}
+
+uint16_t getSpaceInDockTxBuf(void)
+{
+    // Minus 1 as we always need to leave 1 empty byte in the rolling buffer
+    return DOCK_TX_BUF_SIZE - 1 - getUsedSpaceInDockTxBuf();
 }
