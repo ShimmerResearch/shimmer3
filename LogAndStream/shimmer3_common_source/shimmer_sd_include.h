@@ -6,7 +6,6 @@
 #include "5xx_HAL/hal_RTC.h"
 #include "5xx_HAL/hal_UartA0.h"
 #include "5xx_HAL/hal_UCA0.h"
-//#include "5xx_HAL/hal_uart0.h"
 #include "5xx_HAL/hal_ADC.h"
 #include "5xx_HAL/hal_Board.h"
 #include "5xx_HAL/hal_Button.h"
@@ -17,7 +16,6 @@
 #include "5xx_HAL/hal_SDCard.h"
 #include "5xx_HAL/hal_UCS.h"
 #include "Bluetooth_SD/RN4X.h"
-//#include "Bluetooth/RN42.h"
 #include "BMPX80/bmpX80.h"
 #include "CAT24C16/cat24c16.h"
 #include "EXG/exg.h"
@@ -33,5 +31,6 @@
 #include "Bluetooth_SD/shimmer_bt_comms.h"
 #include "Bluetooth_SD/sd_sync.h"
 #include "shimmer_boards/shimmer_boards.h"
+#include "dock_comms/shimmer_dock_comms.h"
 
 #endif
