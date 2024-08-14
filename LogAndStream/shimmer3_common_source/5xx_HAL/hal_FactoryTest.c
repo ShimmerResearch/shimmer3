@@ -120,7 +120,7 @@ void sd_card_test(void)
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)
 {
   factoryTestTarget = target;
-  factoryTestToRun = test;
+  factoryTestToRun = testToRun;
 }
 
 void send_test_report(char *str)
@@ -135,7 +135,7 @@ void send_test_report(char *str)
     break;
   case PRINT_TO_BT_UART:
     BT_write((uint8_t *)str, strlen(str), SHIMMER_CMD);
-    //TODO wait for msg to finish transmitting
+    while(getUsedSpaceInBtTxBuf()>0);
     break;
   default:
     break;
