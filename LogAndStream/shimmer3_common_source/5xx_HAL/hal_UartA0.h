@@ -77,7 +77,9 @@ typedef struct{
 
 //extern void UART_reg2Uca0();
 
-void UART_write(uint8_t *buf, uint8_t len);
+void DockUart_write(uint8_t *buf, uint8_t len);
+void DockUart_writeBlocking(uint8_t *buf, uint8_t len);
+void DockUart_writeText(char *str);
 
 //initializes the uart_num_registered_cmds value
 void UART_init(uint8_t (*uart_cb)(uint8_t data));

@@ -65,6 +65,7 @@
 #include <math.h>
 #include "msp430.h"
 #include "shimmer3_common_source/shimmer_sd_include.h"
+#include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
 
 void Init(void);
@@ -75,7 +76,7 @@ void saveBmpCalibrationToSdHeader(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void BlinkTimerStart(void);
-inline void BlinkTimerStop(void);
+void BlinkTimerStop(void);
 void SampleTimerStart(void);
 inline void SampleTimerStop(void);
 void StartLogging(void);
@@ -166,7 +167,6 @@ void SdInfoSync();
 void ChangeBtBaudRateFunc();
 #endif
 inline uint8_t Skip65ms();
-void run_factory_test(void);
 void SetStartSensing();
 void setStopSensing(uint8_t state);
 void ReadWriteSDTest(void);
@@ -425,12 +425,12 @@ void main(void)
         if (taskList & TASK_DOCK_PROCESS_CMD)
         {
             TaskClear(TASK_DOCK_PROCESS_CMD);
-            UartProcessCmd();
+            DockUart_processCmd();
         }
         if (taskList & TASK_DOCK_RESPOND)
         {
             TaskClear(TASK_DOCK_RESPOND);
-            UartSendRsp();
+            DockUart_sendRsp();
         }
 
         if (taskList & TASK_BT_PROCESS_CMD)
@@ -591,78 +591,6 @@ void main(void)
             run_factory_test();
         }
     }
-}
-
-void run_factory_test(void)
-{
-    // Stop watch dog timer while running LED test
-    WDTCTL = WDTPW | WDTHOLD;
-
-    BlinkTimerStop();
-
-    UART_write("//**************************** TEST START ************************************//\r\n", 82);
-
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED GREEN LWR ON\r\n", 18);
-    Board_ledOn(LED_GREEN0);
-    __delay_cycles(24000000);
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED YELLOW ON\r\n", 15);
-    Board_ledOn(LED_YELLOW);
-    __delay_cycles(24000000);
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED RED ON\r\n", 12);
-    Board_ledOn(LED_RED);
-    __delay_cycles(24000000);
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED GREEN UPR ON\r\n", 18);
-    Board_ledOn(LED_GREEN1);
-    __delay_cycles(24000000);
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED BLUE ON\r\n", 13);
-    Board_ledOn(LED_BLUE);
-    __delay_cycles(24000000);
-    Board_ledOff(LED_ALL);
-
-    UART_write("LED ALL OFF\r\n", 13);
-    __delay_cycles(24000000);
-
-    UART_write("LED ALL ON\r\n", 12);
-    Board_ledOn(LED_ALL);
-    __delay_cycles(24000000);
-
-    BlinkTimerStart();
-
-    // Reset Watchdog timer
-    WDTCTL = WDTPW + WDTSSEL__ACLK + WDTCNTCL + WDTIS_4;
-
-    if (!(P4IN & BIT1))
-    {
-      UART_write("SD Card Detection: PASS\r\n", 25);
-      if(!SD_ERROR)
-      {
-          ReadWriteSDTest();
-      }
-      if(SD_ERROR)
-      {
-          UART_write("SD Card test: FAIL\r\n", 20);
-      }
-      else
-      {
-          UART_write("SD Card test: PASS\r\n", 20);
-      }
-    }
-    else
-    {
-        UART_write("SD Card Detection: FAIL\r\n", 25);
-    }
-
-    UART_write("//***************************** TEST END *************************************//\r\n", 82);
 }
 
 void SetStartSensing()
@@ -866,7 +794,9 @@ void Init(void)
     /* Globally enable interrupts */
     _enable_interrupts();
 
-    dock_uart_init();
+    DockUart_resetVariables();
+    UCA0_isrInit();
+    UART_init(DockUart_rxCallback);
 
     /* exp power */
     P3OUT &= ~BIT3;      //set low
@@ -2459,7 +2389,7 @@ void BlinkTimerStart(void)
     TB0CCR3 = GetTB0() + clk_1000;
 }
 
-inline void BlinkTimerStop(void)
+void BlinkTimerStop(void)
 {
     blinkStatus = 0;
     TB0CCTL3 &= ~CCIE;
@@ -3409,6 +3339,14 @@ void ProcessCommand(void)
         }
         btDataRateTestResponse = 1;
         break;
+    case SET_FACTORY_TEST:
+        if (args[0] < FACTORY_TEST_COUNT)
+        {
+            setup_factory_test(PRINT_TO_BT_UART, (factory_test_t) args[0]);
+            TaskSet(TASK_FACTORY_TEST);
+        }
+        break;
+
     case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
         if (args[0] < 10)
             storedConfig[NV_CONFIG_SETUP_BYTE0] =

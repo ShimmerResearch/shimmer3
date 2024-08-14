@@ -138,7 +138,7 @@ void uartSendNextChar(void)
     }
 }
 
-void UART_write(uint8_t *buf, uint8_t len)
+void DockUart_write(uint8_t *buf, uint8_t len)
 {
     if (getSpaceInDockTxBuf() <= len)
     {
@@ -151,6 +151,17 @@ void UART_write(uint8_t *buf, uint8_t len)
     {
         uartSendNextChar();
     }
+}
+
+void DockUart_writeBlocking(uint8_t *buf, uint8_t len)
+{
+    DockUart_write(buf, len);
+    while(getUsedSpaceInDockTxBuf());
+}
+
+void DockUart_writeText(char *str)
+{
+    DockUart_writeBlocking((uint8_t *)str, strlen(str));
 }
 
 uint8_t uartUca0TxIsr()
