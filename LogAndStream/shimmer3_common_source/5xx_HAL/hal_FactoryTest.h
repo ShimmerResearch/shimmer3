@@ -28,8 +28,10 @@ typedef enum
 } factory_test_t;
 
 void run_factory_test(void);
+void print_shimmer_model(void);
 void led_test(void);
 void sd_card_test(void);
+uint8_t bt_module_test(void);
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun);
 void send_test_report(char *str);
 

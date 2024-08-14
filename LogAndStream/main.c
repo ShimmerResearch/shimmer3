@@ -1023,6 +1023,7 @@ void ProcessHwRevision(void)
     uint8_t srRevMajor = daughtCardId[DAUGHT_CARD_REV];
     uint8_t srRevMinor = daughtCardId[DAUGHT_CARD_SPECIAL_REV];
 
+    setDaugherCardIdPage(daughtCardId);
     parseDaughterCardId(srId);
 
     if (isEepromIsPresent())

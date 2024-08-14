@@ -2248,3 +2248,9 @@ void loadBtTxBufForDataRateTest(void)
         btDataRateTestCounter++;
     }
 }
+
+uint8_t BT_getMacAddressAscii(char *macAscii)
+{
+    memcpy(macAscii, getMacIdStrPtr(), 12);
+    return 0;
+}

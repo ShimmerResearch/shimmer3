@@ -43,6 +43,25 @@ enum GYRO_IN_USE
     GYRO_ICM20948_IN_USE
 };
 
+typedef struct
+{
+  uint8_t exp_brd_id;
+  uint8_t exp_brd_rev;
+  uint8_t exp_brd_special_rev;
+} shimmer_expansion_brd;
+
+typedef union
+{
+  uint8_t raw[16];
+
+  struct __attribute__((packed))
+  {
+    shimmer_expansion_brd expansion_brd;
+    uint8_t padding[13];
+  };
+} daughter_card_id_page;
+
+void setDaugherCardIdPage(uint8_t *pagePtr);
 uint8_t isAds1292Present(uint8_t srId);
 uint8_t isRn4678PresentAndCmdModeSupport(uint8_t srId, uint8_t srRev, uint8_t srRevSpecial);
 uint8_t isSubstitutionNeededForWrAccel(uint8_t srId, uint8_t srRevMajor, uint8_t srRevMinor);
@@ -50,7 +69,9 @@ uint8_t are2ndGenImuSensorsPresent(void);
 uint8_t are2ndGenSensorsPresentAndUnknownBoard(uint8_t srId);
 uint8_t areGsrControlsPinsReversed(uint8_t srId, uint8_t srRevMajor, uint8_t srRevMinor);
 void parseDaughterCardId(uint8_t srId);
+shimmer_expansion_brd *getDaughtCardId(void);
 char* getDaughtCardIdStrPtr(void);
+uint8_t isDaughterCardIdSet(void);
 
 void setWrAccelAndMagInUse(uint8_t wr_accel_and_mag_in_use);
 uint8_t isWrAccelInUseLsm303dlhc(void);

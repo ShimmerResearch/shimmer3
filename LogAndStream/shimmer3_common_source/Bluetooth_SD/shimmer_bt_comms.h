@@ -230,5 +230,6 @@ COMMS_CRC_MODE getBtCrcMode(void);
 
 void setBtDataRateTestState(uint8_t state);
 void loadBtTxBufForDataRateTest(void);
+uint8_t BT_getMacAddressAscii(char *macAscii);
 
 #endif /* SHIMMER3_COMMON_SOURCE_BLUETOOTH_SD_SHIMMER_BT_COMMS_H_ */

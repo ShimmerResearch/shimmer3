@@ -17,6 +17,8 @@
 factory_test_target_t factoryTestTarget;
 factory_test_t factoryTestToRun;
 
+char buffer[100];
+
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 extern void ReadWriteSDTest(void);
@@ -26,21 +28,36 @@ void run_factory_test(void)
 {
     send_test_report("//**************************** TEST START ************************************//\r\n");
 
+    print_shimmer_model();
+    send_test_report("\r\n");
     led_test();
     send_test_report("\r\n");
 
     sd_card_test();
     send_test_report("\r\n");
 
-//    if (stat.isBtPoweredOn)
-//    {
-//      sprintf(buffer, "BT Module: %.*s\r\n", getBtVerStrLen(), getBtVerStrPtr());
-      send_test_report("BT Module:\r\n - ");
-      send_test_report(getBtVerStrPtr());
-      send_test_report("\r\n");
-//    }
+    bt_module_test();
 
     send_test_report("//***************************** TEST END *************************************//\r\n");
+}
+
+void print_shimmer_model(void)
+{
+    send_test_report("Shimmer model:\r\n");
+    if (isDaughterCardIdSet())
+    {
+        sprintf(buffer, " - PASS: %s", getDaughtCardIdStrPtr());
+        send_test_report(buffer);
+        shimmer_expansion_brd *daughterCardId = getDaughtCardId();
+        sprintf(buffer, " (SR%d-%d-%d)\r\n", daughterCardId->exp_brd_id,
+                daughterCardId->exp_brd_rev,
+                daughterCardId->exp_brd_special_rev);
+        send_test_report(buffer);
+    }
+    else
+    {
+        send_test_report(" - FAIL: not set\r\n");
+    }
 }
 
 void led_test(void)
@@ -54,35 +71,35 @@ void led_test(void)
 
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - Lower Green on\r\n");
+    send_test_report(" - Lower Green LED on\r\n");
     Board_ledOn(LED_GREEN0);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - Lower Yellow on\r\n");
+    send_test_report(" - Lower Yellow LED on\r\n");
     Board_ledOn(LED_YELLOW);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - Lower Red on\r\n");
+    send_test_report(" - Lower Red LED on\r\n");
     Board_ledOn(LED_RED);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - Upper Green on\r\n");
+    send_test_report(" - Upper Green LED on\r\n");
     Board_ledOn(LED_GREEN1);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - Upper Blue on\r\n");
+    send_test_report(" - Upper Blue LED on\r\n");
     Board_ledOn(LED_BLUE);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
-    send_test_report(" - All off\r\n");
+    send_test_report(" - All LEDs off\r\n");
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
 
-    send_test_report(" - All on\r\n");
+    send_test_report(" - All LEDs on\r\n");
     Board_ledOn(LED_ALL);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
 
@@ -94,50 +111,81 @@ void led_test(void)
 
 void sd_card_test(void)
 {
-    char buffer[100];
-
+    send_test_report("SD Card:\r\n");
     if (P4IN & BIT1)
     {
-        send_test_report("FAIL: SD Card not detected\r\n");
+        send_test_report(" - FAIL: SD Card not detected\r\n");
     }
     else
     {
-        send_test_report("PASS: SD card detected\r\n");
+        send_test_report(" - PASS: SD card detected\r\n");
 
         if (P2IN & BIT3)
         {
-            send_test_report("FAIL: Shimmer is docked so SD card test can not be performed\r\n");
+            send_test_report(
+                    " - FAIL: Shimmer is docked so SD card test can not be performed\r\n");
         }
         else
         {
             ReadWriteSDTest();
-            sprintf(buffer, "%s: SD card read/write test\r\n", SD_ERROR ? "FAIL" : "PASS");
+            sprintf(buffer, " - %s: SD card read/write test\r\n",
+                    SD_ERROR ? "FAIL" : "PASS");
             send_test_report(buffer);
         }
     }
 }
 
+uint8_t bt_module_test(void)
+{
+//    if (stat.isBtPoweredOn)
+//    {
+        send_test_report("BT Module:\r\n");
+
+        send_test_report(" - MAC ID: ");
+        BT_getMacAddressAscii(buffer);
+        send_test_report(buffer);
+
+        sprintf(buffer, " - %s\r\n", getBtVerStrPtr());
+        send_test_report(buffer);
+
+        if(strstr(buffer, "RN4678") != NULL && strstr(buffer, "V1.23") == NULL)
+        {
+            send_test_report(" - FAIL: incorrect BT firmware version\r\n");
+        }
+        else
+        {
+            send_test_report(" - PASS\r\n");
+        }
+//    }
+//    else
+//    {
+//        send_test_report(" - FAIL\r\n");
+//    }
+//    return stat.isBtPoweredOn;
+}
+
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)
 {
-  factoryTestTarget = target;
-  factoryTestToRun = testToRun;
+    factoryTestTarget = target;
+    factoryTestToRun = testToRun;
 }
 
 void send_test_report(char *str)
 {
-  switch(factoryTestTarget)
-  {
+    switch (factoryTestTarget)
+    {
 //  case PRINT_TO_DEBUGGER:
 //    printf(str);
 //    break;
-  case PRINT_TO_DOCK_UART:
-    DockUart_writeBlocking((uint8_t *)str, strlen(str));
-    break;
-  case PRINT_TO_BT_UART:
-    BT_write((uint8_t *)str, strlen(str), SHIMMER_CMD);
-    while(getUsedSpaceInBtTxBuf()>0);
-    break;
-  default:
-    break;
-  }
+    case PRINT_TO_DOCK_UART:
+        DockUart_writeBlocking((uint8_t*) str, strlen(str));
+        break;
+    case PRINT_TO_BT_UART:
+        BT_write((uint8_t*) str, strlen(str), SHIMMER_CMD);
+        while (getUsedSpaceInBtTxBuf() > 0)
+            ;
+        break;
+    default:
+        break;
+    }
 }
