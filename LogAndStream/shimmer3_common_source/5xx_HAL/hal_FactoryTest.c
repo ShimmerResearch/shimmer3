@@ -159,6 +159,7 @@ uint8_t bt_module_test(void)
 
         send_test_report(" - MAC ID: ");
         BT_getMacAddressAscii(buffer);
+        sprintf(buffer[12], "\r\n");
         send_test_report(buffer);
 
         sprintf(buffer, " - %s\r\n", getBtVerStrPtr());
