@@ -26,19 +26,33 @@ extern bool SD_ERROR;
 
 void run_factory_test(void)
 {
-    send_test_report("//**************************** TEST START ************************************//\r\n");
+    send_test_report("//**************************** TEST START "
+                     "************************************//\r\n");
 
-    print_shimmer_model();
-    send_test_report("\r\n");
-    led_test();
-    send_test_report("\r\n");
+    if (factoryTestToRun == FACTORY_TEST_MAIN)
+    {
+        print_shimmer_model();
+        send_test_report("\r\n");
+    }
 
-    sd_card_test();
-    send_test_report("\r\n");
+    if (factoryTestToRun == FACTORY_TEST_MAIN
+            || factoryTestToRun == FACTORY_TEST_LEDS)
+    {
+        led_test();
+    }
 
-    bt_module_test();
+    if (factoryTestToRun == FACTORY_TEST_MAIN)
+    {
+        send_test_report("\r\n");
 
-    send_test_report("//***************************** TEST END *************************************//\r\n");
+        sd_card_test();
+        send_test_report("\r\n");
+
+        bt_module_test();
+    }
+
+    send_test_report("//***************************** TEST END "
+                     "*************************************//\r\n");
 }
 
 void print_shimmer_model(void)
@@ -70,6 +84,8 @@ void led_test(void)
     send_test_report("LED test:\r\n");
 
     Board_ledOff(LED_ALL);
+    send_test_report(" - All LEDs off\r\n");
+    __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
 
     send_test_report(" - Lower Green LED on\r\n");
     Board_ledOn(LED_GREEN0);

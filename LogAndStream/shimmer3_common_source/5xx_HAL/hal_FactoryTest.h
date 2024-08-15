@@ -21,9 +21,8 @@ typedef enum
 
 typedef enum
 {
-  FACTORY_TEST_ALL = 0,
-//  FACTORY_TEST_LED_START,
-//  FACTORY_TEST_STOP,
+  FACTORY_TEST_MAIN = 0,
+  FACTORY_TEST_LEDS,
   FACTORY_TEST_COUNT
 } factory_test_t;
 

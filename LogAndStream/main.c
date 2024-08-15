@@ -627,6 +627,9 @@ void Init(void)
     Board_ledOn(LED_BLUE);
     __delay_cycles(480000);
     Board_ledOff(LED_ALL);
+    Board_ledOn(LED_GREEN1);
+    __delay_cycles(480000);
+    Board_ledOff(LED_ALL);
     __delay_cycles(480000);
 #endif
     Board_ledOn(LED_ALL);
