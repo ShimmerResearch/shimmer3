@@ -77,6 +77,7 @@ void ProcessHwRevision(void);
 void InitialiseBt(void);
 void BlinkTimerStart(void);
 void BlinkTimerStop(void);
+void setBootStage(boot_stage_t bootStageNew);
 void SampleTimerStart(void);
 inline void SampleTimerStop(void);
 void StartLogging(void);
@@ -328,6 +329,8 @@ uint8_t rnx_radio_eeprom[PAGE_SIZE];
 #if !BT_DMA_USED_FOR_RX
 bool areNewBytesInBtRxBuf = FALSE;
 #endif
+
+boot_stage_t bootStage;
 
 void main(void)
 {
@@ -614,25 +617,8 @@ void Init(void)
     battCritical = FALSE;
 
     Board_init();
-#if FACTORY_TEST
-    Board_ledOn(LED_YELLOW);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_GREEN0);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_RED);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_BLUE);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_GREEN1);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    __delay_cycles(480000);
-#endif
-    Board_ledOn(LED_ALL);
+
+    setBootStage(BOOT_STAGE_START);
 
     // Set Vcore to accommodate for max. allowed system speed
     SetVCore(PMMCOREV_3);
@@ -797,6 +783,8 @@ void Init(void)
     /* Globally enable interrupts */
     _enable_interrupts();
 
+    BlinkTimerStart();
+
     DockUart_resetVariables();
     UCA0_isrInit();
     UART_init(DockUart_rxCallback);
@@ -823,9 +811,7 @@ void Init(void)
 
     dierecord = (char*) 0x01A0A;
 
-    /* Blink timer needed for I2C communication */
-    BlinkTimerStart();
-
+    setBootStage(BOOT_STAGE_I2C);
     detectI2cSlaves();
     loadBmpCalibration();
     saveBmpCalibrationToSdHeader();
@@ -839,8 +825,6 @@ void Init(void)
                                                              daughtCardId[DAUGHT_CARD_REV],
                                                              daughtCardId[DAUGHT_CARD_SPECIAL_REV]));
 
-    BlinkTimerStop();
-
     /* Used to flash green LED on boot but no longer serves that purpose */
     configuring = 1;
 
@@ -853,8 +837,10 @@ void Init(void)
     txBuff0[1] = txBuff1[1] = DATA_PACKET; //packet type
 #endif
 
+    setBootStage(BOOT_STAGE_BLUETOOTH);
     InitialiseBt();
 
+    setBootStage(BOOT_STAGE_CONFIGURATION);
     /* Calibration needs to be loaded after the chips have been detected in
      * order to know which default calib to set for attached chips.
      * It also needs to be loaded after the BT is initialised so that the
@@ -869,11 +855,11 @@ void Init(void)
     initializing = 0;
     configuring = 0;
 
-    BlinkTimerStart();
 #if !FW_IS_LOGANDSTREAM
     CommTimerStart();
 #endif
-    Board_ledOff(LED_ALL);
+
+    bootStage = BOOT_STAGE_END;
 }
 
 void handleIfDockedStateOnBoot(void)
@@ -913,15 +899,7 @@ void handleIfDockedStateOnBoot(void)
 
 void detectI2cSlaves(void)
 {
-#if FACTORY_TEST
-    /* i2c test */
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_RED);
     i2cSlaveDiscover();
-    Board_ledOn(LED_ALL);
-#else
-    i2cSlaveDiscover();
-#endif
 
     // Identify the presence of different sensors
     setBmpInUse((i2cSlavePresent(BMP280_ADDR)) ? BMP280_IN_USE : BMP180_IN_USE);
@@ -990,13 +968,6 @@ void loadSensorConfigurationAndCalibration(void)
             ShimmerCalib_ram2File();
             IniReadInfoMem();
         }
-
-        /* ====== SD READ/WRITE test ======*/
-#if FACTORY_TEST
-            ReadWriteSDTest();
-#endif
-        /* ====== SD READ/WRITE test ======*/
-
     }
     else
     {   // sd card not available
@@ -1102,8 +1073,7 @@ void InitialiseBt(void)
     BT_setUpdateBaudDuringBoot(1);
 #endif
 
-#if FACTORY_TEST
-    BT_useSpecificAdvertisingName(1U);
+//    BT_useSpecificAdvertisingName(1U);
     /* This used to be used to trigger reset of the Bluetooth advertising name
      * and pin code but is no longer needed due to BT driver updates. Leaving
      * the remaining code in here just to reset the infomem bit but it isn't
@@ -1114,7 +1084,6 @@ void InitialiseBt(void)
         storedConfig[NV_BT_SET_PIN] = 0xAB;
         InfoMem_write((uint8_t *) 0, storedConfig, NV_NUM_RWMEM_BYTES);
     }
-#endif
 
     /* Read previous baud rate from the EEPROM if it is present */
     uint8_t initialBaudRate = BAUD_115200;
@@ -1139,11 +1108,6 @@ void InitialiseBt(void)
     uint8_t failCount = 0U;
     uint8_t baudIndex = 0;
     uint8_t baudsTried[BAUD_1000000+1U] = {0};
-
-#if FACTORY_TEST
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_GREEN1);
-#endif
 
     /* Try the inital baud rate first */
     baudsTried[initialBaudRate] = 1U;
@@ -1174,8 +1138,14 @@ void InitialiseBt(void)
 
             if(failCount==sizeof(baudsTried))
             {
-                // software POR reset
-                PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+//                // software POR reset
+//                PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+
+                setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
+                while(1)
+                {
+                    __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
+                }
             }
 
             /* Baud rate is likely 115200, 1000000 or 460800 so try them first */
@@ -1239,10 +1209,6 @@ void InitialiseBt(void)
         TaskSet(TASK_SDLOG_CFG_UPDATE);
 #endif
     }
-
-#if FACTORY_TEST
-    Board_ledOn(LED_ALL);
-#endif
 }
 
 void StartLogging(void)
@@ -2399,6 +2365,36 @@ void BlinkTimerStop(void)
     TB0CCTL3 &= ~CCIE;
 }
 
+void setBootStage(boot_stage_t bootStageNew)
+{
+    bootStage = bootStageNew;
+
+    switch (bootStage)
+    {
+    case BOOT_STAGE_START:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_I2C:
+        Board_ledOff(LED_ALL);
+        break;
+    case BOOT_STAGE_BLUETOOTH:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_BLUETOOTH_FAILURE:
+        Board_ledOff(LED_ALL);
+        break;
+    case BOOT_STAGE_CONFIGURATION:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_END:
+        Board_ledOff(LED_ALL);
+        break;
+    default:
+        break;
+    }
+    return;
+}
+
 #pragma vector=TIMER0_B1_VECTOR
 __interrupt void TIMER0_B1_ISR(void)
 {
@@ -2434,6 +2430,22 @@ __interrupt void TIMER0_B1_ISR(void)
         if (blinkCnt20++ == 19)
         {
             blinkCnt20 = 0;
+        }
+
+        if (bootStage != BOOT_STAGE_END)
+        {
+            switch (bootStage)
+            {
+            case BOOT_STAGE_I2C:
+                Board_ledToggle(LED_RED);
+                break;
+            case BOOT_STAGE_BLUETOOTH_FAILURE:
+                Board_ledToggle(LED_YELLOW);
+                break;
+            default:
+                break;
+            }
+            return;
         }
 
         /* SDLog handles auto-stop in TIMER0_A1_VECTOR whereas LogAndStream handles it in TIMER0_B1_VECTOR */
@@ -4438,8 +4450,7 @@ void SendResponse(void)
             *(resPacket + packet_length++) = FW_VER_MAJOR & 0xFF;
             *(resPacket + packet_length++) = (FW_VER_MAJOR & 0xFF00) >> 8;
             *(resPacket + packet_length++) = FW_VER_MINOR;
-            *(resPacket + packet_length++) = FW_VER_REL
-                    + ((FACTORY_TEST) ? 200 : 0);
+            *(resPacket + packet_length++) = FW_VER_REL;
             fwVersionResponse = 0;
         }
         else if (blinkLedResponse)
@@ -5252,8 +5263,7 @@ void Config2SdHead(void)
     sdHeadText[SDH_FW_VERSION_MAJOR_0] = FW_VER_MAJOR >> 8;
     sdHeadText[SDH_FW_VERSION_MAJOR_1] = FW_VER_MAJOR & 0xff;
     sdHeadText[SDH_FW_VERSION_MINOR] = FW_VER_MINOR;
-    sdHeadText[SDH_FW_VERSION_INTERNAL] = FW_VER_REL
-            + ((FACTORY_TEST) ? 200 : 0);
+    sdHeadText[SDH_FW_VERSION_INTERNAL] = FW_VER_REL;
 
     /* exg */
     sdHeadText[SDH_EXG_ADS1292R_1_CONFIG1] =

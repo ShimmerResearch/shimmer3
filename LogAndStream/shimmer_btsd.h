@@ -60,8 +60,6 @@
 #endif
 #define FW_VER_REL            6     //internal version number: 0-255
 
-#define FACTORY_TEST          0
-
 typedef uint8_t bool;
 #define TRUE    (1)
 #define FALSE   (0)
@@ -534,5 +532,15 @@ typedef enum
    TASK_FACTORY_TEST        = (0x00000001UL << 16U)
 } TASK_FLAGS;
 #define TASK_SIZE    32
+
+typedef enum
+{
+    BOOT_STAGE_START,
+    BOOT_STAGE_I2C,
+    BOOT_STAGE_BLUETOOTH,
+    BOOT_STAGE_BLUETOOTH_FAILURE,
+    BOOT_STAGE_CONFIGURATION,
+    BOOT_STAGE_END
+} boot_stage_t;
 
 #endif

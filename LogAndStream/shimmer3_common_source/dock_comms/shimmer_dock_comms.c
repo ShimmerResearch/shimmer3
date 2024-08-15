@@ -636,17 +636,12 @@ void DockUart_sendRsp(void)
     *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
     *(uartRespBuf + uart_resp_len++) = UART_PROP_VER;
     *(uartRespBuf + uart_resp_len++) = DEVICE_VER;
-    *(uartRespBuf + uart_resp_len++) = (FW_IDENTIFIER & 0xFF);
-    *(uartRespBuf + uart_resp_len++) = ((FW_IDENTIFIER & 0xFF00) >> 8);
-    *(uartRespBuf + uart_resp_len++) = (FW_VER_MAJOR & 0xFF);
-    *(uartRespBuf + uart_resp_len++) = ((FW_VER_MAJOR & 0xFF00) >> 8);
-    *(uartRespBuf + uart_resp_len++) = (FW_VER_MINOR);
-#if defined(SHIMMER3)
-    *(uartRespBuf + uart_resp_len++) = (FW_VER_REL
-        + ((FACTORY_TEST) ? 200 : 0));
-#else
-    *(uartRespBuf + uart_resp_len++) = (FW_VER_REL);
-#endif
+    *(uartRespBuf + uart_resp_len++) = FW_IDENTIFIER & 0xFF;
+    *(uartRespBuf + uart_resp_len++) = (FW_IDENTIFIER & 0xFF00) >> 8;
+    *(uartRespBuf + uart_resp_len++) = FW_VER_MAJOR & 0xFF;
+    *(uartRespBuf + uart_resp_len++) = (FW_VER_MAJOR & 0xFF00) >> 8;
+    *(uartRespBuf + uart_resp_len++) = FW_VER_MINOR;
+    *(uartRespBuf + uart_resp_len++) = FW_VER_REL;
   }
   else if (uartSendRspBat)
   {
