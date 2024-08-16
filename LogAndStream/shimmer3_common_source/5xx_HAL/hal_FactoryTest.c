@@ -49,6 +49,9 @@ void run_factory_test(void)
         send_test_report("\r\n");
 
         bt_module_test();
+        send_test_report("\r\n");
+
+        I2C_test();
     }
 
     send_test_report("//***************************** TEST END "
@@ -151,7 +154,7 @@ void sd_card_test(void)
     }
 }
 
-uint8_t bt_module_test(void)
+void bt_module_test(void)
 {
 //    if (stat.isBtPoweredOn)
 //    {
@@ -159,7 +162,7 @@ uint8_t bt_module_test(void)
 
         send_test_report(" - MAC ID: ");
         BT_getMacAddressAscii(buffer);
-        sprintf(buffer[12], "\r\n");
+        sprintf(&buffer[12], "\r\n");
         send_test_report(buffer);
 
         sprintf(buffer, " - %s\r\n", getBtVerStrPtr());
@@ -179,6 +182,43 @@ uint8_t bt_module_test(void)
 //        send_test_report(" - FAIL\r\n");
 //    }
 //    return stat.isBtPoweredOn;
+}
+
+void I2C_test(void)
+{
+    send_test_report("I2C:\r\n");
+
+    uint8_t eeprom_result = CAT24C16_test();
+    sprintf(buffer, " - %s: CAT24C16\r\n", eeprom_result ? "FAIL" : "PASS");
+    send_test_report(buffer);
+
+    i2cSlaveDiscover();
+
+    //There is no self test feature implemented yet in S3 but we can at least indicate what chips are detected.
+    if(i2cSlavePresent(LSM303DHLC_ACCEL_ADDR))
+    {
+        send_test_report(" - LSM303DHLC detected (self-test not implemented yet)\r\n");
+    }
+    if(i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
+    {
+        send_test_report(" - LSM303AH detected (self-test not implemented yet)\r\n");
+    }
+    if(i2cSlavePresent(ICM20948_ADDR))
+    {
+        send_test_report(" - ICM20948 detected (self-test not implemented yet)\r\n");
+    }
+    if(i2cSlavePresent(MPU9150_ADDR))
+    {
+        send_test_report(" - MPU9x50 detected (self-test not implemented yet)\r\n");
+    }
+    if(i2cSlavePresent(BMP180_ADDR))
+    {
+        send_test_report(" - BMP180 detected (self-test not implemented yet)\r\n");
+    }
+    if(i2cSlavePresent(BMP280_ADDR))
+    {
+        send_test_report(" - BMP280 detected (self-test not implemented yet)\r\n");
+    }
 }
 
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)

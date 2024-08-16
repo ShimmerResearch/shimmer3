@@ -180,9 +180,6 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW);
 
-void i2cSlaveDiscover(void);
-char i2cSlavePresent(char address);
-
 uint8_t setTaskNewBtCmdToProcess(void);
 
 uint8_t syncEnabled, btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn,
@@ -235,7 +232,7 @@ FIL dataFile;
 /* make dir for SDLog files*/
 uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
         expIdName[MAX_CHARS],
-        shimmerName[MAX_CHARS], daughtCardId[PAGE_SIZE], firstTsFlag,
+        shimmerName[MAX_CHARS], daughtCardId[CAT24C16_PAGE_SIZE], firstTsFlag,
         fileName[64],
         configTimeText[UINT32_LEN], //,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
         txBuff0[DATA_PACKET_SIZE + 2], txBuff1[DATA_PACKET_SIZE + 2],
@@ -290,10 +287,6 @@ uint8_t undockSimulate;
 uint8_t streamDataInProc;
 char *dierecord;
 
-/* variables used in i2c address scanning (used for BMP180/280 check) */
-uint8_t slave_addresses[128U+2U];
-uint8_t *slave_address_pointer;
-
 bool SD_ERROR, SD_IN_SLOT;
 
 /* variables used for delayed undock-start */
@@ -324,7 +317,7 @@ bool isIcm20948GyroEn = FALSE;
 #define SKIP65MS            1
 
 // bluetooth variables
-uint8_t rnx_radio_eeprom[PAGE_SIZE];
+uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
 
 #if !BT_DMA_USED_FOR_RX
 bool areNewBytesInBtRxBuf = FALSE;
@@ -759,8 +752,6 @@ void Init(void)
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
     useAckPrefixForInstreamResponses = 1U;
 
-    memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
-
     SD_ERROR = SD_IN_SLOT = FALSE;
 
     /* variables used for delayed undock-start */
@@ -816,8 +807,8 @@ void Init(void)
     loadBmpCalibration();
     saveBmpCalibrationToSdHeader();
 
-    memset(daughtCardId, 0, PAGE_SIZE);
-    eepromRead(DAUGHT_CARD_ID, PAGE_SIZE, daughtCardId);
+    memset(daughtCardId, 0, CAT24C16_PAGE_SIZE);
+    eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, daughtCardId);
 
     ProcessHwRevision();
     Board_init_for_revision(isAds1292Present(daughtCardId[DAUGHT_CARD_ID]),
@@ -1092,7 +1083,7 @@ void InitialiseBt(void)
     {
         // Read Bluetooth configuration parameters from EEPROM
         /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
-        eepromRead(RNX_TYPE_EEPROM_ADDRESS, PAGE_SIZE, rnx_radio_eeprom);
+        eepromRead(RNX_TYPE_EEPROM_ADDRESS, CAT24C16_PAGE_SIZE, rnx_radio_eeprom);
 
         if (rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] <= BAUD_1000000)
         {
@@ -1735,72 +1726,6 @@ void BtsdSelfcmd()
 
         BT_write(selfcmd, i, SHIMMER_CMD);
     }
-}
-
-char i2cSlavePresent(char address)
-{
-//    char isPresent = 0;
-//
-//    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-//    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-//    P3OUT |= BIT3;
-//    __delay_cycles(480000);            //20ms
-//
-//    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-//    I2C_Master_Init(S_MCLK, 24000000, 400000);
-//
-//    isPresent = TI_USCI_I2C_slave_present(address);
-//
-//    P8OUT &= ~BIT4;            //disable I2C pull-ups by turning off SW_I2C
-//    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-//    P3OUT &= ~BIT3;
-//
-//    return isPresent;
-
-    /* Approach relies on i2cSlaveDiscover having been performed before this */
-    uint8_t i;
-    for (i = 0; i < sizeof(slave_addresses)-1; i++)
-    {
-        if(slave_addresses[i]==0xFF
-                && slave_addresses[i+1U]==0xFE)
-        {
-            break;
-        }
-
-        if(slave_addresses[i]==address)
-        {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-void i2cSlaveDiscover(void)
-{
-    char address;
-
-    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-    P3OUT |= BIT3;
-    __delay_cycles(480000);            //20ms
-
-    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-    I2C_Master_Init(S_MCLK, 24000000, 400000);
-
-    slave_address_pointer = &slave_addresses[0];
-    for (address = 1; address < 127; address++)
-    {
-        if (TI_USCI_I2C_slave_present(address))
-        {
-            *slave_address_pointer++ = address;
-        }
-    }
-    *slave_address_pointer++ = 0xFF;
-    *slave_address_pointer = 0xFE;
-
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-    P3OUT &= ~BIT3;
 }
 
 void ConfigureChannels(void)

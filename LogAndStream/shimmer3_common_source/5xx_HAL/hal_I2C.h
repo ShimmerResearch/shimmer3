@@ -86,4 +86,7 @@ extern uint8_t I2C_Write_Packet_To_Sensor(uint8_t *writeData,
 extern uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData,
                uint16_t dataLength);
 
+void i2cSlaveDiscover(void);
+char i2cSlavePresent(char address);
+
 #endif /*HAL_I2C_H*/

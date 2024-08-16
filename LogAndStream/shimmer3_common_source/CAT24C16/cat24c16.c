@@ -6,7 +6,9 @@
  */
 
 #include "cat24c16.h"
+
 #include "../5xx_HAL/hal_I2C.h"
+#include "../5xx_HAL/hal_RTC.h"
 #include "msp430.h"
 #include "string.h"
 
@@ -84,7 +86,7 @@ void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
 
         __delay_cycles(120000); //5ms
         //bounds check
-        margin = PAGE_SIZE - (mem_ptr % PAGE_SIZE);
+        margin = CAT24C16_PAGE_SIZE - (mem_ptr % CAT24C16_PAGE_SIZE);
         this_write = min(margin, address + length - mem_ptr);
 
         //set byte address
@@ -98,8 +100,59 @@ void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
         buf_offset += this_write;
 
         //if reaches edge of flash mem, reassign the slave address
-        if (!(mem_ptr % BLOCK_SIZE))
+        if (!(mem_ptr % CAT24C16_BLOCK_SIZE))
             inc_addr = 1;
     }
 }
 
+//returns 0 if successful, 1 if failure
+uint8_t CAT24C16_test(void)
+{
+    uint16_t i, j = 0;
+    uint8_t ret_val = 0;
+    uint8_t test_eeprom_backup[CAT24C16_TEST_SIZE];
+    uint8_t test_eeprom_wr[CAT24C16_TEST_SIZE];
+    uint8_t test_eeprom_rd[CAT24C16_TEST_SIZE];
+
+    CAT24C16_init();
+
+//    memset(test_eeprom_wr, 0xFF, CAT24C16_TEST_SIZE);
+//    CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_wr);
+//    __delay_cycles(120000); //5ms
+
+    CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
+
+    while (j++ < 3)
+    {
+        //SRAND/RAND not working on MSP430 for some reason
+//        srand((unsigned) RTC_get32());
+//        for (i = 0; i < CAT24C16_TEST_SIZE; i++)
+//        {
+//            test_eeprom_wr[i] = rand();
+//        }
+
+        //Increment value in
+        for (i = 0; i < CAT24C16_TEST_SIZE; i++)
+        {
+            test_eeprom_wr[i] = j + i;
+        }
+
+        memset(test_eeprom_rd, 0, CAT24C16_TEST_SIZE);
+        CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_wr);
+        __delay_cycles(120000); //5ms
+        CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_rd);
+
+        ret_val = memcmp(test_eeprom_wr, test_eeprom_rd, CAT24C16_TEST_SIZE);
+        if (ret_val)
+        {
+            break;
+        }
+    }
+
+    CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
+    __delay_cycles(120000); //5ms
+
+    CAT24C16_powerOff();
+
+    return ret_val;
+}

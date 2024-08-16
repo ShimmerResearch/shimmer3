@@ -3,11 +3,16 @@
 
 #include <stdint.h>
 
-#define CAT24C16_ADDR	0x50 //7 bit address I2C address
-							 //lower 3 bits are highest order bits of memory address
-#define PAGE_SIZE		16
-#define BLOCK_SIZE		256
-#define READ_SIZE		128
+//7 bit address I2C address
+//lower 3 bits are highest order bits of memory address
+#define CAT24C16_ADDR        0x50
+
+#define CAT24C16_PAGE_SIZE   16
+#define CAT24C16_BLOCK_SIZE  256
+#define CAT24C16_READ_SIZE   128
+#define CAT24C16_TOTAL_SIZE  2048
+#define CAT24C16_TEST_OFFSET 16
+#define CAT24C16_TEST_SIZE   (8*CAT24C16_PAGE_SIZE)
 
 #define EEPROM_MAX_SIZE_IN_BYTES (2048U)
 
@@ -51,5 +56,7 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer);
 //but only within a 16-byte page (of which there are
 //128 in the CAT24C16)
 void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data);
+
+uint8_t CAT24C16_test(void);
 
 #endif //CAT24C16_H

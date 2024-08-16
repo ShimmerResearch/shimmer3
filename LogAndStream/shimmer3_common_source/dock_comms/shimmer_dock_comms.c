@@ -57,7 +57,7 @@ extern void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 extern uint8_t initializing, sensing;
 extern uint8_t storedConfig[NV_NUM_RWMEM_BYTES];
 extern uint8_t sdHeadText[SDHEAD_LEN];
-extern uint8_t daughtCardId[PAGE_SIZE];
+extern uint8_t daughtCardId[CAT24C16_PAGE_SIZE];
 extern uint8_t battVal[3];
 #else
 extern STATTypeDef stat;
