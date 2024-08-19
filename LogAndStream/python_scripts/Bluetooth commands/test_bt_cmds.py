@@ -4,6 +4,8 @@ import unittest
 from Shimmer_common import shimmer_comms_bluetooth, util_shimmer_time, util_shimmer
 from Shimmer_common import shimmer_device, shimmer_app_common
 
+from colorama import Fore
+
 
 def does_response_include_length_byte(get_cmd):
     return (get_cmd == shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND
@@ -1110,11 +1112,23 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         else:
             print("Skipping test, command not supported in firmware")
 
-    def test_99_reset_config_and_calib_after_testing(self):
+    def test_96_factory_test_bluetooth(self):
+        print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
+        tx_bytes = 0
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
+        self.shimmer.bluetooth_port.wait_for_ack(2000)
+        end = "//***************************** TEST END *************************************//\r\n"
+        while True:
+            response = self.shimmer.bluetooth_port.ser.readline().decode('utf-8')
+            print(response, end='')
+            if response == end:
+                print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
+                break
+
+    def test_97_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
         self.test_02_reset_default_config(True)
         self.test_03_reset_default_calib(True)
-
 
 
 if __name__ == '__main__':
