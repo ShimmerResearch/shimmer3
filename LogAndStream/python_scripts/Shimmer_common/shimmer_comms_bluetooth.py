@@ -170,7 +170,7 @@ class BtCmds:
     SET_SD_SYNC_COMMAND = 0xE0
     SD_SYNC_RESPONSE = 0xE1
     ACK_COMMAND_PROCESSED = 0xFF
-
+    SET_FACTORY_TEST = 0xA8
 
 class ShimmerBluetooth:
     serial_port_timeout_ms = 500
