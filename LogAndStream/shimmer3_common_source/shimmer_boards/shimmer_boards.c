@@ -10,8 +10,14 @@
 #include "shimmer_boards.h"
 #include "../BMPX80/bmpX80.h"
 
+daughter_card_id_page daughterCardIdPage;
 char daughtCardIdStr[26];
 uint8_t wrAccelAndMagInUse, gyroInUse, eepromIsPresent;
+
+void setDaugherCardIdPage(uint8_t *pagePtr)
+{
+  memcpy(daughterCardIdPage.raw, pagePtr, sizeof(daughterCardIdPage.raw));
+}
 
 uint8_t isAds1292Present(uint8_t srId)
 {
@@ -114,9 +120,20 @@ void parseDaughterCardId(uint8_t srId)
     }
 }
 
+shimmer_expansion_brd *getDaughtCardId(void)
+{
+  return &daughterCardIdPage.expansion_brd;
+}
+
 char* getDaughtCardIdStrPtr(void)
 {
     return &daughtCardIdStr[0];
+}
+
+uint8_t isDaughterCardIdSet(void)
+{
+  return (daughterCardIdPage.expansion_brd.exp_brd_id != 0x00
+      && daughterCardIdPage.expansion_brd.exp_brd_id != 0xFF);
 }
 
 void setWrAccelAndMagInUse(uint8_t wr_accel_and_mag_in_use)

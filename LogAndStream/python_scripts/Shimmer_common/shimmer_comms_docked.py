@@ -3,6 +3,7 @@ import time
 
 import serial
 from serial import SerialException
+from enum import Enum
 
 from Shimmer_common import shimmer_crc as shimmerCrc
 from Shimmer_common import util_shimmer_time
@@ -59,6 +60,12 @@ class UartProperty:
 
     class Bluetooth:
         VER = 0x03
+
+class UART_RX_STAGES(Enum):
+    WAIT_FOR_CMD = 0
+    WAIT_FOR_LENGTH = 1
+    WAIT_FOR_CONTENTS = 2
+    WAIT_FOR_CRC = 3
 
 
 def assemble_tx_packet(uart_cmd=None, uart_component=None, uart_property=None, uart_args=None):
@@ -328,52 +335,60 @@ class ShimmerUart:
     def wait_for_response(self):
         flag = True
 
-        loop_count = 0
-        wait_interval_ms = 100
-        loop_count_total = self.serial_port_timeout_ms / wait_interval_ms
-
         rx_buf = []
 
+        stage = UART_RX_STAGES.WAIT_FOR_CMD
+        qty_to_wait_for = 2
+
         while flag:
-            time.sleep(wait_interval_ms / 1000)
-            loop_count += 1
-            if loop_count >= loop_count_total:
-                if len(rx_buf) > 0:
-                    print("UART RX (incomplete due to timeout): " + util_shimmer.byte_array_to_hex_string(rx_buf))
+            data_read = self.ser.read(qty_to_wait_for)
+            if isinstance(data_read, str):
+                rx_buf += bytearray.fromhex(binascii.hexlify(data_read))
+            else:
+                rx_buf += data_read
+
+            if len(data_read) != qty_to_wait_for:
+                print("UART RX (incomplete due to timeout): " + util_shimmer.byte_array_to_hex_string(rx_buf))
                 return False
 
-            buf_len = self.ser.inWaiting()
-            if buf_len > 0:
-                data_read = self.ser.read(buf_len)
-                if isinstance(data_read, str):
-                    rx_buf += bytearray.fromhex(binascii.hexlify(data_read))
-                else:
-                    rx_buf += data_read
-
+            # Wait for header and CMD byte
+            if stage == UART_RX_STAGES.WAIT_FOR_CMD:
                 if rx_buf[0] == PACKET_HEADER:
                     if rx_buf[1] == UartPacketCmd.ACK_RESPONSE \
                             or rx_buf[1] == UartPacketCmd.BAD_CMD_RESPONSE \
                             or rx_buf[1] == UartPacketCmd.BAD_ARG_RESPONSE \
                             or rx_buf[1] == UartPacketCmd.BAD_CRC_RESPONSE:
-                        if self.debug_tx_rx_packets:
-                            print("UART RX: " + util_shimmer.byte_array_to_hex_string(rx_buf))
-                        rx_buf = rx_buf[1]
-                        break
-
-                    if buf_len > 3:
-                        if len(rx_buf) == rx_buf[2] + 5:
-                            if shimmerCrc.crc_check(len(rx_buf), rx_buf) is not True:
-                                print("CRC fail")
-                            else:
-                                if self.debug_tx_rx_packets:
-                                    print("UART RX: " + util_shimmer.byte_array_to_hex_string(rx_buf))
-
-                                rx_buf = rx_buf[5:len(rx_buf) - 2]
-                            break
+                        qty_to_wait_for = 2
+                        stage = UART_RX_STAGES.WAIT_FOR_CRC
+                    else:
+                        qty_to_wait_for = 1
+                        stage = UART_RX_STAGES.WAIT_FOR_LENGTH
                 else:
-                    # TODO
-                    print("RX: Invalid Response")
-                    return
+                    qty_to_wait_for = 1
+                    stage = UART_RX_STAGES.WAIT_FOR_CMD
+            elif stage == UART_RX_STAGES.WAIT_FOR_LENGTH:
+                qty_to_wait_for = rx_buf[2]
+                stage = UART_RX_STAGES.WAIT_FOR_CONTENTS
+
+            elif stage == UART_RX_STAGES.WAIT_FOR_CONTENTS:
+                qty_to_wait_for = 2
+                stage = UART_RX_STAGES.WAIT_FOR_CRC
+
+            elif stage == UART_RX_STAGES.WAIT_FOR_CRC:
+                if shimmerCrc.crc_check(len(rx_buf), rx_buf) is not True:
+                    print("CRC fail")
+                else:
+                    if self.debug_tx_rx_packets:
+                        print("UART RX: " + util_shimmer.byte_array_to_hex_string(rx_buf))
+
+                    if rx_buf[1] == UartPacketCmd.ACK_RESPONSE \
+                            or rx_buf[1] == UartPacketCmd.BAD_CMD_RESPONSE \
+                            or rx_buf[1] == UartPacketCmd.BAD_ARG_RESPONSE \
+                            or rx_buf[1] == UartPacketCmd.BAD_CRC_RESPONSE:
+                        rx_buf = rx_buf[1]
+                    else:
+                        rx_buf = rx_buf[5:len(rx_buf) - 2]
+                break
 
         return rx_buf
 

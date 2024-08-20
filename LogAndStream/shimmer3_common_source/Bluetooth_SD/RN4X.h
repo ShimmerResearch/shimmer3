@@ -190,7 +190,7 @@ enum BT_SET_COMMAND_STAGES
 // wait about 1s to 2s after reset toggle
 #define BT_DELAY_REBOOT_TICKS           48000000UL // 2s @24MHz
 
-#define RNX_TYPE_EEPROM_ADDRESS         (EEPROM_MAX_SIZE_IN_BYTES - PAGE_SIZE)
+#define RNX_TYPE_EEPROM_ADDRESS         (EEPROM_MAX_SIZE_IN_BYTES - CAT24C16_PAGE_SIZE)
 #define RNX_RADIO_TYPE_IDX              (0U)
 #define RN4678_BAUD_RATE_IDX            (1U)
 

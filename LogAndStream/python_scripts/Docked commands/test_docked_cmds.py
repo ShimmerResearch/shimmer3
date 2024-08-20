@@ -3,6 +3,8 @@ import unittest
 
 from Shimmer_common import util_shimmer, util_shimmer_time, shimmer_device, shimmer_app_common
 
+from colorama import Fore
+
 
 class TestShimmerDockCommunication(unittest.TestCase):
     shimmer = None
@@ -235,6 +237,19 @@ class TestShimmerDockCommunication(unittest.TestCase):
     #             print("Error")
     #             self.assertTrue(False)
     #         print("")
+
+    def test_12_factory_test_dock(self):
+        print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
+        tx_bytes = [0x24, 0x01, 0x02, 0x0B, 0x00, 0xDB, 0x0A]
+        self.shimmer.dock_port.send_uart(tx_bytes)
+        end = "//***************************** TEST END *************************************//\r\n"
+        while True:
+            # response = data.decode('utf-8')
+            response = self.shimmer.dock_port.ser.readline().decode('utf-8')
+            print(response, end='')
+            if response == end:
+                print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
+                break
 
 
 if __name__ == '__main__':

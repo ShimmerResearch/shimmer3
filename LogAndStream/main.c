@@ -65,6 +65,7 @@
 #include <math.h>
 #include "msp430.h"
 #include "shimmer3_common_source/shimmer_sd_include.h"
+#include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
 
 void Init(void);
@@ -75,7 +76,8 @@ void saveBmpCalibrationToSdHeader(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void BlinkTimerStart(void);
-inline void BlinkTimerStop(void);
+void BlinkTimerStop(void);
+void setBootStage(boot_stage_t bootStageNew);
 void SampleTimerStart(void);
 inline void SampleTimerStop(void);
 void StartLogging(void);
@@ -165,10 +167,6 @@ void SdInfoSync();
 #if BT_ENABLE_BAUD_RATE_CHANGE
 void ChangeBtBaudRateFunc();
 #endif
-uint8_t UartCheckCrc(uint8_t len);
-void UartProcessCmd();
-void UartSendRsp();
-uint8_t UartCallback(uint8_t data);
 inline uint8_t Skip65ms();
 void SetStartSensing();
 void setStopSensing(uint8_t state);
@@ -181,9 +179,6 @@ void eepromRead(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW);
-
-void i2cSlaveDiscover(void);
-char i2cSlavePresent(char address);
 
 uint8_t setTaskNewBtCmdToProcess(void);
 
@@ -237,7 +232,7 @@ FIL dataFile;
 /* make dir for SDLog files*/
 uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
         expIdName[MAX_CHARS],
-        shimmerName[MAX_CHARS], daughtCardId[PAGE_SIZE], firstTsFlag,
+        shimmerName[MAX_CHARS], daughtCardId[CAT24C16_PAGE_SIZE], firstTsFlag,
         fileName[64],
         configTimeText[UINT32_LEN], //,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
         txBuff0[DATA_PACKET_SIZE + 2], txBuff1[DATA_PACKET_SIZE + 2],
@@ -289,24 +284,8 @@ uint8_t changeBtBaudRate, sdInfoSyncDelayed;
 
 uint8_t undockSimulate;
 
-uint8_t uartDcMemLength, uartInfoMemLength;
-uint16_t uartDcMemOffset, uartInfoMemOffset;
-
-uint8_t uartSteps, uartArgSize, uartArg2Wait, uartCrc2Wait, uartAction;
-uint8_t uartRxBuf[UART_DATA_LEN_MAX];
-uint8_t uartSendRspMac, uartSendRspVer, uartSendRspBat,
-
-uartSendRspRtcConfigTime, uartSendRspCurrentTime, /* uartSendRspRct, uartSendRspRdt, */
-
-uartSendRspGdi, uartSendRspGdm, uartSendRspGim, uartSendRspBtVer, uartSendRspAck,
-        uartSendRspBadCmd, uartSendRspBadArg, uartSendRspBadCrc;
-uint8_t uartRespBuf[UART_RSP_PACKET_SIZE];
 uint8_t streamDataInProc;
 char *dierecord;
-
-/* variables used in i2c address scanning (used for BMP180/280 check) */
-uint8_t slave_addresses[128U+2U];
-uint8_t *slave_address_pointer;
 
 bool SD_ERROR, SD_IN_SLOT;
 
@@ -333,17 +312,18 @@ bool isIcm20948GyroEn = FALSE;
 #define RTC_OFF             0
 #define PRES_TS_EN          0
 #define IS_SUPPORTED_TCXO   0
-#define FACTORY_TEST        0
 /* should be 1 */
 #define TS_BYTE3            1
 #define SKIP65MS            1
 
 // bluetooth variables
-uint8_t rnx_radio_eeprom[PAGE_SIZE];
+uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
 
 #if !BT_DMA_USED_FOR_RX
 bool areNewBytesInBtRxBuf = FALSE;
 #endif
+
+boot_stage_t bootStage;
 
 void main(void)
 {
@@ -441,12 +421,12 @@ void main(void)
         if (taskList & TASK_DOCK_PROCESS_CMD)
         {
             TaskClear(TASK_DOCK_PROCESS_CMD);
-            UartProcessCmd();
+            DockUart_processCmd();
         }
         if (taskList & TASK_DOCK_RESPOND)
         {
             TaskClear(TASK_DOCK_RESPOND);
-            UartSendRsp();
+            DockUart_sendRsp();
         }
 
         if (taskList & TASK_BT_PROCESS_CMD)
@@ -601,6 +581,11 @@ void main(void)
             Write2SD();
         }
 
+        if (taskList & TASK_FACTORY_TEST)
+        {
+            TaskClear(TASK_FACTORY_TEST);
+            run_factory_test();
+        }
     }
 }
 
@@ -625,22 +610,8 @@ void Init(void)
     battCritical = FALSE;
 
     Board_init();
-#if FACTORY_TEST
-    Board_ledOn(LED_YELLOW);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_GREEN0);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_RED);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_BLUE);
-    __delay_cycles(480000);
-    Board_ledOff(LED_ALL);
-    __delay_cycles(480000);
-#endif
-    Board_ledOn(LED_ALL);
+
+    setBootStage(BOOT_STAGE_START);
 
     // Set Vcore to accommodate for max. allowed system speed
     SetVCore(PMMCOREV_3);
@@ -779,26 +750,7 @@ void Init(void)
     bmpGenericCalibrationCoefficientsResponse = 0;
 
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
-    uartSendRspAck = 0;
-    uartSendRspMac = 0;
-    uartSendRspVer = 0;
-    uartSendRspBat = 0;
-    uartSendRspRtcConfigTime = 0;
-    uartSendRspCurrentTime = 0;
-    uartSendRspGdi = 0;
-    uartSendRspGdm = 0;
-    uartSendRspGim = 0;
-    uartSendRspBtVer = 0;
-    uartSendRspBadCmd = 0;
-    uartSendRspBadArg = 0;
-    uartSendRspBadCrc = 0;
-    uartSteps = 0;
-    uartArgSize = 0;
-    uartArg2Wait = 0;
-    uartCrc2Wait = 0;
     useAckPrefixForInstreamResponses = 1U;
-
-    memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
 
     SD_ERROR = SD_IN_SLOT = FALSE;
 
@@ -822,8 +774,11 @@ void Init(void)
     /* Globally enable interrupts */
     _enable_interrupts();
 
+    BlinkTimerStart();
+
+    DockUart_resetVariables();
     UCA0_isrInit();
-    UART_init(UartCallback);
+    UART_init(DockUart_rxCallback);
 
     /* exp power */
     P3OUT &= ~BIT3;      //set low
@@ -847,23 +802,19 @@ void Init(void)
 
     dierecord = (char*) 0x01A0A;
 
-    /* Blink timer needed for I2C communication */
-    BlinkTimerStart();
-
+    setBootStage(BOOT_STAGE_I2C);
     detectI2cSlaves();
     loadBmpCalibration();
     saveBmpCalibrationToSdHeader();
 
-    memset(daughtCardId, 0, PAGE_SIZE);
-    eepromRead(DAUGHT_CARD_ID, PAGE_SIZE, daughtCardId);
+    memset(daughtCardId, 0, CAT24C16_PAGE_SIZE);
+    eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, daughtCardId);
 
     ProcessHwRevision();
     Board_init_for_revision(isAds1292Present(daughtCardId[DAUGHT_CARD_ID]),
                             isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
                                                              daughtCardId[DAUGHT_CARD_REV],
                                                              daughtCardId[DAUGHT_CARD_SPECIAL_REV]));
-
-    BlinkTimerStop();
 
     /* Used to flash green LED on boot but no longer serves that purpose */
     configuring = 1;
@@ -877,8 +828,10 @@ void Init(void)
     txBuff0[1] = txBuff1[1] = DATA_PACKET; //packet type
 #endif
 
+    setBootStage(BOOT_STAGE_BLUETOOTH);
     InitialiseBt();
 
+    setBootStage(BOOT_STAGE_CONFIGURATION);
     /* Calibration needs to be loaded after the chips have been detected in
      * order to know which default calib to set for attached chips.
      * It also needs to be loaded after the BT is initialised so that the
@@ -893,11 +846,11 @@ void Init(void)
     initializing = 0;
     configuring = 0;
 
-    BlinkTimerStart();
 #if !FW_IS_LOGANDSTREAM
     CommTimerStart();
 #endif
-    Board_ledOff(LED_ALL);
+
+    bootStage = BOOT_STAGE_END;
 }
 
 void handleIfDockedStateOnBoot(void)
@@ -937,15 +890,7 @@ void handleIfDockedStateOnBoot(void)
 
 void detectI2cSlaves(void)
 {
-#if FACTORY_TEST
-    /* i2c test */
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_RED);
     i2cSlaveDiscover();
-    Board_ledOn(LED_ALL);
-#else
-    i2cSlaveDiscover();
-#endif
 
     // Identify the presence of different sensors
     setBmpInUse((i2cSlavePresent(BMP280_ADDR)) ? BMP280_IN_USE : BMP180_IN_USE);
@@ -1014,13 +959,6 @@ void loadSensorConfigurationAndCalibration(void)
             ShimmerCalib_ram2File();
             IniReadInfoMem();
         }
-
-        /* ====== SD READ/WRITE test ======*/
-#if FACTORY_TEST
-            ReadWriteSDTest();
-#endif
-        /* ====== SD READ/WRITE test ======*/
-
     }
     else
     {   // sd card not available
@@ -1050,6 +988,7 @@ void ProcessHwRevision(void)
     uint8_t srRevMajor = daughtCardId[DAUGHT_CARD_REV];
     uint8_t srRevMinor = daughtCardId[DAUGHT_CARD_SPECIAL_REV];
 
+    setDaugherCardIdPage(daughtCardId);
     parseDaughterCardId(srId);
 
     if (isEepromIsPresent())
@@ -1125,8 +1064,7 @@ void InitialiseBt(void)
     BT_setUpdateBaudDuringBoot(1);
 #endif
 
-#if FACTORY_TEST
-    BT_useSpecificAdvertisingName(1U);
+//    BT_useSpecificAdvertisingName(1U);
     /* This used to be used to trigger reset of the Bluetooth advertising name
      * and pin code but is no longer needed due to BT driver updates. Leaving
      * the remaining code in here just to reset the infomem bit but it isn't
@@ -1137,7 +1075,6 @@ void InitialiseBt(void)
         storedConfig[NV_BT_SET_PIN] = 0xAB;
         InfoMem_write((uint8_t *) 0, storedConfig, NV_NUM_RWMEM_BYTES);
     }
-#endif
 
     /* Read previous baud rate from the EEPROM if it is present */
     uint8_t initialBaudRate = BAUD_115200;
@@ -1146,7 +1083,7 @@ void InitialiseBt(void)
     {
         // Read Bluetooth configuration parameters from EEPROM
         /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
-        eepromRead(RNX_TYPE_EEPROM_ADDRESS, PAGE_SIZE, rnx_radio_eeprom);
+        eepromRead(RNX_TYPE_EEPROM_ADDRESS, CAT24C16_PAGE_SIZE, rnx_radio_eeprom);
 
         if (rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] <= BAUD_1000000)
         {
@@ -1162,11 +1099,6 @@ void InitialiseBt(void)
     uint8_t failCount = 0U;
     uint8_t baudIndex = 0;
     uint8_t baudsTried[BAUD_1000000+1U] = {0};
-
-#if FACTORY_TEST
-    Board_ledOff(LED_ALL);
-    Board_ledOn(LED_GREEN1);
-#endif
 
     /* Try the inital baud rate first */
     baudsTried[initialBaudRate] = 1U;
@@ -1197,8 +1129,14 @@ void InitialiseBt(void)
 
             if(failCount==sizeof(baudsTried))
             {
-                // software POR reset
-                PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+//                // software POR reset
+//                PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+
+                setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
+                while(1)
+                {
+                    __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
+                }
             }
 
             /* Baud rate is likely 115200, 1000000 or 460800 so try them first */
@@ -1262,10 +1200,6 @@ void InitialiseBt(void)
         TaskSet(TASK_SDLOG_CFG_UPDATE);
 #endif
     }
-
-#if FACTORY_TEST
-    Board_ledOn(LED_ALL);
-#endif
 }
 
 void StartLogging(void)
@@ -1792,72 +1726,6 @@ void BtsdSelfcmd()
 
         BT_write(selfcmd, i, SHIMMER_CMD);
     }
-}
-
-char i2cSlavePresent(char address)
-{
-//    char isPresent = 0;
-//
-//    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-//    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-//    P3OUT |= BIT3;
-//    __delay_cycles(480000);            //20ms
-//
-//    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-//    I2C_Master_Init(S_MCLK, 24000000, 400000);
-//
-//    isPresent = TI_USCI_I2C_slave_present(address);
-//
-//    P8OUT &= ~BIT4;            //disable I2C pull-ups by turning off SW_I2C
-//    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-//    P3OUT &= ~BIT3;
-//
-//    return isPresent;
-
-    /* Approach relies on i2cSlaveDiscover having been performed before this */
-    uint8_t i;
-    for (i = 0; i < sizeof(slave_addresses)-1; i++)
-    {
-        if(slave_addresses[i]==0xFF
-                && slave_addresses[i+1U]==0xFE)
-        {
-            break;
-        }
-
-        if(slave_addresses[i]==address)
-        {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-void i2cSlaveDiscover(void)
-{
-    char address;
-
-    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-    P3OUT |= BIT3;
-    __delay_cycles(480000);            //20ms
-
-    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-    I2C_Master_Init(S_MCLK, 24000000, 400000);
-
-    slave_address_pointer = &slave_addresses[0];
-    for (address = 1; address < 127; address++)
-    {
-        if (TI_USCI_I2C_slave_present(address))
-        {
-            *slave_address_pointer++ = address;
-        }
-    }
-    *slave_address_pointer++ = 0xFF;
-    *slave_address_pointer = 0xFE;
-
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-    P3OUT &= ~BIT3;
 }
 
 void ConfigureChannels(void)
@@ -2416,10 +2284,40 @@ void BlinkTimerStart(void)
     TB0CCR3 = GetTB0() + clk_1000;
 }
 
-inline void BlinkTimerStop(void)
+void BlinkTimerStop(void)
 {
     blinkStatus = 0;
     TB0CCTL3 &= ~CCIE;
+}
+
+void setBootStage(boot_stage_t bootStageNew)
+{
+    bootStage = bootStageNew;
+
+    switch (bootStage)
+    {
+    case BOOT_STAGE_START:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_I2C:
+        Board_ledOff(LED_ALL);
+        break;
+    case BOOT_STAGE_BLUETOOTH:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_BLUETOOTH_FAILURE:
+        Board_ledOff(LED_ALL);
+        break;
+    case BOOT_STAGE_CONFIGURATION:
+        Board_ledOn(LED_ALL);
+        break;
+    case BOOT_STAGE_END:
+        Board_ledOff(LED_ALL);
+        break;
+    default:
+        break;
+    }
+    return;
 }
 
 #pragma vector=TIMER0_B1_VECTOR
@@ -2457,6 +2355,22 @@ __interrupt void TIMER0_B1_ISR(void)
         if (blinkCnt20++ == 19)
         {
             blinkCnt20 = 0;
+        }
+
+        if (bootStage != BOOT_STAGE_END)
+        {
+            switch (bootStage)
+            {
+            case BOOT_STAGE_I2C:
+                Board_ledToggle(LED_RED);
+                break;
+            case BOOT_STAGE_BLUETOOTH_FAILURE:
+                Board_ledToggle(LED_YELLOW);
+                break;
+            default:
+                break;
+            }
+            return;
         }
 
         /* SDLog handles auto-stop in TIMER0_A1_VECTOR whereas LogAndStream handles it in TIMER0_B1_VECTOR */
@@ -3366,6 +3280,14 @@ void ProcessCommand(void)
         }
         btDataRateTestResponse = 1;
         break;
+    case SET_FACTORY_TEST:
+        if (args[0] < FACTORY_TEST_COUNT)
+        {
+            setup_factory_test(PRINT_TO_BT_UART, (factory_test_t) args[0]);
+            TaskSet(TASK_FACTORY_TEST);
+        }
+        break;
+
     case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
         if (args[0] < 10)
             storedConfig[NV_CONFIG_SETUP_BYTE0] =
@@ -4453,8 +4375,7 @@ void SendResponse(void)
             *(resPacket + packet_length++) = FW_VER_MAJOR & 0xFF;
             *(resPacket + packet_length++) = (FW_VER_MAJOR & 0xFF00) >> 8;
             *(resPacket + packet_length++) = FW_VER_MINOR;
-            *(resPacket + packet_length++) = FW_VER_REL
-                    + ((FACTORY_TEST) ? 200 : 0);
+            *(resPacket + packet_length++) = FW_VER_REL;
             fwVersionResponse = 0;
         }
         else if (blinkLedResponse)
@@ -5267,8 +5188,7 @@ void Config2SdHead(void)
     sdHeadText[SDH_FW_VERSION_MAJOR_0] = FW_VER_MAJOR >> 8;
     sdHeadText[SDH_FW_VERSION_MAJOR_1] = FW_VER_MAJOR & 0xff;
     sdHeadText[SDH_FW_VERSION_MINOR] = FW_VER_MINOR;
-    sdHeadText[SDH_FW_VERSION_INTERNAL] = FW_VER_REL
-            + ((FACTORY_TEST) ? 200 : 0);
+    sdHeadText[SDH_FW_VERSION_INTERNAL] = FW_VER_REL;
 
     /* exg */
     sdHeadText[SDH_EXG_ADS1292R_1_CONFIG1] =
@@ -8444,576 +8364,6 @@ void ReadBatt(void)
             }
         }
     }
-}
-
-uint8_t UartCallback(uint8_t data)
-{
-
-    if (initializing)
-    {
-        return 0;
-    }
-
-    if (uartSteps)
-    { //wait for: cmd, len, data, crc -> process
-        if (uartSteps == UART_STEP_WAIT4_CMD)
-        {
-            uartAction = data;
-            uartArgSize = UART_RXBUF_CMD;
-            uartRxBuf[uartArgSize++] = data;
-            switch (uartAction)
-            {
-            case UART_SET:
-            case UART_GET:
-                uartSteps = UART_STEP_WAIT4_LEN;
-                return 0;
-            default:
-                uartSteps = 0;
-                uartSendRspBadCmd = 1;
-                TaskSet(TASK_DOCK_RESPOND);
-                return 1;
-            }
-        }
-        else if (uartSteps == UART_STEP_WAIT4_LEN)
-        {
-            uartSteps = UART_STEP_WAIT4_DATA;
-            uartArgSize = UART_RXBUF_LEN;
-            uartRxBuf[uartArgSize++] = data;
-            uartArg2Wait = data;
-            return 0;
-        }
-        else if (uartSteps == UART_STEP_WAIT4_DATA)
-        {
-            uartRxBuf[uartArgSize++] = data;
-            if (!--uartArg2Wait)
-            {
-                uartCrc2Wait = 2;
-                uartSteps = UART_STEP_WAIT4_CRC;
-            }
-            return 0;
-        }
-        else if (uartSteps == UART_STEP_WAIT4_CRC)
-        {
-            uartRxBuf[uartArgSize++] = data;
-            if (!--uartCrc2Wait)
-            {
-                uartSteps = 0;
-                uartArgSize = 0;
-                TaskSet(TASK_DOCK_PROCESS_CMD);
-                return 1;
-            }
-            else
-                return 0;
-        }
-        else
-        {
-            uartSteps = 0;
-            return 0;
-        }
-    }
-    else
-    {
-        if (data == '$')
-        {
-            //uint8_t uart_cmd_str[4];
-            uartAction = 0;
-            uartArgSize = UART_RXBUF_START;
-            uartRxBuf[UART_RXBUF_START] = '$';
-            uartSteps = UART_STEP_WAIT4_CMD;
-            return 0;
-        }
-    }
-    return 0;
-}
-
-void UartProcessCmd()
-{
-    if (uartAction)
-    {
-        if (UartCheckCrc(uartRxBuf[UART_RXBUF_LEN] + 3))
-        {
-            if (uartAction == UART_GET)
-            {  // get
-                if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_SHIMMER)
-                { // get shimmer
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_MAC:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspMac = 1;
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    case UART_PROP_VER:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspVer = 1;
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    case UART_PROP_RWC_CFG_TIME:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspRtcConfigTime = 1;
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    case UART_PROP_CURR_LOCAL_TIME:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspCurrentTime = 1;
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    case UART_PROP_INFOMEM:
-                        uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartInfoMemOffset = (uint16_t) uartRxBuf[UART_RXBUF_DATA
-                                + 1]
-                                + (((uint16_t) uartRxBuf[UART_RXBUF_DATA + 2])
-                                        << 8);
-                        //if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff)  && (uartInfoMemOffset>=0x1800)
-                        //      && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)){
-                        //   uartInfoMemOffset -= 0x1800;
-                        if ((uartInfoMemLength <= 0x80)
-                                && (uartInfoMemOffset <= 0x01ff)
-                                && (uartInfoMemLength + uartInfoMemOffset
-                                        <= 0x0200))
-                        {
-                            uartSendRspGim = 1;
-                        }
-                        else
-                        {
-                            uartSendRspBadArg = 1;
-                        }
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_BAT)
-                { // get battery
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_VALUE:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspBat = 1; // already in the callback function
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_DAUGHTER_CARD)
-                { // get daughter card
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_CARD_ID:
-                        uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartDcMemOffset = (uint16_t) uartRxBuf[UART_RXBUF_DATA
-                                + 1];
-                        if ((uartDcMemLength <= 16) && (uartDcMemOffset <= 15)
-                                && ((uint16_t) uartDcMemLength + uartDcMemOffset
-                                        <= 16))
-                        {
-                            uartSendRspGdi = 1;
-                        }
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    case UART_PROP_CARD_MEM:
-                        uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartDcMemOffset = (uint16_t) uartRxBuf[UART_RXBUF_DATA
-                                + 1]
-                                + (((uint16_t) uartRxBuf[UART_RXBUF_DATA + 2])
-                                        << 8);
-                        if ((uartDcMemLength <= 128)
-                                && (uartDcMemOffset <= 2031)
-                                && ((uint16_t) uartDcMemLength + uartDcMemOffset
-                                        <= 2032))
-                        {
-                            uartSendRspGdm = 1;
-                        }
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_BT)
-                {
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_VER:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 2))
-                            uartSendRspBtVer = 1;
-                        else
-                            uartSendRspBadArg = 1;
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else
-                {
-                    uartSendRspBadCmd = 1;
-                }
-            }
-            else if (uartAction == UART_SET)
-            { // set
-                if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_SHIMMER)
-                { // set shimmer
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_RWC_CFG_TIME:
-                        if ((uartRxBuf[UART_RXBUF_LEN] == 10))
-                        {
-                            setRwcTime(uartRxBuf + UART_RXBUF_DATA);
-                            RwcCheck();
-                            storedConfig[NV_SD_TRIAL_CONFIG0] &=
-                                    ~SDH_RTC_SET_BY_BT;
-                            InfoMem_write((uint8_t*) NV_SD_TRIAL_CONFIG0,
-                                          &storedConfig[NV_SD_TRIAL_CONFIG0],
-                                          1);
-                            sdHeadText[SDH_TRIAL_CONFIG0] =
-                                    storedConfig[NV_SD_TRIAL_CONFIG0];
-                            uartSendRspAck = 1;
-                        }
-                        else
-                        {
-                            uartSendRspBadArg = 1;
-                        }
-                        break;
-                    case UART_PROP_INFOMEM:
-                        uartInfoMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartInfoMemOffset = (uint16_t) uartRxBuf[UART_RXBUF_DATA
-                                + 1]
-                                + (((uint16_t) uartRxBuf[UART_RXBUF_DATA + 2])
-                                        << 8);
-                        //if((uartInfoMemLength<=128) && (uartInfoMemOffset<=0x19ff) && (uartInfoMemOffset>=0x1800)
-                        //      && (uartInfoMemLength+uartInfoMemOffset<=0x1a00)) {
-                        //   uartInfoMemOffset -= 0x1800;
-                        if ((uartInfoMemLength <= 0x80)
-                                && (uartInfoMemOffset <= 0x01ff)
-                                && (uartInfoMemLength + uartInfoMemOffset
-                                        <= 0x0200))
-                        {
-
-                            if (uartInfoMemOffset
-                                    == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
-                            {
-                                /* Read MAC address so it is not forgotten */
-                                InfoMem_read((uint8_t*) NV_MAC_ADDRESS, getMacIdBytesPtr(),
-                                             6);
-                            }
-                            if (uartInfoMemOffset
-                                    == (INFOMEM_SEG_D_ADDR - INFOMEM_OFFSET))
-                            {
-                                /* Check if unit is SR47-4 or greater.
-                                 * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
-                                 * This ensures clock lines on ADS chip are correct
-                                 */
-                                if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-                                        && (daughtCardId[DAUGHT_CARD_REV] >= 4))
-                                {
-                                    *(uartRxBuf + UART_RXBUF_DATA + 3
-                                            + NV_EXG_ADS1292R_1_CONFIG2) |= 8;
-                                }
-                            }
-#if !IS_SUPPORTED_TCXO
-                            if (uartInfoMemOffset <= NV_SD_TRIAL_CONFIG1
-                                    && NV_SD_TRIAL_CONFIG1 <= uartInfoMemOffset + uartInfoMemLength)
-                            {
-                                uint8_t tcxoInfomemOffset = NV_SD_TRIAL_CONFIG1 - uartInfoMemOffset;
-                                uartRxBuf[3 + tcxoInfomemOffset] &= ~SDH_TCXO;
-                            }
-#endif
-                            /* Write received UART bytes to infomem */
-                            InfoMem_write((uint8_t*) uartInfoMemOffset,
-                                          uartRxBuf + UART_RXBUF_DATA + 3,
-                                          uartInfoMemLength);
-                            if (uartInfoMemOffset
-                                    == (INFOMEM_SEG_C_ADDR - INFOMEM_OFFSET))
-                            {
-                                /* Re-write MAC address to Infomem */
-                                InfoMem_write((uint8_t*) NV_MAC_ADDRESS,
-                                              getMacIdBytesPtr(), 6);
-                            }
-                            /* Reload latest infomem bytes to RAM */
-                            InfoMem_read((uint8_t*) uartInfoMemOffset,
-                                         storedConfig + uartInfoMemOffset,
-                                         uartInfoMemLength);
-                            Infomem2Names();
-                            uartSendRspAck = 1;
-                        }
-
-                        else
-                        {
-                            uartSendRspBadArg = 1;
-                        }
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_DAUGHTER_CARD)
-                { // set daughter card id
-                    switch (uartRxBuf[UART_RXBUF_PROP])
-                    {
-                    case UART_PROP_CARD_ID:
-//#if FACTORY_TEST
-                        uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartDcMemOffset = uartRxBuf[UART_RXBUF_DATA + 1];
-                        if ((uartDcMemLength <= 16) && (uartDcMemOffset < 16))
-                        {
-                            // Write (up to) 16 bytes to eeprom
-                            eepromWrite(uartDcMemOffset,
-                                            (uint16_t) uartDcMemLength,
-                                            uartRxBuf + UART_RXBUF_DATA + 2U);
-                            // Copy new bytes to active daughter card byte array
-                            memcpy(daughtCardId + ((uint8_t) uartDcMemOffset),
-                                   uartRxBuf + UART_RXBUF_DATA + 2,
-                                   uartDcMemLength);
-                            uartSendRspAck = 1;
-                        }
-                        else
-                        {
-                            uartSendRspBadArg = 1;
-                        }
-                        break;
-//#else
-//                        uartSendRspBadArg = 1;
-//                        break;
-//#endif
-                    case UART_PROP_CARD_MEM:
-                        uartDcMemLength = uartRxBuf[UART_RXBUF_DATA];
-                        uartDcMemOffset = (uint16_t) uartRxBuf[UART_RXBUF_DATA
-                                + 1]
-                                + (((uint16_t) uartRxBuf[UART_RXBUF_DATA + 2])
-                                        << 8);
-                        if ((uartDcMemLength <= 128)
-                                && (uartDcMemOffset <= 2031)
-                                && ((uint16_t) uartDcMemLength + uartDcMemOffset
-                                        <= 2032))
-                        {
-                            eepromWrite(uartDcMemOffset + 16U,
-                                            (uint16_t) uartDcMemLength,
-                                            uartRxBuf + UART_RXBUF_DATA + 3U);
-                            uartSendRspAck = 1;
-                        }
-                        else
-                        {
-                            uartSendRspBadArg = 1;
-                        }
-                        break;
-                    default:
-                        uartSendRspBadCmd = 1;
-                        break;
-                    }
-                }
-                else
-                {
-                    uartSendRspBadCmd = 1;
-                }
-            }
-        }
-        else
-        {
-            uartSendRspBadCrc = 1;
-        }
-        TaskSet(TASK_DOCK_RESPOND);
-    }
-}
-
-void UartSendRsp()
-{
-    uint8_t uart_resp_len = 0, cr = 0;
-    uint16_t uartRespCrc;
-
-    if (uartSendRspAck)
-    {
-        uartSendRspAck = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_ACK_RESPONSE;
-    }
-    else if (uartSendRspBadCmd)
-    {
-        uartSendRspBadCmd = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_BAD_CMD_RESPONSE;
-    }
-    else if (uartSendRspBadArg)
-    {
-        uartSendRspBadArg = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_BAD_ARG_RESPONSE;
-    }
-    else if (uartSendRspBadCrc)
-    {
-        uartSendRspBadCrc = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_BAD_CRC_RESPONSE;
-    }
-    else if (uartSendRspMac)
-    {
-        uartSendRspMac = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 8;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_MAC;
-        memcpy(uartRespBuf + uart_resp_len, getMacIdBytesPtr(), 6);
-        uart_resp_len += 6;
-    }
-    else if (uartSendRspVer)
-    {
-        uartSendRspVer = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 9;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_VER;
-        *(uartRespBuf + uart_resp_len++) = DEVICE_VER;
-        *(uartRespBuf + uart_resp_len++) = (FW_IDENTIFIER & 0xFF);
-        *(uartRespBuf + uart_resp_len++) = ((FW_IDENTIFIER & 0xFF00) >> 8);
-        *(uartRespBuf + uart_resp_len++) = (FW_VER_MAJOR & 0xFF);
-        *(uartRespBuf + uart_resp_len++) = ((FW_VER_MAJOR & 0xFF00) >> 8);
-        *(uartRespBuf + uart_resp_len++) = (FW_VER_MINOR);
-        *(uartRespBuf + uart_resp_len++) = (FW_VER_REL
-                + ((FACTORY_TEST) ? 200 : 0));
-    }
-    else if (uartSendRspBat)
-    {
-        uartSendRspBat = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 5;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_BAT;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_VALUE;
-        memcpy(uartRespBuf + uart_resp_len, battVal, 3);
-        uart_resp_len += 3;
-    }
-    else if (uartSendRspRtcConfigTime)
-    {
-        uartSendRspRtcConfigTime = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 10;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_RWC_CFG_TIME;
-        memcpy(uartRespBuf + uart_resp_len, (uint8_t*) getRwcConfigTimePtr(), 8);
-        uart_resp_len += 8;
-    }
-    else if (uartSendRspCurrentTime)
-    {
-        uartSendRspCurrentTime = 0;
-        uint64_t rwc_curr_time_64;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        rwc_curr_time_64 = getRwcTime();
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 10;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_CURR_LOCAL_TIME;
-        memcpy(uartRespBuf + uart_resp_len, (uint8_t*) (&rwc_curr_time_64), 8);
-        uart_resp_len += 8;
-    }
-    else if (uartSendRspGdi)
-    {
-        uartSendRspGdi = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = uartDcMemLength + 2;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_DAUGHTER_CARD;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_ID;
-        if ((uartDcMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
-        {
-            //   CAT24C16_init();
-            //  CAT24C16_read(uartDcMemOffset, (uint16_t) uartDcMemLength,
-            //               (uartRespBuf + uart_resp_len));
-            //  CAT24C16_powerOff();
-
-            memcpy(uartRespBuf + uart_resp_len, daughtCardId + uartDcMemOffset, uartDcMemLength);
-            uart_resp_len += uartDcMemLength;
-        }
-    }
-    else if (uartSendRspGdm)
-    {
-        uartSendRspGdm = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = uartDcMemLength + 2;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_DAUGHTER_CARD;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
-        if ((uartDcMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
-        {
-            if (!sensing)
-            {
-                eepromRead(uartDcMemOffset + 16U,
-                                (uint16_t) uartDcMemLength,
-                                (uartRespBuf + uart_resp_len));
-            }
-            else
-            {
-                memset(resPacket + uart_resp_len, 0xff, uartDcMemLength);
-            }
-            uart_resp_len += uartDcMemLength;
-        }
-    }
-    else if (uartSendRspGim)
-    {
-        uartSendRspGim = 0;
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = uartInfoMemLength + 2;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_SHIMMER;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_INFOMEM;
-        if ((uartInfoMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
-        {
-            InfoMem_read((void*) uartInfoMemOffset, uartRespBuf + uart_resp_len,
-                         uartInfoMemLength);
-        }
-        uart_resp_len += uartInfoMemLength;
-    }
-    else if (uartSendRspBtVer)
-    {
-        uartSendRspBtVer = 0;
-
-        uint8_t btVerStrLen = getBtVerStrLen();
-
-        *(uartRespBuf + uart_resp_len++) = '$';
-        *(uartRespBuf + uart_resp_len++) = UART_RESPONSE;
-        *(uartRespBuf + uart_resp_len++) = 2U + btVerStrLen;
-        *(uartRespBuf + uart_resp_len++) = UART_COMP_BT;
-        *(uartRespBuf + uart_resp_len++) = UART_PROP_VER;
-
-        memcpy(uartRespBuf + uart_resp_len, getBtVerStrPtr(), btVerStrLen);
-        uart_resp_len += btVerStrLen;
-    }
-
-    uartRespCrc = CRC_data(uartRespBuf, uart_resp_len);
-    *(uartRespBuf + uart_resp_len++) = uartRespCrc & 0xff;
-    *(uartRespBuf + uart_resp_len++) = (uartRespCrc & 0xff00) >> 8;
-    if (cr)
-    { // character return was in the old commands
-        *(uartRespBuf + uart_resp_len++) = 0x0d;
-        *(uartRespBuf + uart_resp_len++) = 0x0a;
-    }
-
-    UART_write(uartRespBuf, uart_resp_len);
-}
-
-uint8_t UartCheckCrc(uint8_t len)
-{
-    if (len > UART_DATA_LEN_MAX)
-        return 0;
-    uint16_t uart_rx_crc, uart_calc_crc;
-    uart_calc_crc = CRC_data(uartRxBuf, len);
-    uart_rx_crc = (uint16_t) uartRxBuf[len];
-    uart_rx_crc += ((uint16_t) uartRxBuf[(uint8_t) (len + 1)]) << 8;
-    return (uart_rx_crc == uart_calc_crc);
 }
 
 void ReadWriteSDTest(void)

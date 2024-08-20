@@ -168,6 +168,7 @@
 #define DATA_RATE_TEST_RESPONSE                       0xA5
 #define PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE    0xA6
 #define GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND 0xA7
+#define SET_FACTORY_TEST                              0xA8
 #if !USE_OLD_SD_SYNC_APPROACH
 #define SET_SD_SYNC_COMMAND                           0xE0
 #define SD_SYNC_RESPONSE                              0xE1
@@ -229,5 +230,6 @@ COMMS_CRC_MODE getBtCrcMode(void);
 
 void setBtDataRateTestState(uint8_t state);
 void loadBtTxBufForDataRateTest(void);
+uint8_t BT_getMacAddressAscii(char *macAscii);
 
 #endif /* SHIMMER3_COMMON_SOURCE_BLUETOOTH_SD_SHIMMER_BT_COMMS_H_ */

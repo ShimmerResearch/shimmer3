@@ -61,20 +61,32 @@
 #define UART_VECTOR     USCI_A0_VECTOR
 #define UCIV            UCA0IV
 
+#define DOCK_TX_BUF_SIZE                  256U              /* serial buffer in bytes (power 2)  */
+#define DOCK_TX_BUF_MASK                  (DOCK_TX_BUF_SIZE-1UL)
+
+typedef struct{
+    uint8_t data[DOCK_TX_BUF_SIZE];
+    // tail points to the buffer index for the oldest byte that was added to it
+    uint16_t rdIdx;
+    // head points to the index of the next empty byte in the buffer
+    uint16_t wrIdx;
+} RingFifoDockTx_t;
 
 // registers the uart to usci_a0
 // must run only once before using the uart for the first time
 
 //extern void UART_reg2Uca0();
 
-extern void UART_write(uint8_t *buf, uint8_t len);
+void DockUart_write(uint8_t *buf, uint8_t len);
+void DockUart_writeBlocking(uint8_t *buf, uint8_t len);
+void DockUart_writeText(char *str);
 
 //initializes the uart_num_registered_cmds value
-extern void UART_init(uint8_t (*uart_cb)(uint8_t data));
+void UART_init(uint8_t (*uart_cb)(uint8_t data));
 
 // configures the pin settings
 // run this every time before using UART
-extern void UART_config();
+void UART_config();
 
 // register commands
 // usage: on receiving 'cmd_buff' through uart0_rx,
@@ -85,12 +97,16 @@ extern void UART_config();
 //      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
 // to switch between uart_isr and other isrs
 // the last activated one works
-extern void UART_activate();
+void UART_activate();
 
 void UART_setState(uint8_t state);
 
 // reset p6.1 and p7.6 back to sel+input
-extern void UART_deactivate();
+void UART_deactivate();
+
+void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len);
+uint16_t getUsedSpaceInDockTxBuf(void);
+uint16_t getSpaceInDockTxBuf(void);
 
 //============================== above is the UART part ===============================
 
