@@ -418,174 +418,176 @@ void main(void)
 #endif
         }
 
-        if (taskList & TASK_DOCK_PROCESS_CMD)
-        {
-            TaskClear(TASK_DOCK_PROCESS_CMD);
-            DockUart_processCmd();
-        }
+//        if (taskList & TASK_DOCK_PROCESS_CMD)
+//        {
+//            TaskClear(TASK_DOCK_PROCESS_CMD);
+//            DockUart_processCmd();
+//        }
         if (taskList & TASK_DOCK_RESPOND)
         {
             TaskClear(TASK_DOCK_RESPOND);
-            DockUart_sendRsp();
+//            DockUart_sendRsp();
+            uartSendNextCharIfNotInProgress();
         }
 
-        if (taskList & TASK_BT_PROCESS_CMD)
-        {
-            TaskClear(TASK_BT_PROCESS_CMD);
-            ProcessCommand();
-        }
+//        if (taskList & TASK_BT_PROCESS_CMD)
+//        {
+//            TaskClear(TASK_BT_PROCESS_CMD);
+//            ProcessCommand();
+//        }
 
-        if (taskList & TASK_CFGCH)
-        {
-            TaskClear(TASK_CFGCH);
-            ConfigureChannels();
-        }
+//        if (taskList & TASK_CFGCH)
+//        {
+//            TaskClear(TASK_CFGCH);
+//            ConfigureChannels();
+//        }
 
         if (taskList & TASK_BT_RESPOND)
         {
             TaskClear(TASK_BT_RESPOND);
-            SendResponse();
+//            SendResponse();
+            sendNextCharIfNotInProgress();
         }
 
-        /* SD Sync - Center */
-        if (taskList & TASK_RCCENTERR1)
-        {
-            TaskClear(TASK_RCCENTERR1);
-            SyncCenterR1();
-        }
-        /* SD Sync - Node */
-        if (taskList & TASK_RCNODER10)
-        {
-            TaskClear(TASK_RCNODER10);
-            SyncNodeR10();
-        }
-
-        if (taskList & TASK_SAMPLE_MPU9150_MAG)
-        {
-            TaskClear(TASK_SAMPLE_MPU9150_MAG);
-            MPU9150_startMagMeasurement();
-        }
-
-        if (taskList & TASK_SAMPLE_BMPX80_PRESS)
-        {
-            TaskClear(TASK_SAMPLE_BMPX80_PRESS);
-            if (sampleBmpTemp == sampleBmpTempFreq)
-            {
-#if PRES_TS_EN
-                bmpTempStartTs = RTC_get64();
-#endif
-                BMPX80_startTempMeasurement();
-            }
-            else
-            {
-#if PRES_TS_EN
-                bmpPresStartTs = RTC_get64();
-#endif
-                BMPX80_startPressMeasurement(
-                        (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x30) >> 4);
-            }
-        }
-
-        if (taskList & TASK_STREAMDATA)
-        {
-            TaskClear(TASK_STREAMDATA);
-
-            if (streamDataInProc)
-            {
-                if ((!(enableSdlog && sdlogReady))
-                        && (!(enableBtstream && btstreamReady)))
-                {
-                    btsdSelfCmd = 1;
-                    setStopSensing(1U);
-                }
-                if (newDirFlag && enableSdlog && sdlogReady)
-                {
-                    StartLogging();
-                    //               Timestamp0ToFirstFile();
-                }
-                StreamData();
-                // if sensor data buffer is large enough (about 1024 bytes),
-                // write it to SDcard and clear the buffer
-                if (enableSdlog && sdlogReady)
-                {
-                    if (sdBuffLen > SDBUFF_SIZE - blockLen)
-                    {
-                        TaskSet(TASK_WR2SD);
-                    }
-                }
-                if (btsdSelfCmd)
-                {
-                    BtsdSelfcmd();
-                    btsdSelfCmd = 0;
-                }
-            }
-            streamDataInProc = 0;
-        }
-		
-        if(getBtClearTxBufFlag())
-        {
-            setBtClearTxBufFlag(0);
-            clearBtTxBuf(1U);
-        }
-
-        if (taskList & TASK_SDLOG_CFG_UPDATE)
-        {
-            TaskClear(TASK_SDLOG_CFG_UPDATE);
-            if (!docked && !sensing && CheckSdInslot() && GetSdCfgFlag())
-            {
-                configuring = 1;
-                IniReadInfoMem();
-                UpdateSdConfig();
-                SetSdCfgFlag(0);
-                configuring = 0;
-            }
-        }
-
-        if (taskList & TASK_STARTSENSING)
-        {
-            TaskClear(TASK_STARTSENSING);
-            configuring = 1;
-            if (!sensing && !battCritical)
-            {
-                if (newDirFlag && enableSdlog && sdlogReady)
-                {
-                    StartLogging();
-                    //isLogging = 1;
-                }
-                if ((enableSdlog && sdlogReady)
-                        || (enableBtstream && btstreamReady))
-                {
-                    StartStreaming();
-#if !FW_IS_LOGANDSTREAM
-                    if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-                    {
-                        maxLenCnt = 0;
-                        BtSdSyncStart();
-                    }
-#endif
-                }
-                streamDataInProc = 0;
-                //            if(enableSdlog && sdlogReady)
-                //               Timestamp0ToFirstFile();
-                if (docked)
-                {
-                    enableSdlog = 0;
-                }
-            }
-            configuring = 0;
-        }
-
-        if (taskList & TASK_WR2SD)
-        {
-            TaskClear(TASK_WR2SD);
-            Write2SD();
-        }
-
-        if (taskList & TASK_FACTORY_TEST)
-        {
-            TaskClear(TASK_FACTORY_TEST);
-            run_factory_test();
-        }
+//        /* SD Sync - Center */
+//        if (taskList & TASK_RCCENTERR1)
+//        {
+//            TaskClear(TASK_RCCENTERR1);
+//            SyncCenterR1();
+//        }
+//        /* SD Sync - Node */
+//        if (taskList & TASK_RCNODER10)
+//        {
+//            TaskClear(TASK_RCNODER10);
+//            SyncNodeR10();
+//        }
+//
+//        if (taskList & TASK_SAMPLE_MPU9150_MAG)
+//        {
+//            TaskClear(TASK_SAMPLE_MPU9150_MAG);
+//            MPU9150_startMagMeasurement();
+//        }
+//
+//        if (taskList & TASK_SAMPLE_BMPX80_PRESS)
+//        {
+//            TaskClear(TASK_SAMPLE_BMPX80_PRESS);
+//            if (sampleBmpTemp == sampleBmpTempFreq)
+//            {
+//#if PRES_TS_EN
+//                bmpTempStartTs = RTC_get64();
+//#endif
+//                BMPX80_startTempMeasurement();
+//            }
+//            else
+//            {
+//#if PRES_TS_EN
+//                bmpPresStartTs = RTC_get64();
+//#endif
+//                BMPX80_startPressMeasurement(
+//                        (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x30) >> 4);
+//            }
+//        }
+//
+//        if (taskList & TASK_STREAMDATA)
+//        {
+//            TaskClear(TASK_STREAMDATA);
+//
+//            if (streamDataInProc)
+//            {
+//                if ((!(enableSdlog && sdlogReady))
+//                        && (!(enableBtstream && btstreamReady)))
+//                {
+//                    btsdSelfCmd = 1;
+//                    setStopSensing(1U);
+//                }
+//                if (newDirFlag && enableSdlog && sdlogReady)
+//                {
+//                    StartLogging();
+//                    //               Timestamp0ToFirstFile();
+//                }
+//                StreamData();
+//                // if sensor data buffer is large enough (about 1024 bytes),
+//                // write it to SDcard and clear the buffer
+//                if (enableSdlog && sdlogReady)
+//                {
+//                    if (sdBuffLen > SDBUFF_SIZE - blockLen)
+//                    {
+//                        TaskSet(TASK_WR2SD);
+//                    }
+//                }
+//                if (btsdSelfCmd)
+//                {
+//                    BtsdSelfcmd();
+//                    btsdSelfCmd = 0;
+//                }
+//            }
+//            streamDataInProc = 0;
+//        }
+//
+//        if(getBtClearTxBufFlag())
+//        {
+//            setBtClearTxBufFlag(0);
+//            clearBtTxBuf(1U);
+//        }
+//
+//        if (taskList & TASK_SDLOG_CFG_UPDATE)
+//        {
+//            TaskClear(TASK_SDLOG_CFG_UPDATE);
+//            if (!docked && !sensing && CheckSdInslot() && GetSdCfgFlag())
+//            {
+//                configuring = 1;
+//                IniReadInfoMem();
+//                UpdateSdConfig();
+//                SetSdCfgFlag(0);
+//                configuring = 0;
+//            }
+//        }
+//
+//        if (taskList & TASK_STARTSENSING)
+//        {
+//            TaskClear(TASK_STARTSENSING);
+//            configuring = 1;
+//            if (!sensing && !battCritical)
+//            {
+//                if (newDirFlag && enableSdlog && sdlogReady)
+//                {
+//                    StartLogging();
+//                    //isLogging = 1;
+//                }
+//                if ((enableSdlog && sdlogReady)
+//                        || (enableBtstream && btstreamReady))
+//                {
+//                    StartStreaming();
+//#if !FW_IS_LOGANDSTREAM
+//                    if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+//                    {
+//                        maxLenCnt = 0;
+//                        BtSdSyncStart();
+//                    }
+//#endif
+//                }
+//                streamDataInProc = 0;
+//                //            if(enableSdlog && sdlogReady)
+//                //               Timestamp0ToFirstFile();
+//                if (docked)
+//                {
+//                    enableSdlog = 0;
+//                }
+//            }
+//            configuring = 0;
+//        }
+//
+//        if (taskList & TASK_WR2SD)
+//        {
+//            TaskClear(TASK_WR2SD);
+//            Write2SD();
+//        }
+//
+//        if (taskList & TASK_FACTORY_TEST)
+//        {
+//            TaskClear(TASK_FACTORY_TEST);
+//            run_factory_test();
+//        }
     }
 }
 
@@ -778,7 +780,8 @@ void Init(void)
 
     DockUart_resetVariables();
     UCA0_isrInit();
-    UART_init(DockUart_rxCallback);
+//    UART_init(DockUart_rxCallback);
+    UART_init(0);
 
     /* exp power */
     P3OUT &= ~BIT3;      //set low
@@ -830,6 +833,15 @@ void Init(void)
 
     setBootStage(BOOT_STAGE_BLUETOOTH);
     InitialiseBt();
+
+    toggleBtRxInterrupt();
+
+    setRn4678OperationalMode(RN4678_OP_MODE_WRITE_FLASH);
+    setBtModuleReset(1);
+    __delay_cycles(24000000);
+    BT_resetBaudRate();
+    setupUART(BAUD_115200);
+    setBtModuleReset(0);
 
     setBootStage(BOOT_STAGE_CONFIGURATION);
     /* Calibration needs to be loaded after the chips have been detected in

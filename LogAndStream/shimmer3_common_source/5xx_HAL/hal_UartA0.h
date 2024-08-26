@@ -77,6 +77,8 @@ typedef struct{
 
 //extern void UART_reg2Uca0();
 
+void uartSendNextCharIfNotInProgress(void);
+void uartSendNextChar(void);
 void DockUart_write(uint8_t *buf, uint8_t len);
 void DockUart_writeBlocking(uint8_t *buf, uint8_t len);
 void DockUart_writeText(char *str);
@@ -104,6 +106,7 @@ void UART_setState(uint8_t state);
 // reset p6.1 and p7.6 back to sel+input
 void UART_deactivate();
 
+void pushByteToDockTxBuf(uint8_t *buf);
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len);
 uint16_t getUsedSpaceInDockTxBuf(void);
 uint16_t getSpaceInDockTxBuf(void);

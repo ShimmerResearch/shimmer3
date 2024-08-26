@@ -46,6 +46,11 @@
 #include "hal_CRC.h"
 #include <string.h>
 
+#include "../../shimmer_btsd.h"
+
+/* Externs left in main.c */
+extern uint8_t TaskSet(TASK_FLAGS task_id);
+
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
 #define RINGFIFO_WR(ringFifo, dataIn, mask)     {ringFifo.data[mask & ringFifo.wrIdx++] = (dataIn);}
@@ -123,6 +128,14 @@ void UART_config()
     uartTxEnable();
 }
 
+void uartSendNextCharIfNotInProgress(void)
+{
+    if (!uart_messageInProgress)
+    {
+        uartSendNextChar();
+    }
+}
+
 void uartSendNextChar(void)
 {
     if (!RINGFIFO_EMPTY(gDockTxFifo))
@@ -173,8 +186,10 @@ uint8_t uartUca0TxIsr()
 uint8_t uartUca0RxIsr()
 {
     uint8_t rx_char = UARTRXBUF;
-    if (uartCallbackFunc)
-        return uartCallbackFunc(rx_char);
+    pushByteToBtTxBuf(rx_char);
+//    if (uartCallbackFunc)
+//        return uartCallbackFunc(rx_char);
+    TaskSet(TASK_BT_RESPOND);
     return 0;
 }
 
@@ -224,6 +239,11 @@ void UART_activate()
     UCA0_isrActivate(UCA0_isrRegister(uartUca0RxIsr, uartUca0TxIsr));
 
     UART_config();
+}
+
+void pushByteToDockTxBuf(uint8_t *buf)
+{
+    RINGFIFO_WR(gDockTxFifo, buf, DOCK_TX_BUF_MASK);
 }
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)

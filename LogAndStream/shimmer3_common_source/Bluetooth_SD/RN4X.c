@@ -64,6 +64,11 @@
 #include "../5xx_HAL/hal_Board.h"
 #include "../msp430_clock/msp430_clock.h"
 
+#include "../../shimmer_btsd.h"
+
+/* Externs left in main.c */
+extern uint8_t TaskSet(TASK_FLAGS task_id);
+
 uint8_t starting;
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
@@ -2674,6 +2679,11 @@ void setRn4678OperationalMode(rn4678OperationalMode mode)
     rn4678OpMode = mode;
 }
 
+rn4678OperationalMode getRn4678OperationalMode(void)
+{
+    return rn4678OpMode;
+}
+
 void setRn4678OperationalModePins(rn4678OperationalMode mode)
 {
     switch (mode)
@@ -2701,6 +2711,12 @@ void setRn4678OperationalModePins(rn4678OperationalMode mode)
     default:
         break;
     }
+}
+
+void toggleBtRxInterrupt(void)
+{
+    DMA2_disable();
+    UCA1IE |= UCTXIE | UCRXIE;             // Enable USCI_A1 TX and RX interrupt
 }
 
 uint8_t isRn4678ConnectionEstablished(void)
@@ -3120,6 +3136,8 @@ __interrupt void USCI_A1_ISR(void)
         /* If there are bytes to process bring out of LPM mode */
         __bic_SR_register_on_exit(LPM3_bits);
 #endif
+        pushByteToDockTxBuf(UCA1RXBUF);
+        TaskSet(TASK_DOCK_RESPOND);
         break;
     case 4:                                   // Vector 4 - TXIFG
         sendNextChar();
