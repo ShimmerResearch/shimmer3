@@ -835,13 +835,15 @@ void Init(void)
     InitialiseBt();
 
     toggleBtRxInterrupt();
-
     setRn4678OperationalMode(RN4678_OP_MODE_WRITE_FLASH);
-    setBtModuleReset(1);
+//    setBtModuleReset(1);
+//    setRn4678OperationalModePins(RN4678_OP_MODE_WRITE_FLASH);
+    setBtModulePower(0);
     __delay_cycles(24000000);
     BT_resetBaudRate();
     setupUART(BAUD_115200);
-    setBtModuleReset(0);
+//    setBtModuleReset(0);
+    setBtModulePower(1);
 
     setBootStage(BOOT_STAGE_CONFIGURATION);
     /* Calibration needs to be loaded after the chips have been detected in
