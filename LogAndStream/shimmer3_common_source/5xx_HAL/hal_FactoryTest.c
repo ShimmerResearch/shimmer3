@@ -29,7 +29,8 @@ void run_factory_test(void)
     send_test_report("//**************************** TEST START "
                      "************************************//\r\n");
 
-    if (factoryTestToRun == FACTORY_TEST_MAIN)
+    if (factoryTestToRun == FACTORY_TEST_MAIN
+            || factoryTestToRun == FACTORY_TEST_ICS)
     {
         print_shimmer_model();
         send_test_report("\r\n");
@@ -39,12 +40,16 @@ void run_factory_test(void)
             || factoryTestToRun == FACTORY_TEST_LEDS)
     {
         led_test();
+
+        if (factoryTestToRun == FACTORY_TEST_MAIN)
+        {
+            send_test_report("\r\n");
+        }
     }
 
-    if (factoryTestToRun == FACTORY_TEST_MAIN)
+    if (factoryTestToRun == FACTORY_TEST_MAIN
+            || factoryTestToRun == FACTORY_TEST_ICS)
     {
-        send_test_report("\r\n");
-
         sd_card_test();
         send_test_report("\r\n");
 
