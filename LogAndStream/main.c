@@ -330,7 +330,7 @@ bool isIcm20948GyroEn = FALSE;
 #define RTC_OFF             0
 #define PRES_TS_EN          0
 #define IS_SUPPORTED_TCXO   0
-#define FACTORY_TEST        0
+#define FACTORY_TEST        1
 /* should be 1 */
 #define TS_BYTE3            1
 #define SKIP65MS            1
@@ -1093,16 +1093,16 @@ void InitialiseBt(void)
     // This is the start of all BT initialisation
     /* The RN4678 operational mode need to be set before BT_init() is called so
      * that the pins are set correctly prior to communication with the module */
-    if (isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
+/*    if (isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
                                    daughtCardId[DAUGHT_CARD_REV],
                                    daughtCardId[DAUGHT_CARD_SPECIAL_REV]))
-    {
+    {*/
         setRn4678OperationalMode(RN4678_OP_MODE_APPLICATION);
-    }
+/*    }
     else
     {
         setRn4678OperationalMode(RN4678_OP_MODE_NOT_USED);
-    }
+    }*/
 
     btCommsProtocolInit(setTaskNewBtCmdToProcess, HandleBtRfCommStateChange, setMacId, &gAction, &args[0]);
     sdSyncInit(BtStart, BtStop, TaskSet);
