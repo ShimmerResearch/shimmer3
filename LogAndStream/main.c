@@ -850,7 +850,7 @@ void Init(void)
     CommTimerStart();
 #endif
 
-    bootStage = BOOT_STAGE_END;
+    setBootStage(BOOT_STAGE_END);
 }
 
 void handleIfDockedStateOnBoot(void)
