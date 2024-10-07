@@ -11,7 +11,6 @@
 
 #include "msp430.h"
 
-#include "RN4X.h"
 #include "../5xx_HAL/hal_board.h"
 #include "../5xx_HAL/hal_RTC.h"
 #include "../5xx_HAL/hal_CRC.h"
@@ -20,6 +19,8 @@
 #include "../5xx_HAL/hal_DMA.h"
 #endif
 #include "sd_sync.h"
+
+#include "../shimmer_externs.h"
 
 uint8_t unwrappedResponse[256] = {0};
 char *commandBufPtr;
@@ -70,7 +71,7 @@ uint8_t Dma2ConversionDone(void)
 
     if (!*btRxExp
             && (areBtStatusStringsEnabled()
-                    || (isBtConnected() || bt_waitForStartCmd || bt_waitForMacAddress || bt_waitForVersion || bt_waitForInitialBoot || bt_waitForReturnNewLine)))
+                    || (shimmerStatus.isBtConnected || bt_waitForStartCmd || bt_waitForMacAddress || bt_waitForVersion || bt_waitForInitialBoot || bt_waitForReturnNewLine)))
     {
         if (bt_waitForStartCmd)
         {
@@ -434,7 +435,7 @@ uint8_t Dma2ConversionDone(void)
                              * disconnect over BLE does not trigger an
                              * RFCOMM_CLOSE status change as it does for classic
                              * Bluetooth connections. */
-                            if (isBtConnected())
+                            if (shimmerStatus.isBtConnected)
                             {
                                 triggerBtRfCommStateChangeCallback(FALSE);
                                 bringUcOutOfSleep = 1U;
@@ -807,9 +808,18 @@ uint8_t Dma2ConversionDone(void)
                 uint8_t data = btRxBuff[0];
                 uint8_t wakeupMcu = 0;
 
+                /* Filter supported BT commands if SD sync is enabled */
+                if (shimmerStatus.isSyncEnabled
+                        && (data!=RN4678_STATUS_STRING_SEPARATOR
+                        || data!=ACK_COMMAND_PROCESSED
+                        || data!=SET_SD_SYNC_COMMAND))
+                {
+                    setDmaWaitingForResponse(1U);
+                    return wakeupMcu;
+                }
+
                 switch (data)
                 {
-#if FW_IS_LOGANDSTREAM
                 case INQUIRY_COMMAND:
                 case DUMMY_COMMAND:
                 case GET_SAMPLING_RATE_COMMAND:
@@ -937,7 +947,6 @@ uint8_t Dma2ConversionDone(void)
                     *(gActionPtr) = data;
                     waitingForArgs = 21U;
                     break;
-#endif
                 case RN4678_STATUS_STRING_SEPARATOR:
                     memset(btStatusStr, 0, sizeof(btStatusStr));
                     btStatusStr[0U] = RN4678_STATUS_STRING_SEPARATOR;

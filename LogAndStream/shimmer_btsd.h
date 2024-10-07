@@ -50,16 +50,10 @@
 
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
-#if FW_IS_LOGANDSTREAM
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Major version number: 0-65535
 #define FW_VER_MINOR          16     //Minor version number: 0-255
-#else
-#define FW_IDENTIFIER         2     //Two byte firmware identifier number: always 2 for SDLog
-#define FW_VER_MAJOR          0     //Major version number: 0-65535
-#define FW_VER_MINOR          22    //Minor version number: 0-255
-#endif
-#define FW_VER_REL            9     //internal version number: 0-255
+#define FW_VER_REL            11     //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE    (1)
@@ -466,7 +460,8 @@ typedef uint8_t error_t;
 #define SDH_SDERROR_EN                 0x01
 #define SDH_IAMMASTER                  0x02
 #define SDH_TIME_SYNC                  0x04
-#define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+//#define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+#define SDH_BLUETOOTH_DISABLE          0x08
 #define SDH_RWCERROR_EN                0x10// when 0, won't flash error. when 1, will flash error if RTC isn't set (RTC_offset == 0)
 #define SDH_USER_BUTTON_ENABLE         0x20
 #define SDH_SET_PMUX                   0x40// not used now, reserved as 0
@@ -533,15 +528,5 @@ typedef enum
    TASK_FACTORY_TEST        = (0x00000001UL << 16U)
 } TASK_FLAGS;
 #define TASK_SIZE    32
-
-typedef enum
-{
-    BOOT_STAGE_START,
-    BOOT_STAGE_I2C,
-    BOOT_STAGE_BLUETOOTH,
-    BOOT_STAGE_BLUETOOTH_FAILURE,
-    BOOT_STAGE_CONFIGURATION,
-    BOOT_STAGE_END
-} boot_stage_t;
 
 #endif

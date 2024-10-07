@@ -19,6 +19,7 @@
 #include "shimmer_bt_comms.h"
 #include "RN4X.h"
 #include "../../shimmer_btsd.h"
+#include "../shimmer_externs.h"
 
 uint8_t nodeName[MAX_NODES][MAX_CHARS], shortExpFlag;
 uint8_t syncNodeCnt, syncNodeNum, syncThis, syncNodeSucc, nReboot,
@@ -47,7 +48,7 @@ void (*btStartCb)(void);
 void (*btStopCb)(uint8_t);
 uint8_t (*taskSetCb)(TASK_FLAGS);
 
-extern uint8_t sensing, onSingleTouch, docked, btPowerOn, stopLogging;
+extern uint8_t onSingleTouch, stopLogging;
 extern uint8_t sdHeadText[SDHEAD_LEN];
 extern uint8_t all0xff[7U];
 
@@ -371,6 +372,7 @@ void BtSdSyncStop(void)
 {
     btSdSyncIsRunning = 0;
     rcFirstOffsetRxed = 0;
+    CommTimerStop();
     btStopCb(1U);
 }
 
@@ -406,6 +408,8 @@ void BtSdSyncStart(void)
     }
 
     resetSyncVariablesDuringSyncStart();
+
+    CommTimerStart();
 }
 
 /* Sync Center only. Sends a single sync packet to a node (T10 = transmit 10
@@ -424,7 +428,7 @@ void SyncCenterT10(void)
 #else
     *(resPacket + packet_length++) = SET_SD_SYNC_COMMAND;
 #endif
-    *(resPacket + packet_length++) = sensing;
+    *(resPacket + packet_length++) = shimmerStatus.isSensing;
     myLocalTimeLong = getRwcTime();
     *(uint64_t*) (resPacket + packet_length) = myLocalTimeLong;
     packet_length += 8;
@@ -521,7 +525,7 @@ void SyncNodeR10(void)
         }
         else
         {
-            if (onSingleTouch && !sensing && sd_tolog)
+            if (onSingleTouch && !shimmerStatus.isSensing && sd_tolog)
             {
                 taskSetCb(TASK_STARTSENSING);
             }
@@ -691,16 +695,16 @@ void handleSyncTimerTrigger(void)
     }
     else                                   //idle: no_RC mode
     {
-        if (docked)
+        if (shimmerStatus.isDocked)
         {
-            if (sensing)
+            if (shimmerStatus.isSensing)
             {
                 /* Note SDLog calls TASK_STOPSENSING here whereas
                  * LogAndStream could be in the middle of streaming over
                  * Bluetooth */
                 stopLogging = 1;
             }
-            if (btPowerOn)
+            if (shimmerStatus.isBtPoweredOn)
             {
                 btStopCb(0);
             }
@@ -710,13 +714,13 @@ void handleSyncTimerTrigger(void)
 
 void handleSyncTimerTriggerCenter(void)
 {
-    if (sensing && (syncNodeNum > 0))
+    if (shimmerStatus.isSensing && (syncNodeNum > 0))
     {
         if (syncCnt == 1)
         {
             // start
             resetSyncVariablesCenter();
-            startBtForSync();
+            btStartCb();
         }
         else if ((syncCnt > SYNC_BOOT * SYNC_FACTOR)
                 && (syncCnt < SYNC_WINDOW_C * SYNC_FACTOR))
@@ -773,12 +777,12 @@ void handleSyncTimerTriggerCenter(void)
                         if (cReboot == 1)
                         {
                             cReboot = 2;
-                            startBtForSync();
+                            btStartCb();
                         }
                         else if ((cReboot >= 2)
                                 && (cReboot < 5 * SYNC_FACTOR))
                         {
-                            if (btPowerOn)
+                            if (shimmerStatus.isBtPoweredOn)
                             {
                                 syncCurrNodeDone = syncCurrNode
                                         + SYNC_CD * SYNC_FACTOR - 1;
@@ -885,19 +889,11 @@ void handleSyncTimerTriggerNode(void)
                 == (SYNC_CD * (nReboot + 1)
                         + SYNC_WINDOW_N * nReboot) * SYNC_FACTOR)
         {
-            startBtForSync();
+            btStartCb();
             syncNodeWinExpire = (SYNC_CD * (nReboot + 1)
                     + SYNC_WINDOW_N * (nReboot + 1)) * SYNC_FACTOR;
         }
     }
-}
-
-void startBtForSync(void)
-{
-    BT_init();
-    BT_rn4xDisableRemoteConfig(1);
-    BT_setUpdateBaudDuringBoot(1);
-    btStartCb();
 }
 
 //Timer2:

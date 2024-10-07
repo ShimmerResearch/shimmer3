@@ -67,14 +67,17 @@
 #include "shimmer3_common_source/shimmer_sd_include.h"
 #include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
+#include "shimmer3_common_source/shimmer_globals.h"
 
 void Init(void);
 void handleIfDockedStateOnBoot(void);
 void detectI2cSlaves(void);
 void loadSensorConfigurationAndCalibration(void);
+void checkBtModeConfig(void);
 void saveBmpCalibrationToSdHeader(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
+void InitialiseBtAfterBoot(void);
 void BlinkTimerStart(void);
 void BlinkTimerStop(void);
 void setBootStage(boot_stage_t bootStageNew);
@@ -182,7 +185,7 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
 
 uint8_t setTaskNewBtCmdToProcess(void);
 
-uint8_t syncEnabled, btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn,
+uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn,
         sdErrorFlash;
 uint32_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
@@ -190,10 +193,9 @@ uint32_t maxLen, maxLenCnt;
 
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
 
-uint8_t sdlogReady, btstreamReady, enableSdlog, enableBtstream;
 uint8_t fwInfo[7], ackStr[4],
         storedConfig[NV_NUM_RWMEM_BYTES], channelContents[MAX_NUM_CHANNELS],
-        configuring, nbrAdcChans, nbrDigiChans, infomemLength, calibRamLength;
+        nbrAdcChans, nbrDigiChans, infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
 uint8_t currentBuffer, sendAck, inquiryResponse,
@@ -201,7 +203,7 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         aAccelCalibrationResponse, gyroCalibrationResponse,
         magCalibrationResponse, dAccelCalibrationResponse,
         allCalibrationResponse,
-        sensing, deviceVersionResponse,
+        deviceVersionResponse,
         fwVersionResponse, bufferSizeResponse, uniqueSerialResponse,
         configSetupBytesResponse, lsm303dlhcAccelRangeResponse,
         lsm303dlhcMagGainResponse, lsm303dlhcMagSamplingRateResponse,
@@ -216,7 +218,7 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         trialConfigResponse, centerResponse, shimmerNameResponse, expIDResponse,
         nshimmerResponse, myIDResponse, configTimeResponse, dirResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
-        rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
+        rwcResponse, stopLogging, stopStreaming,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
         useAckPrefixForInstreamResponses, btDataRateTestResponse,
         bmpGenericCalibrationCoefficientsResponse;
@@ -243,16 +245,16 @@ uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20,
 uint64_t firstTs, fileLastHour, fileLastMin;
 volatile uint8_t currentSampleTsTicks[4];
 
-volatile uint8_t fileBad, fileBadCnt, toggleLedRed;
+volatile uint8_t fileBad, fileBadCnt;
 static FRESULT ff_result;
 
 /*battery evaluation vars*/
-uint8_t battStat, battWait, battVal[3];
+uint8_t battWait;
 uint32_t battLastTs64, battInterval;
-uint8_t docked, setUndock, onUserButton, onSingleTouch, onDefault,
+uint8_t setUndock, onUserButton, onSingleTouch, onDefault,
         preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp,
         sampleBmpTempFreq, preSampleMpuMag, mpuMagFreq, mpuMagCount,
-        waitpress, initializing, btPowerOn, sampleTimerStatus, blinkStatus;
+        waitpress, initializing, sampleTimerStatus, blinkStatus;
 float clockFreq;
 uint16_t clk_30, clk_45, clk_55, clk_64, clk_75, clk_133, clk_90, clk_120,
         clk_135, clk_225, clk_255, clk_432, clk_1000, clk_2500,
@@ -286,8 +288,6 @@ uint8_t undockSimulate;
 
 uint8_t streamDataInProc;
 char *dierecord;
-
-bool SD_ERROR, SD_IN_SLOT;
 
 /* variables used for delayed undock-start */
 bool battCritical;
@@ -327,10 +327,10 @@ boot_stage_t bootStage;
 
 void main(void)
 {
-    initializing = 1; /* led flag, in initialisation period */
+    shimmerStatus.isInitialising = 1; /* led flag, in initialisation period */
     Init();
 
-    if (!configuring && !wr2sd)
+    if (!shimmerStatus.isConfiguring && !wr2sd)
     {
         SetupDock();
     }
@@ -371,18 +371,18 @@ void main(void)
         if (taskList & TASK_SETUP_DOCK)
         {
             TaskClear(TASK_SETUP_DOCK);
-            if (!configuring && !wr2sd
+            if (!shimmerStatus.isConfiguring && !wr2sd
                     && ((P2IN & BIT3)
                             || ((RTC_get64() - time_newUnDockEvent)
                                     > TIMEOUT_100_MS)))
             {
-                if (docked != ((P2IN & BIT3) >> 3))
+                if (shimmerStatus.isDocked != ((P2IN & BIT3) >> 3))
                 {
-                    docked = ((P2IN & BIT3) >> 3);
+                    shimmerStatus.isDocked = ((P2IN & BIT3) >> 3);
                     SetupDock();
                 }
 
-                if (docked != ((P2IN & BIT3) >> 3))
+                if (shimmerStatus.isDocked != ((P2IN & BIT3) >> 3))
                 {
                     TaskSet(TASK_SETUP_DOCK);
                 }
@@ -408,14 +408,7 @@ void main(void)
         {
             TaskClear(TASK_BATT_READ);
             /* use adc channel2 and mem4, read back battery status every certain period */
-#if !FW_IS_LOGANDSTREAM
-            if (!sensing)
-            {
-#endif
-                ReadBatt();
-#if !FW_IS_LOGANDSTREAM
-            }
-#endif
+            ReadBatt();
         }
 
         if (taskList & TASK_DOCK_PROCESS_CMD)
@@ -492,13 +485,13 @@ void main(void)
 
             if (streamDataInProc)
             {
-                if ((!(enableSdlog && sdlogReady))
-                        && (!(enableBtstream && btstreamReady)))
+                if ((!(shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady))
+                        && (!(shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)))
                 {
                     btsdSelfCmd = 1;
                     setStopSensing(1U);
                 }
-                if (newDirFlag && enableSdlog && sdlogReady)
+                if (newDirFlag && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
                 {
                     StartLogging();
                     //               Timestamp0ToFirstFile();
@@ -506,7 +499,7 @@ void main(void)
                 StreamData();
                 // if sensor data buffer is large enough (about 1024 bytes),
                 // write it to SDcard and clear the buffer
-                if (enableSdlog && sdlogReady)
+                if (shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
                 {
                     if (sdBuffLen > SDBUFF_SIZE - blockLen)
                     {
@@ -531,48 +524,47 @@ void main(void)
         if (taskList & TASK_SDLOG_CFG_UPDATE)
         {
             TaskClear(TASK_SDLOG_CFG_UPDATE);
-            if (!docked && !sensing && CheckSdInslot() && GetSdCfgFlag())
+            if (!shimmerStatus.isDocked && !shimmerStatus.isSensing
+                    && CheckSdInslot() && GetSdCfgFlag())
             {
-                configuring = 1;
+                shimmerStatus.isConfiguring = 1;
                 IniReadInfoMem();
                 UpdateSdConfig();
                 SetSdCfgFlag(0);
-                configuring = 0;
+                shimmerStatus.isConfiguring = 0;
             }
         }
 
         if (taskList & TASK_STARTSENSING)
         {
             TaskClear(TASK_STARTSENSING);
-            configuring = 1;
-            if (!sensing && !battCritical)
+            shimmerStatus.isConfiguring = 1;
+            if (!shimmerStatus.isSensing && !battCritical)
             {
-                if (newDirFlag && enableSdlog && sdlogReady)
+                if (newDirFlag && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
                 {
                     StartLogging();
-                    //isLogging = 1;
-                }
-                if ((enableSdlog && sdlogReady)
-                        || (enableBtstream && btstreamReady))
-                {
-                    StartStreaming();
-#if !FW_IS_LOGANDSTREAM
-                    if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+                    //shimmerStatus.isLogging = 1;
+                    if (shimmerStatus.isSyncEnabled)
                     {
                         maxLenCnt = 0;
                         BtSdSyncStart();
                     }
-#endif
+                }
+                if ((shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
+                        || (shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady))
+                {
+                    StartStreaming();
                 }
                 streamDataInProc = 0;
-                //            if(enableSdlog && sdlogReady)
+                //            if(enableSdlog && shimmerStatus.sdlogReady)
                 //               Timestamp0ToFirstFile();
-                if (docked)
+                if (shimmerStatus.isDocked)
                 {
-                    enableSdlog = 0;
+                    shimmerStatus.sdlogCmd = 0;
                 }
             }
-            configuring = 0;
+            shimmerStatus.isConfiguring = 0;
         }
 
         if (taskList & TASK_WR2SD)
@@ -644,12 +636,8 @@ void Init(void)
     sdInfoSyncDelayed = 0;
     lastLedGroup2 = 0;
     btsdSelfCmd = 0;
-    toggleLedRed = 0;
-    syncEnabled = 0;
-    configuring = 0;
     battLastTs64 = 0;
     battWait = 0;
-    battStat = 0;
     blinkCnt10 = blinkCnt20 = blinkCnt50 = 0;
     fileBad = 0;
     fileBadCnt = 0;
@@ -662,11 +650,9 @@ void Init(void)
     setStopSensing(0);
     stopLogging = 0;
     stopStreaming = 0;
-    enableSdlog = 0;
-    sdlogReady = 0;
-    enableBtstream = 0;
-    btstreamReady = 0;
     streamDataInProc = 0;
+
+    memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
 
     // sd file system initiate.
     newDirFlag = 1;
@@ -682,7 +668,6 @@ void Init(void)
     blinkStatus = 0;
 
     maxLenCnt = 0;
-    btPowerOn = 0;
     lastGsrVal = 0;
     setGsrRangePinsAreReversed(0);
 
@@ -734,9 +719,6 @@ void Init(void)
     btVerResponse = 0;
     rwcResponse = 0;
     btVbattResponse = 0;
-    sensing = 0;
-    isStreaming = 0;
-    isLogging = 0;
     nbrAdcChans = 0;
     nbrDigiChans = 0;
     preSampleMpuMag = 0;
@@ -752,7 +734,7 @@ void Init(void)
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
     useAckPrefixForInstreamResponses = 1U;
 
-    SD_ERROR = SD_IN_SLOT = FALSE;
+    shimmerStatus.badFile = shimmerStatus.isSdInserted = FALSE;
 
     /* variables used for delayed undock-start */
     wr2sd = 0;
@@ -785,7 +767,7 @@ void Init(void)
     P3DIR |= BIT3;       //set as output
     P3SEL &= ~BIT3;
 
-    SD_IN_SLOT = (bool) (!(P4IN & BIT1));
+    shimmerStatus.isSdInserted = (bool) (!(P4IN & BIT1));
 
     handleIfDockedStateOnBoot();
 
@@ -817,7 +799,7 @@ void Init(void)
                                                              daughtCardId[DAUGHT_CARD_SPECIAL_REV]));
 
     /* Used to flash green LED on boot but no longer serves that purpose */
-    configuring = 1;
+    shimmerStatus.isConfiguring = 1;
 
     CheckOnDefault();
 
@@ -838,17 +820,15 @@ void Init(void)
      * MAC ID can be used for default Shimmer name and calibration file names.*/
     loadSensorConfigurationAndCalibration();
 
-    UART_setState(docked);
+    UART_setState(shimmerStatus.isDocked);
 
     RwcCheck();
     sdErrorFlash = (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_SDERROR_EN) ? 1 : 0;
 
-    initializing = 0;
-    configuring = 0;
+    shimmerStatus.isInitialising = 0;
+    shimmerStatus.isConfiguring = 0;
 
-#if !FW_IS_LOGANDSTREAM
-    CommTimerStart();
-#endif
+    checkBtModeConfig();
 
     setBootStage(BOOT_STAGE_END);
 }
@@ -864,8 +844,8 @@ void handleIfDockedStateOnBoot(void)
 #endif
         battInterval = BATT_INTERVAL_D;
         P2IES |= BIT3;       //look for falling edge
-        docked = 1;
-        sdlogReady = 0;
+        shimmerStatus.isDocked = 1;
+        shimmerStatus.sdlogReady = 0;
         if (CheckSdInslot())
         {
             DockSdPowerCycle();
@@ -875,15 +855,15 @@ void handleIfDockedStateOnBoot(void)
     {
         battInterval = BATT_INTERVAL;
         P2IES &= ~BIT3;      //look for rising edge
-        docked = 0;
+        shimmerStatus.isDocked = 0;
         P6OUT |= BIT0;       //   DETECT_N set to high
         if (CheckSdInslot())
         {
-            sdlogReady = 1;
+            shimmerStatus.sdlogReady = 1;
         }
         else
         {
-            sdlogReady = 0;
+            shimmerStatus.sdlogReady = 0;
         }
     }
 }
@@ -929,7 +909,7 @@ void loadSensorConfigurationAndCalibration(void)
     ShimmerCalib_init();
     ShimmerCalibInitFromInfoAll();
 
-    if (!docked && CheckSdInslot())
+    if (!shimmerStatus.isDocked && CheckSdInslot())
     {  //sd card ready to access
         if (!(P4OUT & BIT2))
         {
@@ -943,8 +923,8 @@ void loadSensorConfigurationAndCalibration(void)
             SetSdCfgFlag(0);
             if (ff_result != FR_OK)
             {
-                sdlogReady = 0;
-                SD_ERROR = TRUE;
+                shimmerStatus.sdlogReady = 0;
+                shimmerStatus.badFile = TRUE;
             }
         }
         else
@@ -967,6 +947,35 @@ void loadSensorConfigurationAndCalibration(void)
     }
 
     ShimmerCalibSyncFromDumpRamAll();
+}
+
+void checkBtModeConfig(void)
+{
+    if (!shimmerStatus.isBtConnected)
+    {
+        shimmerStatus.isBtSupportEnabled =
+                (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_BLUETOOTH_DISABLE) ? 0 : 1;
+        // Don't allow sync to be enabled if BT is disabled.
+        if (shimmerStatus.isBtSupportEnabled)
+        {
+            shimmerStatus.isSyncEnabled =
+                    (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC) ? 1 : 0;
+        }
+        else
+        {
+            shimmerStatus.isSyncEnabled = 0;
+        }
+
+        if (shimmerStatus.isBtSupportEnabled && !shimmerStatus.isBtPoweredOn)
+        {
+//            BtStart();
+            InitialiseBtAfterBoot();
+        }
+        if (!shimmerStatus.isBtSupportEnabled && shimmerStatus.isBtPoweredOn)
+        {
+            BtStop(0);
+        }
+    }
 }
 
 void saveBmpCalibrationToSdHeader(void)
@@ -1045,7 +1054,7 @@ void InitialiseBt(void)
     }
 
     btCommsProtocolInit(setTaskNewBtCmdToProcess, HandleBtRfCommStateChange, setMacId, &gAction, &args[0]);
-    sdSyncInit(BtStart, BtStop, TaskSet);
+    sdSyncInit(InitialiseBtAfterBoot, BtStop, TaskSet);
     BT_init();
     BT_rn4xDisableRemoteConfig(1);
     BT_setRadioMode(SLAVE_MODE);  // slave mode for center&node
@@ -1107,7 +1116,7 @@ void InitialiseBt(void)
 
     /* Try the baud that's stored in the EEPROM firstly, if that fails try
      * 115200, 1000000 or 460800 and then all other bauds. If they all fail, soft-reset */
-    while (!btPowerOn)
+    while (!shimmerStatus.isBtPoweredOn)
     {
 #if BT_DMA_USED_FOR_RX
         _delay_cycles(2400000); // 100ms
@@ -1184,10 +1193,6 @@ void InitialiseBt(void)
         updateBtDetailsInEeprom();
     }
 
-#if !FW_IS_LOGANDSTREAM
-    BtStop(1U);
-#endif
-
     if (storedConfig[NV_BT_COMMS_BAUD_RATE] != getCurrentBtBaudRate())
     {
 #if BT_ENABLE_BAUD_RATE_CHANGE
@@ -1200,6 +1205,14 @@ void InitialiseBt(void)
         TaskSet(TASK_SDLOG_CFG_UPDATE);
 #endif
     }
+}
+
+void InitialiseBtAfterBoot(void)
+{
+    BT_init();
+    BT_rn4xDisableRemoteConfig(1);
+    BT_setUpdateBaudDuringBoot(1);
+    BtStart();
 }
 
 void StartLogging(void)
@@ -1221,12 +1234,12 @@ void StartStreaming(void)
     uint8_t i2cEn = 0;
     uint8_t ICMsampleRateDiv = 0;
 
-    if (!sensing)
+    if (!shimmerStatus.isSensing)
     {
 #if SKIP65MS
         skip65ms = 1;
 #endif
-        if (docked)
+        if (shimmerStatus.isDocked)
         {
             UART_deactivate();
         }
@@ -1576,30 +1589,30 @@ void StartStreaming(void)
         }
 
         SampleTimerStart();
-        if (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+        if (shimmerStatus.isSyncEnabled)
         {
             PrepareSDBuffHead();
         }
-        sensing = 1;
+        shimmerStatus.isSensing = 1;
     }
 }
 
 inline void StopSensing(void)
 {
     /*shut everything down*/
-    configuring = 1;
-    sensing = 0;
-    isStreaming = 0;
-    enableBtstream = 0;
-    enableSdlog = 0;
-    if (docked)
+    shimmerStatus.isConfiguring = 1;
+    shimmerStatus.isSensing = 0;
+    shimmerStatus.isStreaming = 0;
+    shimmerStatus.btstreamCmd = 0;
+    shimmerStatus.sdlogCmd = 0;
+    if (shimmerStatus.isDocked)
     { /* if docked, cannot write to SD card any more*/
         DockSdPowerCycle();
     }
     else
     {
         newDirFlag = 1;
-        if (isLogging)
+        if (shimmerStatus.isLogging)
         {
             Write2SD();
             f_close(&dataFile);
@@ -1607,7 +1620,7 @@ inline void StopSensing(void)
             SdPowerOff();
         }
     }
-    isLogging = 0;
+    shimmerStatus.isLogging = 0;
 
     SampleTimerStop();
     ADC_disable();
@@ -1662,7 +1675,7 @@ inline void StopSensing(void)
     {
         EXG_stop(1);     //probably not needed
     }
-    if (!docked
+    if (!shimmerStatus.isDocked
             && ((storedConfig[NV_SENSORS0] & SENSOR_EXG1_24BIT)
                     || (storedConfig[NV_SENSORS0] & SENSOR_EXG2_24BIT)
                     || (storedConfig[NV_SENSORS2] & SENSOR_EXG1_16BIT)
@@ -1670,7 +1683,7 @@ inline void StopSensing(void)
     {
         EXG_powerOff();
     }
-    if (docked)
+    if (shimmerStatus.isDocked)
     {
         UART_activate();
     }
@@ -1692,12 +1705,12 @@ inline void StopSensing(void)
         SdInfoSync();
     }
     _NOP();
-    configuring = 0;
+    shimmerStatus.isConfiguring = 0;
 }
 
 void BtsdSelfcmd()
 {
-    if (isBtConnected())
+    if (shimmerStatus.isBtConnected)
     {
         uint8_t i = 0;
         uint8_t selfcmd[6]; /* max is 6 bytes */
@@ -1708,14 +1721,14 @@ void BtsdSelfcmd()
         }
         selfcmd[i++] = INSTREAM_CMD_RESPONSE;
         selfcmd[i++] = STATUS_RESPONSE;
-        selfcmd[i++] = ((toggleLedRed & 0x01) << 7)
-                + ((SD_ERROR & 0x01) << 6)
-                + ((SD_IN_SLOT & 0x01) << 5)
-                + ((isStreaming & 0x01) << 4)
-                + ((isLogging & 0x01) << 3)
+        selfcmd[i++] = ((shimmerStatus.toggleLedRedCmd & 0x01) << 7)
+                + ((shimmerStatus.badFile & 0x01) << 6)
+                + ((shimmerStatus.isSdInserted & 0x01) << 5)
+                + ((shimmerStatus.isStreaming & 0x01) << 4)
+                + ((shimmerStatus.isLogging & 0x01) << 3)
                 + (isRwcTimeSet() << 2)
-                + ((sensing & 0x01) << 1)
-                + (docked & 0x01);
+                + ((shimmerStatus.isSensing & 0x01) << 1)
+                + (shimmerStatus.isDocked & 0x01);
 
         uint8_t crcMode = getBtCrcMode();
         if (crcMode != CRC_OFF)
@@ -1946,7 +1959,7 @@ uint8_t CheckOnDefault()
     onSingleTouch = 0;
     onUserButton = 0;
     onDefault = 0;
-    if (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_SINGLETOUCH)
+    if (IS_SUPPORTED_SINGLE_TOUCH && storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_SINGLETOUCH)
     {
         onSingleTouch = 1;
     }
@@ -1959,17 +1972,17 @@ uint8_t CheckOnDefault()
         onDefault = 1;
     }
 
-    //    SD_ERROR = UpdateSdConfig() ? TRUE : FALSE;
+    //    shimmerStatus.badFile = UpdateSdConfig() ? TRUE : FALSE;
 
-    if (onDefault && sdlogReady && !sensing && (SD_ERROR == FALSE))
+    if (onDefault && shimmerStatus.sdlogReady && !shimmerStatus.isSensing && (shimmerStatus.badFile == FALSE))
     {   //state == BTSD_IDLESD
         //startSensing = 1;
         SetStartSensing();
-        //        enableSdlog = (SD_ERROR) ? 0 : 1;
-        enableSdlog = 1;
-        sensing = 1;
+        //        enableSdlog = (shimmerStatus.badFile) ? 0 : 1;
+        shimmerStatus.sdlogCmd = 1;
+        shimmerStatus.isSensing = 1;
         BtsdSelfcmd();
-        sensing = 0;
+        shimmerStatus.isSensing = 0;
         return 1;
     }
     return 0;
@@ -1977,7 +1990,7 @@ uint8_t CheckOnDefault()
 
 void HandleBtRfCommStateChange(bool isOpen)
 {
-    setBtIsConnected(isOpen);
+    shimmerStatus.isBtConnected = isOpen;
     BT_rst_MessageProgress();
 
     updateBtConnectionStatusInterruptDirection();
@@ -1988,20 +2001,18 @@ void HandleBtRfCommStateChange(bool isOpen)
         resetBtRxVariablesOnConnect();
 #endif
 
-#if FW_IS_LOGANDSTREAM
-        if (syncEnabled)
+        if (shimmerStatus.isSyncEnabled)
         {
-            btstreamReady = 0;
+            shimmerStatus.btstreamReady = 0;
         }
         else
         {
-            btstreamReady = 1;
+            shimmerStatus.btstreamReady = 1;
 
 #if BT_DMA_USED_FOR_RX
             setDmaWaitingForResponseIfStatusStrDisabled();
 #endif
         }
-#else
 
         if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER)
         {
@@ -2024,25 +2035,26 @@ void HandleBtRfCommStateChange(bool isOpen)
             setDmaWaitingForResponseIfStatusStrDisabled();
 #endif
         }
-#endif
     }
     else
     { //BT is disconnected
-#if FW_IS_LOGANDSTREAM
-        btstreamReady = 0;
-        enableBtstream = 0;
+        shimmerStatus.btstreamReady = 0;
+        shimmerStatus.btstreamCmd = 0;
 
         setBtDataRateTestState(0);
 
         clearBtTxBuf(0);
-#endif
+
         setBtCrcMode(CRC_OFF);
         /* Revert to default state if changed */
         useAckPrefixForInstreamResponses = 1U;
+
+        checkBtModeConfig();
     }
-#if FW_IS_LOGANDSTREAM
-    TaskSet(TASK_SDLOG_CFG_UPDATE);
-#endif
+    if (!shimmerStatus.isSensing)
+    {
+        TaskSet(TASK_SDLOG_CFG_UPDATE);
+    }
 }
 
 // Switch SW1, BT_RTS and BT connect/disconnect
@@ -2077,7 +2089,7 @@ __interrupt void Port1_ISR(void)
         }
         else
         {   //BT is disconnected
-            if(!areBtStatusStringsEnabled() || isBtConnected())
+            if(!areBtStatusStringsEnabled() || shimmerStatus.isBtConnected)
             {
                 /* Fail-safe incase the FW has missed the BT DISCONNECT/RFCOM_CLOSE status strings */
                 HandleBtRfCommStateChange(FALSE);
@@ -2124,43 +2136,43 @@ __interrupt void Port1_ISR(void)
             if (button_press_release_td64 >= 163840)
             { // long button press: 5s
             }
-            else if ((button_two_release_td64 > 16384) && !configuring
-                    && !isBtConnected())
+            else if ((button_two_release_td64 > 16384) && !shimmerStatus.isConfiguring
+                    && !shimmerStatus.isBtConnected)
             { //  && (button_press_release_td64>327)
                 buttonLastReleaseTs64 = buttonReleaseTs64;
 #if PRESS2UNDOCK
-                    if(docked)
+                    if(shimmerStatus.isDocked)
                     {
-                        docked = 0;
+                        shimmerStatus.isDocked = 0;
                     }
                     else
                     {
-                        docked = 1;
+                        shimmerStatus.isDocked = 1;
                     }
                     TaskSet(TASK_SETUP_DOCK);
-                    if(!sensing)
+                    if(!shimmerStatus.isSensing)
                     __bic_SR_register_on_exit(LPM3_bits);
 #else
                 if (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_USER_BUTTON_ENABLE)
                 {
                     // toggles sensing and refresh BT timers (for the centre)
-                    if (sensing)
+                    if (shimmerStatus.isSensing)
                     {
                         setStopSensing(1U);
                         btsdSelfCmd = 1;
                     }
                     else
                     {
-                        if (sdlogReady && (!SD_ERROR))
+                        if (shimmerStatus.sdlogReady && (!shimmerStatus.badFile))
                         {
                             //startSensing = 1;
                             SetStartSensing();
-                            enableSdlog = 1;
+                            shimmerStatus.sdlogCmd = 1;
                         }
 
-                        sensing = 1;
+                        shimmerStatus.isSensing = 1;
                         BtsdSelfcmd(); //only send cmd, not starting yet till START_BTSD_CMD received
-                        sensing = 0;
+                        shimmerStatus.isSensing = 0;
                         __bic_SR_register_on_exit(LPM3_bits);
                     }
                 }
@@ -2221,24 +2233,24 @@ __interrupt void Port2_ISR(void)
                 time_newUnDockEvent = RTC_get64();
             }
             //see slaa513 for example using multiple time bases on a single timer module
-            if (!sensing)
+            if (!shimmerStatus.isSensing)
                 __bic_SR_register_on_exit(LPM3_bits);
         }
         if (P2IN & BIT3)
         {
             P2IES |= BIT3;       //look for falling edge
-            sdlogReady = 0;
+            shimmerStatus.sdlogReady = 0;
         }
         else
         {
             P2IES &= ~BIT3;      //look for rising edge
-            if (CheckSdInslot() && !SD_ERROR)
+            if (CheckSdInslot() && !shimmerStatus.badFile)
             {
-                sdlogReady = 1;
+                shimmerStatus.sdlogReady = 1;
             }
             else
             {
-                sdlogReady = 0;
+                shimmerStatus.sdlogReady = 0;
             }
         }
         break;
@@ -2376,7 +2388,7 @@ __interrupt void TIMER0_B1_ISR(void)
         /* SDLog handles auto-stop in TIMER0_A1_VECTOR whereas LogAndStream handles it in TIMER0_B1_VECTOR */
         if (blinkCnt20 % 10 == 0)
         {
-            if (sensing && maxLen)
+            if (shimmerStatus.isSensing && maxLen)
             {
                 if (maxLenCnt < maxLen)
                     maxLenCnt++;
@@ -2393,27 +2405,21 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-#if FW_IS_LOGANDSTREAM
         if (batt_td > battInterval)
-#else
-        if ((batt_td > battInterval) && (!sensing))
-#endif
         {              //10 mins = 19660800
             if (TaskSet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
             battLastTs64 = batt_my_local_time_64;
         }
 
-#if FW_IS_LOGANDSTREAM
-        if (!initializing)
+        if (!shimmerStatus.isInitialising)
             if (TaskGet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
-#endif
 
-        if (blinkStatus && !initializing)
+        if (blinkStatus && !shimmerStatus.isInitialising)
         {
             // below are settings for green0, yellow and red leds, battery charge status
-            if (toggleLedRed)
+            if (shimmerStatus.toggleLedRedCmd)
             {
                 Board_ledOff(LED_GREEN0 + LED_YELLOW);
                 Board_ledOn(LED_RED);
@@ -2435,7 +2441,7 @@ __interrupt void TIMER0_B1_ISR(void)
 
             // below are settings for green1, blue, yellow and red leds
 
-            if (!docked && (SD_ERROR || !SD_IN_SLOT) && sdErrorFlash)
+            if (!shimmerStatus.isDocked && (shimmerStatus.badFile || !shimmerStatus.isSdInserted) && sdErrorFlash)
             {   // bad file = yellow/red alternating
                 if (fileBadCnt-- > 0)
                 {
@@ -2457,7 +2463,7 @@ __interrupt void TIMER0_B1_ISR(void)
                     Board_ledOff(LED_RED);
                 }
             }
-            if (rwcErrorFlash && (!sensing))
+            if (rwcErrorFlash && (!shimmerStatus.isSensing))
             {
                 if (!(P1OUT & BIT1))
                 {
@@ -2472,59 +2478,19 @@ __interrupt void TIMER0_B1_ISR(void)
             }
             else
             {
-#if FW_IS_LOGANDSTREAM
-                // good file - green1:
-                if (syncEnabled)
-                { // sync not implemented yet
-                    if (!sensing)
-                    { //standby or configuring
-                        if (configuring)
-                        { //configuring
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                        else
-                        {                       //standby
-                            if (!blinkCnt20)
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                    }
-                    else
-                    {                           //sensing
-                        if (!(blinkCnt20 % 10))
-                        {
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                    }
-                    // good file - blue:
-                    if (btPowerOn)
-                    {
-                        Board_ledOn(LED_BLUE);
-                    }
-                    else
-                    {
-                        Board_ledOff(LED_BLUE);
-                    }
-                }
-                else
+                if (shimmerStatus.isBtSupportEnabled
+                        && !shimmerStatus.isSyncEnabled)
                 {
-                    if (!sensing)
+                    if (!shimmerStatus.isSensing)
                     { //standby or configuring
-                        if (configuring)
+                        if (shimmerStatus.isConfiguring)
                         { //configuring
                             if (!(P1OUT & BIT1))
                                 Board_ledOn(LED_GREEN1);
                             else
                                 Board_ledOff(LED_GREEN1);
                         }
-                        else if (isBtConnected() && !configuring)
+                        else if (shimmerStatus.isBtConnected && !shimmerStatus.isConfiguring)
                         {
                             Board_ledOn(LED_BLUE);
                             Board_ledOff(LED_GREEN1);     // nothing to show
@@ -2551,10 +2517,10 @@ __interrupt void TIMER0_B1_ISR(void)
                     }
                     else
                     {                           //sensing
-                        // sdlogReady, btstreamReady, enableSdlog, enableBtstream
+                        // shimmerStatus.sdlogReady, shimmerStatus.btstreamReady, enableSdlog, enableBtstream
                         // btstream only
-                        if ((enableBtstream && btstreamReady)
-                                && !(sdlogReady && enableSdlog))
+                        if ((shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
+                                && !(shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2566,8 +2532,8 @@ __interrupt void TIMER0_B1_ISR(void)
                             Board_ledOff(LED_GREEN1);     // nothing to show
                         }
                         // sdlog only
-                        else if (!(enableBtstream && btstreamReady)
-                                && (sdlogReady && enableSdlog))
+                        else if (!(shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
+                                && (shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2579,8 +2545,8 @@ __interrupt void TIMER0_B1_ISR(void)
                             Board_ledOff(LED_BLUE);       // nothing to show
                         }
                         // btstream & sdlog
-                        else if ((enableBtstream && btstreamReady)
-                                && (sdlogReady && enableSdlog))
+                        else if ((shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
+                                && (shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2607,69 +2573,70 @@ __interrupt void TIMER0_B1_ISR(void)
                         }
                     }
                 }
-#else
-                // good file - green1:
-                if (!sensing)
-                {   //standby or configuring
-                    if (configuring)
-                    { //configuring
-                        if (!(P1OUT & BIT1))
-                            Board_ledOn(LED_GREEN1);
-                        else
-                            Board_ledOff(LED_GREEN1);
-                    }
-                    else
-                    {                            //standby
-                        if (!blinkCnt20)
-                            Board_ledOn(LED_GREEN1);
-                        else
-                            Board_ledOff(LED_GREEN1);
-                    }
-                }
-                else
-                {                              //sensing
-                    if (blinkCnt20 < 10)
-                        Board_ledOn(LED_GREEN1);
-                    else
-                        Board_ledOff(LED_GREEN1);
-                }
-
-                // good file - blue:
-                /* Toggle blue LED while a connection is established */
-                if (btPowerOn && isBtConnected())
-                {
-                    Board_ledToggle(LED_BLUE);
-                }
-                /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
-                else if (!getRcFirstOffsetRxed()
-                        && sensing
-                        && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-                        && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                {
-                    Board_ledOn(LED_BLUE);
-                }
                 else
                 {
-                    /* Flash twice if sync is not successfull */
-                    if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
-                            && !docked
-                            && sensing
-                            && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-                            && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                                    || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
-                    {
-                        if (getSyncCnt() > 3)
-                        {
-                            Board_ledOn(LED_BLUE);
+                    // good file - green1:
+                    if (!shimmerStatus.isSensing)
+                    {   //standby or configuring
+                        if (shimmerStatus.isConfiguring)
+                        { //configuring
+                            if (!(P1OUT & BIT1))
+                                Board_ledOn(LED_GREEN1);
+                            else
+                                Board_ledOff(LED_GREEN1);
                         }
-                        //TODO should there be an else here?
+                        else
+                        {                            //standby
+                            if (!blinkCnt20)
+                                Board_ledOn(LED_GREEN1);
+                            else
+                                Board_ledOff(LED_GREEN1);
+                        }
+                    }
+                    else
+                    {                              //sensing
+                        if (blinkCnt20 < 10)
+                            Board_ledOn(LED_GREEN1);
+                        else
+                            Board_ledOff(LED_GREEN1);
+                    }
+
+                    // good file - blue:
+                    /* Toggle blue LED while a connection is established */
+                    if (shimmerStatus.isBtPoweredOn && shimmerStatus.isBtConnected)
+                    {
+                        Board_ledToggle(LED_BLUE);
+                    }
+                    /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
+                    else if (!getRcFirstOffsetRxed()
+                            && shimmerStatus.isSensing
+                            && shimmerStatus.isSyncEnabled
+                            && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+                    {
+                        Board_ledOn(LED_BLUE);
                     }
                     else
                     {
-                        Board_ledOff(LED_BLUE);
+                        /* Flash twice if sync is not successfull */
+                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
+                                && !shimmerStatus.isDocked
+                                && shimmerStatus.isSensing
+                                && shimmerStatus.isSyncEnabled
+                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+                        {
+                            if (getSyncCnt() > 3)
+                            {
+                                Board_ledOn(LED_BLUE);
+                            }
+                            //TODO should there be an else here?
+                        }
+                        else
+                        {
+                            Board_ledOff(LED_BLUE);
+                        }
                     }
                 }
-#endif
             }
         }
         break;
@@ -2687,15 +2654,16 @@ __interrupt void TIMER0_B1_ISR(void)
 // BT start Timer
 void BtStartDone()
 {
-    btPowerOn = 1;
-#if FW_IS_LOGANDSTREAM
-    configuring = 0;
-#endif
+    shimmerStatus.isBtPoweredOn = 1;
+    if (!shimmerStatus.isSensing)
+    {
+        shimmerStatus.isConfiguring = 0;
+    }
 }
 
 void BtStart(void)
 {
-    if (!btPowerOn)
+    if (!shimmerStatus.isBtPoweredOn)
     {
         /* Long delays starting BT, need to disable WDT */
         if (!(WDTCTL & WDTHOLD))
@@ -2710,9 +2678,10 @@ void BtStart(void)
 
         BT_startDone_cb(BtStartDone);
 
-#if FW_IS_LOGANDSTREAM
-        configuring = 1;
-#endif
+        if (!shimmerStatus.isSensing)
+        {
+            shimmerStatus.isConfiguring = 1;
+        }
 #if BT_DMA_USED_FOR_RX
         resetBtRxBuff();
 #else
@@ -2726,11 +2695,9 @@ void BtStop(uint8_t isCalledFromMain)
 {
     clearBtTxBuf(isCalledFromMain);
 
-#if !FW_IS_LOGANDSTREAM
     TaskClear(TASK_RCNODER10);
 #if USE_OLD_SD_SYNC_APPROACH
     setRcommVar(0);                   //don't try to get routine comm info
-#endif
 #endif
 
 #if BT_DMA_USED_FOR_RX
@@ -2738,8 +2705,8 @@ void BtStop(uint8_t isCalledFromMain)
 #endif
 
     updateBtConnectionStatusInterruptDirection();
-    setBtIsConnected(0);
-    btPowerOn = 0;
+    shimmerStatus.isBtConnected = 0;
+    shimmerStatus.isBtPoweredOn = 0;
     BT_disable();
     BT_rst_MessageProgress();
 
@@ -2891,46 +2858,46 @@ uint8_t Dma0ConversionDone(void)
 
         // was: 0 - 2400 - 2550 - 4096
         // now: 0 - 2400 - 2600 - 4096
-        if (battStat == BATT_MID)
+        if (shimmerStatus.battStat == BATT_MID)
         {
-            if (*(uint16_t*) battVal < 2400)
+            if (*(uint16_t*) shimmerStatus.battVal < 2400)
             {
-                battStat = BATT_LOW;
+                shimmerStatus.battStat = BATT_LOW;
             }
-            else if (*(uint16_t*) battVal < 2650)
+            else if (*(uint16_t*) shimmerStatus.battVal < 2650)
             {
-                battStat = BATT_MID;
+                shimmerStatus.battStat = BATT_MID;
             }
             else
-                battStat = BATT_HIGH;
+                shimmerStatus.battStat = BATT_HIGH;
         }
-        else if (battStat == BATT_LOW)
+        else if (shimmerStatus.battStat == BATT_LOW)
         {
-            if (*(uint16_t*) battVal < 2450)
+            if (*(uint16_t*) shimmerStatus.battVal < 2450)
             {
-                battStat = BATT_LOW;
+                shimmerStatus.battStat = BATT_LOW;
             }
-            else if (*(uint16_t*) battVal < 2600)
+            else if (*(uint16_t*) shimmerStatus.battVal < 2600)
             {
-                battStat = BATT_MID;
+                shimmerStatus.battStat = BATT_MID;
             }
             else
-                battStat = BATT_HIGH;
+                shimmerStatus.battStat = BATT_HIGH;
         }
         else
         {
-            if (*(uint16_t*) battVal < 2400)
+            if (*(uint16_t*) shimmerStatus.battVal < 2400)
             {
-                battStat = BATT_LOW;
+                shimmerStatus.battStat = BATT_LOW;
             }
-            else if (*(uint16_t*) battVal < 2600)
+            else if (*(uint16_t*) shimmerStatus.battVal < 2600)
             {
-                battStat = BATT_MID;
+                shimmerStatus.battStat = BATT_MID;
             }
             else
-                battStat = BATT_HIGH;
+                shimmerStatus.battStat = BATT_HIGH;
         }
-        battVal[2] = P2IN & 0xc0;
+        shimmerStatus.battVal[2] = P2IN & 0xc0;
     }
     else
     {
@@ -2983,11 +2950,11 @@ void ProcessCommand(void)
         samplingRateResponse = 1;
         break;
     case TOGGLE_LED_COMMAND:
-        toggleLedRed ^= 1;
+        shimmerStatus.toggleLedRedCmd ^= 1;
         break;
     case START_STREAMING_COMMAND:
-        enableBtstream = 1;
-        if (!sensing)
+        shimmerStatus.btstreamCmd = 1;
+        if (!shimmerStatus.isSensing)
         {
             TaskSet(TASK_CFGCH);
             //startSensing = 1;
@@ -2998,23 +2965,23 @@ void ProcessCommand(void)
         //CheckSdInslot();
         break;
     case START_SDBT_COMMAND:
-        if (!sensing)
+        if (!shimmerStatus.isSensing)
         {
             TaskSet(TASK_CFGCH);
             //startSensing = 1;
             SetStartSensing();
         }
-        enableBtstream = 1;
-        if (sdlogReady && (!SD_ERROR))
+        shimmerStatus.btstreamCmd = 1;
+        if (shimmerStatus.sdlogReady && (!shimmerStatus.badFile))
         {
-            enableSdlog = 1;
+            shimmerStatus.sdlogCmd = 1;
         }
         break;
     case START_LOGGING_COMMAND:
-        if (sdlogReady && (!SD_ERROR))
+        if (shimmerStatus.sdlogReady && (!shimmerStatus.badFile))
         {
-            enableSdlog = 1;
-            if (!sensing)
+            shimmerStatus.sdlogCmd = 1;
+            if (!shimmerStatus.isSensing)
             {
                 //startSensing = 1;
                 SetStartSensing();
@@ -3031,23 +2998,23 @@ void ProcessCommand(void)
         break;
 
     case STOP_STREAMING_COMMAND:
-        if (isStreaming)
+        if (shimmerStatus.isStreaming)
         {
             stopStreaming = 1;
         }
         break;
     case STOP_SDBT_COMMAND:
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //return;
         }
         break;
     case STOP_LOGGING_COMMAND:
-        if (isLogging)
+        if (shimmerStatus.isLogging)
         {
             stopLogging = 1;
-            //if(!isStreaming);
+            //if(!shimmerStatus.isStreaming);
             //return;
         }
         break;
@@ -3063,7 +3030,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_SENSORS2] = storedConfig[NV_SENSORS2];
         update_sdconfig = 1;
         TaskSet(TASK_CFGCH);
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3096,15 +3063,11 @@ void ProcessCommand(void)
         storedConfig[NV_SD_TRIAL_CONFIG1] &= ~SDH_TCXO; /* Disable TCXO */
 #endif
         storedConfig[NV_SD_BT_INTERVAL] = args[2];
-        if (storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH)
+        if (IS_SUPPORTED_SINGLE_TOUCH && storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH)
         {
             storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_USER_BUTTON_ENABLE;
             storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_SYNC;
         }
-#if FW_IS_LOGANDSTREAM
-        storedConfig[NV_SD_TRIAL_CONFIG1] &= ~SDH_SINGLETOUCH; // disable sync
-        storedConfig[NV_SD_TRIAL_CONFIG0] &= ~SDH_TIME_SYNC; // todo: rmv this
-#endif
         if (storedConfig[NV_SD_BT_INTERVAL] < SYNC_INT_C)
             storedConfig[NV_SD_BT_INTERVAL] = SYNC_INT_C;
         InfoMem_write((void*) NV_SAMPLING_RATE,
@@ -3206,7 +3169,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE0] =
                 storedConfig[NV_CONFIG_SETUP_BYTE0];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3302,7 +3265,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE0] =
                 storedConfig[NV_CONFIG_SETUP_BYTE0];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3323,7 +3286,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE2] =
                 storedConfig[NV_CONFIG_SETUP_BYTE2];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3344,7 +3307,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE2] =
                 storedConfig[NV_CONFIG_SETUP_BYTE2];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3366,7 +3329,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE0] =
                 storedConfig[NV_CONFIG_SETUP_BYTE0];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3388,7 +3351,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE0] =
                 storedConfig[NV_CONFIG_SETUP_BYTE0];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3409,7 +3372,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE2] =
                 storedConfig[NV_CONFIG_SETUP_BYTE2];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3423,7 +3386,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE1] =
                 storedConfig[NV_CONFIG_SETUP_BYTE1];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3444,7 +3407,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE3] =
                 storedConfig[NV_CONFIG_SETUP_BYTE3];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3478,7 +3441,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE3] =
                 storedConfig[NV_CONFIG_SETUP_BYTE3];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3499,7 +3462,7 @@ void ProcessCommand(void)
                &storedConfig[NV_CONFIG_SETUP_BYTE0], 4);
         Config2SdHead();
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3513,7 +3476,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_SAMPLE_RATE_0] = storedConfig[NV_SAMPLING_RATE];
         sdHeadText[SDH_SAMPLE_RATE_1] = storedConfig[NV_SAMPLING_RATE + 1];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             //restart sampling timer to use new sampling rate
             setStopSensing(1U);
@@ -3627,7 +3590,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_CONFIG_SETUP_BYTE3] =
                 storedConfig[NV_CONFIG_SETUP_BYTE3];
         update_sdconfig = 1;
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3678,7 +3641,7 @@ void ProcessCommand(void)
         Config2SdHead();
         update_sdconfig = 1;
         TaskSet(TASK_CFGCH);
-        if (sensing)
+        if (shimmerStatus.isSensing)
         {
             setStopSensing(1U);
             //startSensing = 1;
@@ -3797,7 +3760,7 @@ void ProcessCommand(void)
         break;
     case SET_INFOMEM_COMMAND:
     {
-        // Update SD_ERROR status bit after bt config
+        // Update shimmerStatus.badFile status bit after bt config
         sdErrorFlash =
                 (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_SDERROR_EN) ? 1 : 0;
         infomemLength = args[0];
@@ -3939,7 +3902,7 @@ void ProcessCommand(void)
     }
 
     //   if(update_sdconfig_manual && CheckSdInslot()){
-    //      if(!docked){
+    //      if(!shimmerStatus.isDocked){
     //         UpdateSdConfig();
     //         SetSdCfgFlag(0);
     //      }else{
@@ -3951,9 +3914,9 @@ void ProcessCommand(void)
     {
         SetSdCfgFlag(1);
     }
-    if (update_calib && CheckSdInslot() && !SD_ERROR)
+    if (update_calib && CheckSdInslot() && !shimmerStatus.badFile)
     {
-        if (!docked)
+        if (!shimmerStatus.isDocked)
         {
             CalibNewFile(calib_sensor, calib_range);
         }
@@ -3965,9 +3928,9 @@ void ProcessCommand(void)
         //else
         //   SetCalibFlag(1);
     }
-    if (update_calib_dump_file && CheckSdInslot() && !SD_ERROR)
+    if (update_calib_dump_file && CheckSdInslot() && !shimmerStatus.badFile)
     {
-        if (!docked)
+        if (!shimmerStatus.isDocked)
         {
             ShimmerCalib_ram2File();
         }
@@ -3983,7 +3946,7 @@ void SendResponse(void)
     sc_t sc1;
     uint16_t packet_length = 0;
 
-    if (isBtConnected())
+    if (shimmerStatus.isBtConnected)
     {
         if (sendAck)
         {
@@ -4040,11 +4003,14 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
             *(resPacket + packet_length++) = STATUS_RESPONSE;
-            *(resPacket + packet_length++) = ((toggleLedRed & 0x01) << 7)
-                    + ((SD_ERROR & 0x01) << 6) + ((SD_IN_SLOT & 0x01) << 5)
-                    + ((isStreaming & 0x01) << 4) + ((isLogging & 0x01) << 3)
+            *(resPacket + packet_length++) = ((shimmerStatus.toggleLedRedCmd & 0x01) << 7)
+                    + ((shimmerStatus.badFile & 0x01) << 6)
+                    + ((shimmerStatus.isSdInserted & 0x01) << 5)
+                    + ((shimmerStatus.isStreaming & 0x01) << 4)
+                    + ((shimmerStatus.isLogging & 0x01) << 3)
                     + (isRwcTimeSet() << 2)
-                    + ((sensing & 0x01) << 1) + (docked & 0x01);
+                    + ((shimmerStatus.isSensing & 0x01) << 1)
+                    + (shimmerStatus.isDocked & 0x01);
 
             dockedResponse = 0;
         }
@@ -4053,7 +4019,7 @@ void SendResponse(void)
             ReadBatt();
             *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
             *(resPacket + packet_length++) = VBATT_RESPONSE;
-            memcpy((resPacket + packet_length), battVal, 3);
+            memcpy((resPacket + packet_length), shimmerStatus.battVal, 3);
             packet_length += 3;
             btVbattResponse = 0;
         }
@@ -4381,7 +4347,7 @@ void SendResponse(void)
         else if (blinkLedResponse)
         {
             *(resPacket + packet_length++) = CHARGE_STATUS_LED_RESPONSE;
-            *(resPacket + packet_length++) = battStat;
+            *(resPacket + packet_length++) = shimmerStatus.battStat;
             blinkLedResponse = 0;
         }
         else if (bufferSizeResponse)
@@ -4433,7 +4399,7 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) = DAUGHTER_CARD_MEM_RESPONSE;
             *(resPacket + packet_length++) = dcMemLength;
-            if (!sensing)
+            if (!shimmerStatus.isSensing)
             {
                 eepromRead(dcMemOffset + 16U, dcMemLength, resPacket + packet_length);
             }
@@ -4663,9 +4629,7 @@ void ParseConfig(void)
 #if !RTC_OFF
     bool rwc_error_enable = TRUE;
 #endif
-#if !FW_IS_LOGANDSTREAM
     uint32_t est_exp_len = 0;
-#endif
     uint32_t max_exp_len = 0;
 
     bool sd_error_enable = TRUE;
@@ -4682,7 +4646,7 @@ void ParseConfig(void)
     }
     else if (ff_result != FR_OK)
     {
-        SD_ERROR = TRUE;
+        shimmerStatus.badFile = TRUE;
         //        fileBad = (initializing) ? 0 : 1;
         return;
     }
@@ -4706,7 +4670,8 @@ void ParseConfig(void)
         memset((uint8_t*) (stored_config_temp + NV_CENTER), 0xff, 128);
 
         stored_config_temp[NV_SD_TRIAL_CONFIG0] &= ~SDH_SET_PMUX; // PMUX reserved as 0
-        stored_config_temp[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_STAMP; // TIME_STAMP always = 1
+        stored_config_temp[NV_SD_TRIAL_CONFIG0] &= ~SDH_BLUETOOTH_DISABLE; // Enable Bluetooth
+//        stored_config_temp[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_STAMP; // TIME_STAMP always = 1
         stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= (GSR_AUTORANGE & 0x07) << 1; //BIT3-1
         stored_config_temp[NV_BUFFER_SIZE] = 1;
         stored_config_temp[NV_BT_COMMS_BAUD_RATE] = getDefaultBaudForBtVersion();
@@ -4857,6 +4822,10 @@ void ParseConfig(void)
                 time_sync = (atoi(equals) == 0) ? FALSE : TRUE;
                 stored_config_temp[NV_SD_TRIAL_CONFIG0] |= time_sync * SDH_TIME_SYNC;
             }
+            else if (strstr(buffer, "bluetoothDisabled="))
+            {
+                stored_config_temp[NV_SD_TRIAL_CONFIG0] |= (atoi(equals) == 0) ? 0 : SDH_BLUETOOTH_DISABLE;
+            }
             else if (strstr(buffer, "low_battery_autostop="))
             {
                 low_battery_autostop = (atoi(equals) == 0) ? FALSE : TRUE;
@@ -4878,7 +4847,7 @@ void ParseConfig(void)
                 exp_power = atoi(equals);
                 stored_config_temp[NV_CONFIG_SETUP_BYTE3] |= exp_power ? EXP_POWER_ENABLE : 0;
             }
-#if !FW_IS_LOGANDSTREAM
+
             else if (strstr(buffer, "center="))
             {
                 parseSyncCenterNameFromCfgFile(&stored_config_temp[0], equals);
@@ -4893,13 +4862,26 @@ void ParseConfig(void)
                 stored_config_temp[NV_EST_EXP_LEN_MSB] = (est_exp_len & 0xff00) >> 8;
                 stored_config_temp[NV_EST_EXP_LEN_LSB] = est_exp_len & 0xff;
             }
-#endif
+
             else if (strstr(buffer, "max_exp_len="))
             {
                 max_exp_len = atoi(equals);
                 stored_config_temp[NV_MAX_EXP_LEN_MSB] = (max_exp_len & 0xff00) >> 8;
                 stored_config_temp[NV_MAX_EXP_LEN_LSB] = max_exp_len & 0xff;
             }
+
+            else if (strstr(buffer, "singletouch="))
+            {
+                if (IS_SUPPORTED_SINGLE_TOUCH)
+                {
+                    stored_config_temp[NV_SD_TRIAL_CONFIG1] &= ~SDH_SINGLETOUCH;
+                }
+                else
+                {
+                    stored_config_temp[NV_SD_TRIAL_CONFIG1] |= (atoi(equals) == 0) ? 0 : SDH_SINGLETOUCH;
+                }
+            }
+
             else if (strstr(buffer, "myid="))
             {
                 my_trial_id = atoi(equals);
@@ -5094,30 +5076,15 @@ void ParseConfig(void)
 
         // the button always works for singletouch mode
         // sync always works for singletouch mode
-        if (stored_config_temp[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH)
+        if (IS_SUPPORTED_SINGLE_TOUCH && stored_config_temp[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH)
         {
             stored_config_temp[NV_SD_TRIAL_CONFIG0] |= SDH_USER_BUTTON_ENABLE;
             stored_config_temp[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_SYNC;
             triggerSdCardUpdate = TRUE;
         }
-#if FW_IS_LOGANDSTREAM
-        stored_config_temp[NV_SD_TRIAL_CONFIG1] &= ~SDH_SINGLETOUCH;
-        stored_config_temp[NV_SD_TRIAL_CONFIG0] &= ~SDH_TIME_SYNC;
-#else
-
-        /* tried to get working to enable/disable comm timer based on whether sync is enabled but this function is only called on boot and so the Shimmer needs to be rebooted for CommTimerStart if sync is enabled while it's powered on */
-//        if (stored_config_temp[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-//        {
-//            CommTimerStart();
-//        }
-//        else
-//        {
-//            CommTimerStop();
-//        }
 
         checkSyncCenterName();
         setSyncEstExpLen(est_exp_len);
-#endif
 
         /* Calibration bytes are not copied over from the infomem */
 
@@ -5129,11 +5096,9 @@ void ParseConfig(void)
         memcpy((uint8_t*) (storedConfig + NV_SENSORS3), (uint8_t*) (stored_config_temp + NV_SENSORS3), 5);
         /* Infomem C - Bytes 187-223 - Shimmer name, exp ID, config time, trial ID, num Shimmers, trial config, BT interval, est exp len, max exp len */
         memcpy((uint8_t*) (storedConfig + NV_SD_SHIMMER_NAME), (uint8_t*) (stored_config_temp + NV_SD_SHIMMER_NAME), 37);
-#if !FW_IS_LOGANDSTREAM
         /* Infomem B - Bytes 256-381 - Center and Node MAC addresses */
         memcpy((uint8_t*) (storedConfig + NV_CENTER), (uint8_t*) (stored_config_temp + NV_CENTER), NV_NUM_BYTES_SYNC_CENTER_NODE_ADDRS);
 //        memcpy((uint8_t*) (storedConfig + NV_MAC_ADDRESS + 7), (uint8_t*) (stored_config_temp + NV_MAC_ADDRESS + 7), 153); //25+128
-#endif
 
         Config2SdHead();
         SetName();
@@ -5142,10 +5107,8 @@ void ParseConfig(void)
         InfoMem_write((uint8_t*) NV_DERIVED_CHANNELS_3, storedConfig + NV_DERIVED_CHANNELS_3, 5);
         InfoMem_write((uint8_t*) NV_SENSORS3, storedConfig + NV_SENSORS3, 5);
         InfoMem_write((uint8_t*) NV_SD_SHIMMER_NAME, storedConfig + NV_SD_SHIMMER_NAME, 37);
-#if !FW_IS_LOGANDSTREAM
         InfoMem_write((uint8_t*) NV_CENTER, storedConfig + NV_CENTER, NV_NUM_BYTES_SYNC_CENTER_NODE_ADDRS);
 //        InfoMem_write((uint8_t*) (NV_MAC_ADDRESS + 7), storedConfig + NV_MAC_ADDRESS + 7, 153); //25+128
-#endif
 
         /* If the configuration needed to be corrected, update the config file */
         if (triggerSdCardUpdate)
@@ -5356,11 +5319,7 @@ void SetDefaultConfiguration(void)
     memset(&storedConfig[NV_SD_CONFIG_TIME], 0x00, 4);
     storedConfig[NV_SD_MYTRIAL_ID] = 0x00;
     storedConfig[NV_SD_NSHIMMER] = 0x00;
-#if FW_IS_LOGANDSTREAM
     storedConfig[NV_SD_TRIAL_CONFIG0] = SDH_USER_BUTTON_ENABLE + SDH_RWCERROR_EN + SDH_SDERROR_EN;
-#else
-    storedConfig[NV_SD_TRIAL_CONFIG0] = SDH_USER_BUTTON_ENABLE + SDH_RWCERROR_EN;
-#endif
     storedConfig[NV_SD_TRIAL_CONFIG1] = 0;
     storedConfig[NV_SD_BT_INTERVAL] = 54;
 
@@ -6210,7 +6169,7 @@ void CalibFromInfo(uint8_t sensor)
     if (!info_valid) // if range not match, or all 0xff in infomem
         CalibDefault(sensor);
 
-    if (!docked && CheckSdInslot() && !SD_ERROR)
+    if (!shimmerStatus.isDocked && CheckSdInslot() && !shimmerStatus.badFile)
         CalibNewFile(sensor, info_range);
 }
 
@@ -6473,7 +6432,7 @@ void CalibDefault(uint8_t sensor)
 
 void CalibNewFile(uint8_t sensor, uint8_t range)
 {
-    if (!docked && CheckSdInslot() && !SD_ERROR)
+    if (!shimmerStatus.isDocked && CheckSdInslot() && !shimmerStatus.badFile)
     {
         uint8_t sd_power_state;
         if (!(P4OUT & BIT2))
@@ -6905,19 +6864,19 @@ void DockSdPowerCycle()
 
 void SetupDock()
 {
-    configuring = 1;
-    if (docked)
+    shimmerStatus.isConfiguring = 1;
+    if (shimmerStatus.isDocked)
     {
         battInterval = BATT_INTERVAL_D;
         battCriticalCount = 0;
-        enableSdlog = 0;
-        sdlogReady = 0;
+        shimmerStatus.sdlogCmd = 0;
+        shimmerStatus.sdlogReady = 0;
         newDirFlag = 1;
         if (CheckSdInslot())
         {
             DockSdPowerCycle();
         }
-        if (!sensing)
+        if (!shimmerStatus.isSensing)
         {
             UART_activate();
         }
@@ -6926,7 +6885,7 @@ void SetupDock()
     else
     {
         battInterval = BATT_INTERVAL;
-        if (!sensing)
+        if (!shimmerStatus.isSensing)
         {
             UART_deactivate();
         }
@@ -6934,7 +6893,7 @@ void SetupDock()
         //SendStatusByte();
         BtsdSelfcmd();
         SdPowerOff();
-        if (CheckSdInslot() && !sensing && !SD_ERROR)
+        if (CheckSdInslot() && !shimmerStatus.isSensing && !shimmerStatus.badFile)
         {
             _delay_cycles(2880000);
             SdPowerOn();
@@ -6945,7 +6904,7 @@ void SetupDock()
             sdInfoSyncDelayed = 1;
         }
     }
-    configuring = 0;
+    shimmerStatus.isConfiguring = 0;
 }
 
 void SdInfoSync()
@@ -6986,6 +6945,7 @@ void SdInfoSync()
     ChangeBtBaudRateFunc();
 #endif
     CheckOnDefault();
+    checkBtModeConfig();
 }
 
 #if BT_ENABLE_BAUD_RATE_CHANGE
@@ -6993,7 +6953,7 @@ void SdInfoSync()
 /*TODO what happens if UpdateSdConfig() is called but the Shimmer is docked - therefore having no access to the SD card */
 void ChangeBtBaudRateFunc()
 {
-    if (!isBtConnected() && (changeBtBaudRate != BAUD_NO_CHANGE_NEEDED) && !sensing)
+    if (!shimmerStatus.isBtConnected && (changeBtBaudRate != BAUD_NO_CHANGE_NEEDED) && !shimmerStatus.isSensing)
     {
         storedConfig[NV_BT_COMMS_BAUD_RATE] = changeBtBaudRate;
         sdHeadText[SDH_BT_COMMS_BAUD_RATE] = changeBtBaudRate;
@@ -7011,7 +6971,8 @@ void ChangeBtBaudRateFunc()
 
 uint8_t SendStatusByte()
 {
-    if (isBtConnected() && (!syncEnabled))
+    if (shimmerStatus.isBtConnected
+            && !shimmerStatus.isSyncEnabled)
     {
         dockedResponse = 1;
         sendAck = 1;
@@ -7023,7 +6984,7 @@ uint8_t SendStatusByte()
 
 void PostSdCfg(void)
 {
-    if (!sensing)
+    if (!shimmerStatus.isSensing)
         ConfigureChannels();
     CalibAll();
     CheckOnDefault();
@@ -7412,27 +7373,27 @@ void StreamData()
 
     currentBuffer = !currentBuffer;
 
-    isStreaming = enableBtstream && btstreamReady;
-    isLogging = enableSdlog && sdlogReady;
+    shimmerStatus.isStreaming = shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady;
+    shimmerStatus.isLogging = shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady;
 
 //uint8_t self_stop_sensing = 0;
     if (stopLogging)
     {
         stopLogging = 0;
-        if (isLogging)
+        if (shimmerStatus.isLogging)
         {
-            if (!isStreaming)
+            if (!shimmerStatus.isStreaming)
             {
                 setStopSensing(1U);
             }
             else
             {
-                isLogging = 0;
+                shimmerStatus.isLogging = 0;
                 newDirFlag = 1;
                 f_close(&dataFile);
                 _delay_cycles(1200000);
                 SdPowerOff();
-                enableSdlog = 0;
+                shimmerStatus.sdlogCmd = 0;
             }
         }
     }
@@ -7440,11 +7401,11 @@ void StreamData()
     if (stopStreaming)
     {
         stopStreaming = 0;
-        if (isStreaming)
+        if (shimmerStatus.isStreaming)
         {
-            enableBtstream = 0;
-            isStreaming = 0;
-            if (!isLogging)
+            shimmerStatus.btstreamCmd = 0;
+            shimmerStatus.isStreaming = 0;
+            if (!shimmerStatus.isLogging)
             {
                 setStopSensing(1U);
             }
@@ -7455,6 +7416,11 @@ void StreamData()
     {
         setStopSensing(0);
         StopSensing();
+
+        if (shimmerStatus.isSyncEnabled)
+        {
+            BtSdSyncStop();
+        }
     }
     else
     { //here does the log and stream job
@@ -7465,7 +7431,7 @@ void StreamData()
             return;
         }
 #endif
-        if (enableSdlog && sdlogReady)
+        if (shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
         {
 #if TS_BYTE3
             if (firstTsFlag == 2)
@@ -7482,7 +7448,9 @@ void StreamData()
 #endif
         }
 
-        if (enableBtstream && btstreamReady && isBtConnected() && !syncEnabled)
+        if (shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady
+                && shimmerStatus.isBtConnected
+                && !shimmerStatus.isSyncEnabled)
         {
             uint8_t crcMode = getBtCrcMode();
             if (crcMode != CRC_OFF)
@@ -7530,7 +7498,7 @@ void Write2SD()
         sdBuffLen = 0;
     }
 
-    if (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+    if (shimmerStatus.isSyncEnabled)
     {
         PrepareSDBuffHead();
     }
@@ -7627,7 +7595,7 @@ void SetCalibFlag(uint8_t flag)
 void UpdateSdConfig()
 {
     FIL cfgFile;
-    if (!docked && CheckSdInslot() && !SD_ERROR)
+    if (!shimmerStatus.isDocked && CheckSdInslot() && !shimmerStatus.badFile)
     {
         uint8_t sd_power_state;
         if (!(P4OUT & BIT2))
@@ -7645,11 +7613,11 @@ void UpdateSdConfig()
         uint16_t val_int, val_f;
         uint32_t temp32;
         uint64_t temp64;
-#if !FW_IS_LOGANDSTREAM
+
         uint8_t i;
         uint16_t temp16;
         resetSyncVariablesBeforeParseConfig();
-#endif
+
         UINT bw;
 
         memset(shimmerName, 0, MAX_CHARS);
@@ -7812,6 +7780,9 @@ void UpdateSdConfig()
             sprintf(buffer, "sync=%d\r\n",
                     storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC ? 1 : 0);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
+            sprintf(buffer, "bluetoothDisabled=%d\r\n",
+                    storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_BLUETOOTH_DISABLE ? 1 : 0);
+            f_write(&cfgFile, buffer, strlen(buffer), &bw);
             sprintf(buffer,
                     "low_battery_autostop=%d\r\n",
                     storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_BATT_CRITICAL_CUTOFF ?
@@ -7831,7 +7802,6 @@ void UpdateSdConfig()
             sprintf(buffer, "max_exp_len=%d\r\n", (uint32_t) temp32);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
 
-#if !FW_IS_LOGANDSTREAM
             temp16 = parseSyncEstExpLen(storedConfig[NV_EST_EXP_LEN_LSB],
                                     storedConfig[NV_EST_EXP_LEN_MSB]);
             sprintf(buffer, "est_exp_len=%d\r\n", (uint16_t) temp16);
@@ -7851,9 +7821,9 @@ void UpdateSdConfig()
                 f_write(&cfgFile, buffer, strlen(buffer), &bw);
             }
 
-            sprintf(buffer, "singletouch=%d\r\n", storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH ? 1 : 0);
+            sprintf(buffer, "singletouch=%d\r\n", (IS_SUPPORTED_SINGLE_TOUCH && storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH) ? 1 : 0);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
-#endif
+
             sprintf(buffer, "myid=%d\r\n", storedConfig[NV_SD_MYTRIAL_ID]);
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
             sprintf(buffer, "Nshimmer=%d\r\n", storedConfig[NV_SD_NSHIMMER]);
@@ -7948,11 +7918,8 @@ void UpdateSdConfig()
             f_write(&cfgFile, buffer, strlen(buffer), &bw);
 
             ff_result = f_close(&cfgFile);
-#if FW_IS_LOGANDSTREAM
+
             _delay_cycles(2400000); // 100ms @ 24MHz
-#else
-            _delay_cycles(1200000); // 50ms @ 24MHz
-#endif
         }
         else
         {
@@ -8034,7 +8001,7 @@ void FindError(uint8_t err, uint8_t *name)
 
 void BattBlinkOn()
 {
-    switch (battStat)
+    switch (shimmerStatus.battStat)
     {
     case BATT_HIGH:
         Board_ledOn(LED_GREEN0);
@@ -8098,9 +8065,9 @@ void SetBattDma()
      * DMAIE        - DMA interrupt enable
      * DMAEN        - DMA Enable */
 //    DMA0CTL = DMADT_2 + DMADSTINCR_3 + DMASRCINCR_3 + DMAIE
-//            + ((isLogging || isStreaming) ? DMAEN : 0);
+//            + ((shimmerStatus.isLogging || shimmerStatus.isStreaming) ? DMAEN : 0);
     DMA0CTL = DMADT_2 + DMADSTINCR_3 + DMASRCINCR_3 + DMAIE
-            + (((isLogging || isStreaming)
+            + (((shimmerStatus.isLogging || shimmerStatus.isStreaming)
                     && storedConfig[NV_SENSORS0] & SENSOR_GSR) ? DMAEN : 0);
     DMA0SZ = 1;            //DMA0 size
 
@@ -8122,7 +8089,7 @@ void SetBattDma()
     }
 
     // Writes a value to a 20-bit SFR register located at the given16/20-bit address
-    DMA0DA = (__SFR_FARPTR) (unsigned long) battVal;
+    DMA0DA = (__SFR_FARPTR) (unsigned long) shimmerStatus.battVal;
 
     DMA0_transferDoneFunction(&Dma0BatteryRead);
 
@@ -8306,50 +8273,50 @@ void ReadBatt(void)
     __bis_SR_register(LPM3_bits + GIE);            //ACLK remains active
     TaskSet(TASK_CFGCH);
 
-    uint16_t currentBattVal = *((uint16_t*) battVal);
+    uint16_t currentBattVal = *((uint16_t*) shimmerStatus.battVal);
 // was: 0 - 2400 - 2600 - 4096
 // now: 0 - 2568 - 2717 - 4096
-    if (battStat & BATT_MID)
+    if (shimmerStatus.battStat & BATT_MID)
     {
         if (currentBattVal < 2568)
         {
-            battStat = BATT_LOW;
+            shimmerStatus.battStat = BATT_LOW;
         }
         else if (currentBattVal < 2767)
         {
-            battStat = BATT_MID;
+            shimmerStatus.battStat = BATT_MID;
         }
         else
-            battStat = BATT_HIGH;
+            shimmerStatus.battStat = BATT_HIGH;
     }
-    else if (battStat & BATT_LOW)
+    else if (shimmerStatus.battStat & BATT_LOW)
     {
         if (currentBattVal < 2618)
         {
-            battStat = BATT_LOW;
+            shimmerStatus.battStat = BATT_LOW;
         }
         else if (currentBattVal < 2767)
         {
-            battStat = BATT_MID;
+            shimmerStatus.battStat = BATT_MID;
         }
         else
-            battStat = BATT_HIGH;
+            shimmerStatus.battStat = BATT_HIGH;
     }
     else
     {
         if (currentBattVal < 2568)
         {
-            battStat = BATT_LOW;
+            shimmerStatus.battStat = BATT_LOW;
         }
         else if (currentBattVal < 2717)
         {
-            battStat = BATT_MID;
+            shimmerStatus.battStat = BATT_MID;
         }
         else
-            battStat = BATT_HIGH;
+            shimmerStatus.battStat = BATT_HIGH;
     }
 
-    battVal[2] = P2IN & 0xC0;
+    shimmerStatus.battVal[2] = P2IN & 0xC0;
 
     // 10% Battery cutoff point - v0.9.6 onwards
     if ((storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_BATT_CRITICAL_CUTOFF)
@@ -8358,7 +8325,7 @@ void ReadBatt(void)
         if (battCriticalCount++ > 2)
         {
             battCritical = TRUE;
-            if (sensing)
+            if (shimmerStatus.isSensing)
             {
                 setStopSensing(1U);
             }
@@ -8368,7 +8335,7 @@ void ReadBatt(void)
 
 void ReadWriteSDTest(void)
 {
-    if (!SD_ERROR)
+    if (!shimmerStatus.badFile)
     {
         UINT bw;
         char testFileName[] = "testFile.txt";
@@ -8393,8 +8360,8 @@ void ReadWriteSDTest(void)
         f_unlink(testFileName);
         if (ff_result != FR_OK)
         {
-            sdlogReady = 0;
-            SD_ERROR = TRUE;
+            shimmerStatus.sdlogReady = 0;
+            shimmerStatus.badFile = TRUE;
         }
         else
         {
