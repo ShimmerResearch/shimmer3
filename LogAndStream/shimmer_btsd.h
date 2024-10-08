@@ -46,11 +46,11 @@
 #ifndef SHIMMER_BTSD_H
 #define SHIMMER_BTSD_H
 
-#include "shimmer3_common_source/Bluetooth_SD/RN4X.h"
+#include <stdint.h>
 
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
-#define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
+#define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for LogAndStream, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR          0      //Major version number: 0-65535
 #define FW_VER_MINOR          16     //Minor version number: 0-255
 #define FW_VER_REL            11     //internal version number: 0-255

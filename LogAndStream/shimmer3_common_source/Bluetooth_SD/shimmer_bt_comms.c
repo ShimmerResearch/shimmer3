@@ -9,18 +9,30 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(SHIMMER3)
 #include "msp430.h"
 
-#include "../5xx_HAL/hal_board.h"
-#include "../5xx_HAL/hal_RTC.h"
-#include "../5xx_HAL/hal_CRC.h"
 #include "../../shimmer_btsd.h"
+#include "../5xx_HAL/hal_CRC.h"
+#include "../5xx_HAL/hal_RTC.h"
+#include "../5xx_HAL/hal_board.h"
+#include "RN4X.h"
+
+#include "../shimmer_externs.h"
+
 #if BT_DMA_USED_FOR_RX
 #include "../5xx_HAL/hal_DMA.h"
 #endif
-#include "sd_sync.h"
+#elif defined(SHIMMER3R) || defined(SHIMMER4_SDK)
+#include "bmp3_defs.h"
+#include "hal_FactoryTest.h"
+#include "s4_sensing.h"
+#include "s4_taskList.h"
+#include "shimmer_definitions.h"
+#include "shimmer_externs.h"
+#endif
 
-#include "../shimmer_externs.h"
+#include "sd_sync.h"
 
 uint8_t unwrappedResponse[256] = {0};
 char *commandBufPtr;
