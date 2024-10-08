@@ -90,8 +90,6 @@ typedef uint8_t error_t;
 #define SENSOR_BMPX80_PRESSURE         0x04
 
 
-#define MAX_COMMAND_ARG_SIZE     131   //maximum number of arguments for any command sent
-                                       //(daughter card mem write)
 //#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
 #define MAX_NUM_CHANNELS         45    //3xanalogAccel + 3xdigiGyro + 3xdigiMag +
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +

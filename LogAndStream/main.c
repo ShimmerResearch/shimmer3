@@ -70,6 +70,7 @@
 #include "shimmer3_common_source/shimmer_globals.h"
 
 void Init(void);
+void resetBtResponseBools(void);
 void handleIfDockedStateOnBoot(void);
 void detectI2cSlaves(void);
 void loadSensorConfigurationAndCalibration(void);
@@ -200,19 +201,19 @@ uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
 uint8_t currentBuffer, sendAck, inquiryResponse,
         samplingRateResponse, stopSensing,
-        aAccelCalibrationResponse, gyroCalibrationResponse,
-        magCalibrationResponse, dAccelCalibrationResponse,
+        lnAccelCalibrationResponse, gyroCalibrationResponse,
+        magCalibrationResponse, wrAccelCalibrationResponse,
         allCalibrationResponse,
         deviceVersionResponse,
         fwVersionResponse, bufferSizeResponse, uniqueSerialResponse,
-        configSetupBytesResponse, lsm303dlhcAccelRangeResponse,
-        lsm303dlhcMagGainResponse, lsm303dlhcMagSamplingRateResponse,
-        lsm303dlhcAccelSamplingRateResponse, lsm303dlhcAccelLPModeResponse,
-        lsm303dlhcAccelHRModeResponse, mpu9150GyroRangeResponse,
-        mpu9150SamplingRateResponse, mpu9150AccelRangeResponse,
+        configSetupBytesResponse, wrAccelRangeResponse,
+        magGainResponse, magSamplingRateResponse,
+        wrAccelSamplingRateResponse, wrAccelLpModeResponse,
+        wrAccelHrModeResponse, gyroRangeResponse,
+        gyroSamplingRateResponse, altAccelRangeResponse,
         mpu9150MagSensAdjValsResponse,
         bmp180CalibrationCoefficientsResponse,
-        bmp280CalibrationCoefficientsResponse, bmpX80OversamplingRatioResponse,
+        bmp280CalibrationCoefficientsResponse, pressureOversamplingRatioResponse,
         blinkLedResponse, gsrRangeResponse, internalExpPowerEnableResponse,
         exgRegsResponse, dcIdResponse, dcMemResponse, dockedResponse,
         trialConfigResponse, centerResponse, shimmerNameResponse, expIDResponse,
@@ -671,68 +672,18 @@ void Init(void)
     lastGsrVal = 0;
     setGsrRangePinsAreReversed(0);
 
-    sendAck = 0;
-    inquiryResponse = 0;
-    samplingRateResponse = 0;
-    aAccelCalibrationResponse = 0;
-    lsm303dlhcAccelRangeResponse = 0;
-    lsm303dlhcMagGainResponse = 0;
-    lsm303dlhcMagSamplingRateResponse = 0;
-    dockedResponse = 0;
-    trialConfigResponse = 0;
-    centerResponse = 0;
-    shimmerNameResponse = 0;
-    expIDResponse = 0;
-    configTimeResponse = 0;
-    dirResponse = 0;
-    nshimmerResponse = 0;
-    myIDResponse = 0;
-    lsm303dlhcAccelSamplingRateResponse = 0;
-    lsm303dlhcAccelLPModeResponse = 0;
-    lsm303dlhcAccelHRModeResponse = 0;
-    mpu9150GyroRangeResponse = 0;
-    bmp180CalibrationCoefficientsResponse = 0;
-    bmp280CalibrationCoefficientsResponse = 0;
-    setBmpInUse(BMP180_IN_USE);
-    setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
-    setGyroInUse(GYRO_NONE_IN_USE);
-    setEepromIsPresent(0);
-    mpu9150SamplingRateResponse = 0;
-    mpu9150AccelRangeResponse = 0;
-    bmpX80OversamplingRatioResponse = 0;
-    internalExpPowerEnableResponse = 0;
-    configSetupBytesResponse = 0;
-    gyroCalibrationResponse = 0;
-    magCalibrationResponse = 0;
-    dAccelCalibrationResponse = 0;
-    allCalibrationResponse = 0;
-    deviceVersionResponse = 0;
-    fwVersionResponse = 0;
-    bufferSizeResponse = 0;
-    uniqueSerialResponse = 0;
-    mpu9150MagSensAdjValsResponse = 0;
-    exgRegsResponse = 0;
-    dcIdResponse = 0;
-    dcMemResponse = 0;
-    infomemResponse = 0;
-    calibRamResponse = 0;
-    btVerResponse = 0;
-    rwcResponse = 0;
-    btVbattResponse = 0;
+    resetBtResponseBools();
+
     nbrAdcChans = 0;
     nbrDigiChans = 0;
     preSampleMpuMag = 0;
     preSampleBmpPress = 0;
     sampleBmpTemp = 0;
-    blinkLedResponse = 0;
-    gsrRangeResponse = 0;
-    btCommsBaudRateResponse = 0;
-    derivedChannelResponse = 0;
-    btDataRateTestResponse = 0;
-    bmpGenericCalibrationCoefficientsResponse = 0;
 
-    changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
-    useAckPrefixForInstreamResponses = 1U;
+    setBmpInUse(BMP180_IN_USE);
+    setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+    setGyroInUse(GYRO_NONE_IN_USE);
+    setEepromIsPresent(0);
 
     shimmerStatus.badFile = shimmerStatus.isSdInserted = FALSE;
 
@@ -831,6 +782,68 @@ void Init(void)
     checkBtModeConfig();
 
     setBootStage(BOOT_STAGE_END);
+}
+
+void resetBtResponseBools(void)
+{
+    sendAck = 0;
+    inquiryResponse = 0;
+    samplingRateResponse = 0;
+    lnAccelCalibrationResponse = 0;
+    wrAccelRangeResponse = 0;
+    magGainResponse = 0;
+    magSamplingRateResponse = 0;
+    dockedResponse = 0;
+    trialConfigResponse = 0;
+    centerResponse = 0;
+    shimmerNameResponse = 0;
+    expIDResponse = 0;
+    configTimeResponse = 0;
+    dirResponse = 0;
+    nshimmerResponse = 0;
+    myIDResponse = 0;
+    wrAccelSamplingRateResponse = 0;
+    wrAccelLpModeResponse = 0;
+    wrAccelHrModeResponse = 0;
+    gyroRangeResponse = 0;
+    bmp180CalibrationCoefficientsResponse = 0;
+    bmp280CalibrationCoefficientsResponse = 0;
+    gyroSamplingRateResponse = 0;
+    altAccelRangeResponse = 0;
+    pressureOversamplingRatioResponse = 0;
+    internalExpPowerEnableResponse = 0;
+    configSetupBytesResponse = 0;
+    gyroCalibrationResponse = 0;
+    magCalibrationResponse = 0;
+    wrAccelCalibrationResponse = 0;
+    allCalibrationResponse = 0;
+    deviceVersionResponse = 0;
+    fwVersionResponse = 0;
+    bufferSizeResponse = 0;
+    uniqueSerialResponse = 0;
+    mpu9150MagSensAdjValsResponse = 0;
+    exgRegsResponse = 0;
+    dcIdResponse = 0;
+    dcMemResponse = 0;
+    infomemResponse = 0;
+    calibRamResponse = 0;
+    btVerResponse = 0;
+    rwcResponse = 0;
+    btVbattResponse = 0;
+    blinkLedResponse = 0;
+    gsrRangeResponse = 0;
+    btCommsBaudRateResponse = 0;
+    derivedChannelResponse = 0;
+    btDataRateTestResponse = 0;
+    bmpGenericCalibrationCoefficientsResponse = 0;
+
+    useAckPrefixForInstreamResponses = 1U;
+
+    changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
+
+#if defined(SHIMMER4_SDK)
+    i2cvBattBtRsp = 0;
+#endif
 }
 
 void handleIfDockedStateOnBoot(void)
@@ -3037,14 +3050,14 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case GET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-        lsm303dlhcAccelRangeResponse = 1;
+    case GET_WR_ACCEL_RANGE_COMMAND:
+        wrAccelRangeResponse = 1;
         break;
-    case GET_LSM303DLHC_MAG_GAIN_COMMAND:
-        lsm303dlhcMagGainResponse = 1;
+    case GET_MAG_GAIN_COMMAND:
+        magGainResponse = 1;
         break;
-    case GET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-        lsm303dlhcMagSamplingRateResponse = 1;
+    case GET_MAG_SAMPLING_RATE_COMMAND:
+        magSamplingRateResponse = 1;
         break;
     case GET_STATUS_COMMAND:
         dockedResponse = 1;
@@ -3153,7 +3166,7 @@ void ProcessCommand(void)
                       storedConfig + NV_SD_MYTRIAL_ID, 1);
         update_sdconfig = 1;
         break;
-    case SET_LSM303DLHC_ACCEL_RANGE_COMMAND:
+    case SET_WR_ACCEL_RANGE_COMMAND:
         if (args[0] < 4)
         {
             storedConfig[NV_CONFIG_SETUP_BYTE0] =
@@ -3176,17 +3189,17 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-        lsm303dlhcAccelSamplingRateResponse = 1;
+    case GET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+        wrAccelSamplingRateResponse = 1;
         break;
-    case GET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-        lsm303dlhcAccelLPModeResponse = 1;
+    case GET_WR_ACCEL_LPMODE_COMMAND:
+        wrAccelLpModeResponse = 1;
         break;
-    case GET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-        lsm303dlhcAccelHRModeResponse = 1;
+    case GET_WR_ACCEL_HRMODE_COMMAND:
+        wrAccelHrModeResponse = 1;
         break;
-    case GET_MPU9150_GYRO_RANGE_COMMAND:
-        mpu9150GyroRangeResponse = 1;
+    case GET_GYRO_RANGE_COMMAND:
+        gyroRangeResponse = 1;
         break;
     case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
     {
@@ -3205,14 +3218,14 @@ void ProcessCommand(void)
     case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
         bmpGenericCalibrationCoefficientsResponse = 1;
         break;
-    case GET_MPU9150_SAMPLING_RATE_COMMAND:
-        mpu9150SamplingRateResponse = 1;
+    case GET_GYRO_SAMPLING_RATE_COMMAND:
+        gyroSamplingRateResponse = 1;
         break;
-    case GET_MPU9150_ACCEL_RANGE_COMMAND:
-        mpu9150AccelRangeResponse = 1;
+    case GET_ALT_ACCEL_RANGE_COMMAND:
+        altAccelRangeResponse = 1;
         break;
-    case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
-        bmpX80OversamplingRatioResponse = 1;
+    case GET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
+        pressureOversamplingRatioResponse = 1;
         break;
     case GET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
         internalExpPowerEnableResponse = 1;
@@ -3251,7 +3264,7 @@ void ProcessCommand(void)
         }
         break;
 
-    case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
+    case SET_WR_ACCEL_SAMPLING_RATE_COMMAND:
         if (args[0] < 10)
             storedConfig[NV_CONFIG_SETUP_BYTE0] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0F)
@@ -3272,7 +3285,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_LSM303DLHC_MAG_GAIN_COMMAND:
+    case SET_MAG_GAIN_COMMAND:
         if (args[0] > 0 && args[0] < 8)
             storedConfig[NV_CONFIG_SETUP_BYTE2] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1F)
@@ -3293,7 +3306,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
+    case SET_MAG_SAMPLING_RATE_COMMAND:
         if (args[0] < 8)
             storedConfig[NV_CONFIG_SETUP_BYTE2] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xE3)
@@ -3314,7 +3327,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
+    case SET_WR_ACCEL_LPMODE_COMMAND:
         if (args[0] == 1)
         {
             storedConfig[NV_CONFIG_SETUP_BYTE0] =
@@ -3336,7 +3349,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
+    case SET_WR_ACCEL_HRMODE_COMMAND:
         if (args[0] == 1)
         {
             storedConfig[NV_CONFIG_SETUP_BYTE0] =
@@ -3358,7 +3371,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_MPU9150_GYRO_RANGE_COMMAND:
+    case SET_GYRO_RANGE_COMMAND:
         if (args[0] < 4)
             storedConfig[NV_CONFIG_SETUP_BYTE2] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xFC)
@@ -3379,7 +3392,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_MPU9150_SAMPLING_RATE_COMMAND:
+    case SET_GYRO_SAMPLING_RATE_COMMAND:
         storedConfig[NV_CONFIG_SETUP_BYTE1] = args[0];
         InfoMem_write((void*) NV_CONFIG_SETUP_BYTE1,
                       &storedConfig[NV_CONFIG_SETUP_BYTE1], 1);
@@ -3393,7 +3406,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_MPU9150_ACCEL_RANGE_COMMAND:
+    case SET_ALT_ACCEL_RANGE_COMMAND:
         if (args[0] < 4)
             storedConfig[NV_CONFIG_SETUP_BYTE3] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x3F)
@@ -3414,7 +3427,7 @@ void ProcessCommand(void)
             SetStartSensing();
         }
         break;
-    case SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+    case SET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
         if (args[0] < 4)
             storedConfig[NV_CONFIG_SETUP_BYTE3] =
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xCF)
@@ -3512,7 +3525,7 @@ void ProcessCommand(void)
         TaskSet(TASK_SDLOG_CFG_UPDATE);
         //update_sdconfig_manual = 1;
         break;
-    case SET_A_ACCEL_CALIBRATION_COMMAND:
+    case SET_LN_ACCEL_CALIBRATION_COMMAND:
         memcpy(&storedConfig[NV_A_ACCEL_CALIBRATION], args, 21);
         InfoMem_write((void*) NV_A_ACCEL_CALIBRATION,
                       &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
@@ -3525,10 +3538,10 @@ void ProcessCommand(void)
         //update_calib = 1;
         //calib_sensor = S_ACCEL_A;
         break;
-    case GET_A_ACCEL_CALIBRATION_COMMAND:
-        aAccelCalibrationResponse = 1;
+    case GET_LN_ACCEL_CALIBRATION_COMMAND:
+        lnAccelCalibrationResponse = 1;
         break;
-    case SET_MPU9150_GYRO_CALIBRATION_COMMAND:
+    case SET_GYRO_CALIBRATION_COMMAND:
         memcpy(&storedConfig[NV_MPU9150_GYRO_CALIBRATION], args, 21);
         InfoMem_write((void*) NV_MPU9150_GYRO_CALIBRATION,
                       &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
@@ -3542,10 +3555,10 @@ void ProcessCommand(void)
         //      calib_sensor = S_GYRO;
         //      calib_range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
         break;
-    case GET_MPU9150_GYRO_CALIBRATION_COMMAND:
+    case GET_GYRO_CALIBRATION_COMMAND:
         gyroCalibrationResponse = 1;
         break;
-    case SET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
+    case SET_MAG_CALIBRATION_COMMAND:
         memcpy(&storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], args, 21);
         InfoMem_write((void*) NV_LSM303DLHC_MAG_CALIBRATION,
                       &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
@@ -3559,10 +3572,10 @@ void ProcessCommand(void)
         //      calib_sensor = S_MAG;
         //      calib_range = (storedConfig[NV_CONFIG_SETUP_BYTE2]>>5) & 0x07;
         break;
-    case GET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
+    case GET_MAG_CALIBRATION_COMMAND:
         magCalibrationResponse = 1;
         break;
-    case SET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+    case SET_WR_ACCEL_CALIBRATION_COMMAND:
         memcpy(&storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], args, 21);
         InfoMem_write((void*) NV_LSM303DLHC_ACCEL_CALIBRATION,
                       &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
@@ -3659,8 +3672,8 @@ void ProcessCommand(void)
         ShimmerCalibSyncFromDumpRamAll();
         update_calib_dump_file = 1;
         break;
-    case GET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
-        dAccelCalibrationResponse = 1;
+    case GET_WR_ACCEL_CALIBRATION_COMMAND:
+        wrAccelCalibrationResponse = 1;
         break;
     case GET_GSR_RANGE_COMMAND:
         gsrRangeResponse = 1;
@@ -3977,27 +3990,27 @@ void SendResponse(void)
             packet_length += 2;
             samplingRateResponse = 0;
         }
-        else if (lsm303dlhcAccelRangeResponse)
+        else if (wrAccelRangeResponse)
         {
-            *(resPacket + packet_length++) = LSM303DLHC_ACCEL_RANGE_RESPONSE;
+            *(resPacket + packet_length++) = WR_ACCEL_RANGE_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0C) >> 2;
-            lsm303dlhcAccelRangeResponse = 0;
+            wrAccelRangeResponse = 0;
         }
-        else if (lsm303dlhcMagGainResponse)
+        else if (magGainResponse)
         {
-            *(resPacket + packet_length++) = LSM303DLHC_MAG_GAIN_RESPONSE;
+            *(resPacket + packet_length++) = MAG_GAIN_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xE0) >> 5;
-            lsm303dlhcMagGainResponse = 0;
+            magGainResponse = 0;
         }
-        else if (lsm303dlhcMagSamplingRateResponse)
+        else if (magSamplingRateResponse)
         {
             *(resPacket + packet_length++) =
-            LSM303DLHC_MAG_SAMPLING_RATE_RESPONSE;
+            MAG_SAMPLING_RATE_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1C) >> 2;
-            lsm303dlhcMagSamplingRateResponse = 0;
+            magSamplingRateResponse = 0;
         }
         else if (dockedResponse)
         {
@@ -4088,34 +4101,34 @@ void SendResponse(void)
             *(resPacket + packet_length++) = storedConfig[NV_SD_MYTRIAL_ID];
             myIDResponse = 0;
         }
-        else if (lsm303dlhcAccelSamplingRateResponse)
+        else if (wrAccelSamplingRateResponse)
         {
             *(resPacket + packet_length++) =
-            LSM303DLHC_ACCEL_SAMPLING_RATE_RESPONSE;
+            WR_ACCEL_SAMPLING_RATE_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xF0) >> 4;
-            lsm303dlhcAccelSamplingRateResponse = 0;
+            wrAccelSamplingRateResponse = 0;
         }
-        else if (lsm303dlhcAccelLPModeResponse)
+        else if (wrAccelLpModeResponse)
         {
-            *(resPacket + packet_length++) = LSM303DLHC_ACCEL_LPMODE_RESPONSE;
+            *(resPacket + packet_length++) = WR_ACCEL_LPMODE_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x02) >> 1;
-            lsm303dlhcAccelLPModeResponse = 0;
+            wrAccelLpModeResponse = 0;
         }
-        else if (lsm303dlhcAccelHRModeResponse)
+        else if (wrAccelHrModeResponse)
         {
-            *(resPacket + packet_length++) = LSM303DLHC_ACCEL_HRMODE_RESPONSE;
+            *(resPacket + packet_length++) = WR_ACCEL_HRMODE_RESPONSE;
             *(resPacket + packet_length++) = storedConfig[NV_CONFIG_SETUP_BYTE0]
                     & 0x01;
-            lsm303dlhcAccelHRModeResponse = 0;
+            wrAccelHrModeResponse = 0;
         }
-        else if (mpu9150GyroRangeResponse)
+        else if (gyroRangeResponse)
         {
-            *(resPacket + packet_length++) = MPU9150_GYRO_RANGE_RESPONSE;
+            *(resPacket + packet_length++) = GYRO_RANGE_RESPONSE;
             *(resPacket + packet_length++) = storedConfig[NV_CONFIG_SETUP_BYTE2]
                     & 0x03;
-            mpu9150GyroRangeResponse = 0;
+            gyroRangeResponse = 0;
         }
         else if (bmp180CalibrationCoefficientsResponse)
         {
@@ -4167,27 +4180,27 @@ void SendResponse(void)
             packet_length += bmpCalibByteLen;
             bmpGenericCalibrationCoefficientsResponse = 0;
         }
-        else if (mpu9150SamplingRateResponse)
+        else if (gyroSamplingRateResponse)
         {
-            *(resPacket + packet_length++) = MPU9150_SAMPLING_RATE_RESPONSE;
+            *(resPacket + packet_length++) = GYRO_SAMPLING_RATE_RESPONSE;
             *(resPacket + packet_length++) =
                     storedConfig[NV_CONFIG_SETUP_BYTE1];
-            mpu9150SamplingRateResponse = 0;
+            gyroSamplingRateResponse = 0;
         }
-        else if (mpu9150AccelRangeResponse)
+        else if (altAccelRangeResponse)
         {
-            *(resPacket + packet_length++) = MPU9150_ACCEL_RANGE_RESPONSE;
+            *(resPacket + packet_length++) = ALT_ACCEL_RANGE_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xC0) >> 6;
-            mpu9150AccelRangeResponse = 0;
+            altAccelRangeResponse = 0;
         }
-        else if (bmpX80OversamplingRatioResponse)
+        else if (pressureOversamplingRatioResponse)
         {
             *(resPacket + packet_length++) =
-            BMPX80_PRES_OVERSAMPLING_RATIO_RESPONSE;
+            PRESSURE_OVERSAMPLING_RATIO_RESPONSE;
             *(resPacket + packet_length++) =
                     (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x30) >> 4;
-            bmpX80OversamplingRatioResponse = 0;
+            pressureOversamplingRatioResponse = 0;
         }
         else if (internalExpPowerEnableResponse)
         {
@@ -4215,20 +4228,20 @@ void SendResponse(void)
             packet_length += calibRamLength;
             calibRamResponse = 0;
         }
-        else if (aAccelCalibrationResponse)
+        else if (lnAccelCalibrationResponse)
         {
-            *(resPacket + packet_length++) = A_ACCEL_CALIBRATION_RESPONSE;
+            *(resPacket + packet_length++) = LN_ACCEL_CALIBRATION_RESPONSE;
             sc1.id = SC_SENSOR_ANALOG_ACCEL;
             sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
             sc1.data_len = SC_DATA_LEN_ANALOG_ACCEL;
             ShimmerCalib_singleSensorRead(&sc1);
             memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
             packet_length += sc1.data_len;
-            aAccelCalibrationResponse = 0;
+            lnAccelCalibrationResponse = 0;
         }
         else if (gyroCalibrationResponse)
         {
-            *(resPacket + packet_length++) = MPU9150_GYRO_CALIBRATION_RESPONSE;
+            *(resPacket + packet_length++) = GYRO_CALIBRATION_RESPONSE;
             sc1.id = SC_SENSOR_MPU9150_GYRO;
             sc1.range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
             sc1.data_len = SC_DATA_LEN_MPU9250_GYRO;
@@ -4240,7 +4253,7 @@ void SendResponse(void)
         else if (magCalibrationResponse)
         {
             *(resPacket + packet_length++) =
-            LSM303DLHC_MAG_CALIBRATION_RESPONSE;
+            MAG_CALIBRATION_RESPONSE;
             sc1.id = SC_SENSOR_LSM303DLHC_MAG;
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
             sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
@@ -4249,17 +4262,17 @@ void SendResponse(void)
             packet_length += sc1.data_len;
             magCalibrationResponse = 0;
         }
-        else if (dAccelCalibrationResponse)
+        else if (wrAccelCalibrationResponse)
         {
             *(resPacket + packet_length++) =
-            LSM303DLHC_ACCEL_CALIBRATION_RESPONSE;
+            WR_ACCEL_CALIBRATION_RESPONSE;
             sc1.id = SC_SENSOR_LSM303DLHC_ACCEL;
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03;
             sc1.data_len = SC_DATA_LEN_LSM303DLHC_ACCEL;
             ShimmerCalib_singleSensorRead(&sc1);
             memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
             packet_length += sc1.data_len;
-            dAccelCalibrationResponse = 0;
+            wrAccelCalibrationResponse = 0;
         }
         else if (gsrRangeResponse)
         {

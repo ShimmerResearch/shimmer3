@@ -59,6 +59,7 @@ uint32_t btDataRateTestCounter;
 /* Return of 1 brings MSP out of low-power mode */
 uint8_t Dma2ConversionDone(void)
 {
+#if defined(SHIMMER3)
     uint8_t bt_waitForStartCmd, bt_waitForMacAddress, bt_waitForVersion, bt_waitForInitialBoot, bt_waitForReturnNewLine;
     uint8_t expectedlen = 0U;
 
@@ -285,6 +286,7 @@ uint8_t Dma2ConversionDone(void)
 #endif
         else
         {
+#endif
             if (waitingForArgs)
             {
                 if ((!waitingForArgsLength) && (waitingForArgs == 3)
@@ -333,431 +335,12 @@ uint8_t Dma2ConversionDone(void)
                         return 0;
                     }
                 }
+#if defined(SHIMMER3)
                 else if (*(gActionPtr) == RN4678_STATUS_STRING_SEPARATOR)
                 {
-                    uint8_t numberOfCharRemaining = 0U;
-                    uint8_t bringUcOutOfSleep = 0U;
-
-                    memcpy(btStatusStr+btStatusStrIndex, btRxBuff, waitingForArgs);
-                    memset(btRxBuff, 0, waitingForArgs);
-                    btStatusStrIndex += waitingForArgs;
-
-                    enum BT_FIRMWARE_VERSION btFwVer = getBtFwVersion();
-
-                    uint8_t firstChar = btStatusStr[1U];
-                    switch (firstChar)
-                    {
-                    case 'A':
-                        /* "%AUTHENTICATED%" */
-                        if (btStatusStr[14U]=='%')
-                        {
-                            /* TODO */
-                        }
-                        /* "%AUTHEN" - Read outstanding bytes */
-                        else if (btStatusStr[6U]=='N')
-                        {
-                            numberOfCharRemaining = BT_STAT_STR_LEN_AUTHENTICATED - BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        /* "%AUTH_FAIL%" */
-                        else if (btStatusStr[10U]=='%')
-                        {
-                            /* TODO */
-                        }
-                        /* "%AUTH_FA" - Read outstanding bytes */
-                        else if (btStatusStr[6U]=='F')
-                        {
-                            numberOfCharRemaining = BT_STAT_STR_LEN_AUTH_FAIL - BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        break;
-                    case 'B':
-                        /* "%BONDED%" */
-                        if (btStatusStr[7U]=='%')
-                        {
-                            /* TODO */
-                        }
-                        /* "%BONDED" - Read outstanding bytes */
-                        else
-                        {
-                            numberOfCharRemaining = BT_STAT_STR_LEN_BONDED - BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        break;
-                    case 'C':
-                        if (btStatusStr[5U]=='E')
-                        {
-                            /* "%CONNECT,001BDC06A3D5%" - RN4678 */
-                            if (btStatusStr[21U]=='%')
-                            {
-                                setRn4678ConnectionState(RN4678_CONNECTED_CLASSIC);
-                            }
-                            /* "%CONNECT" for RN42 v4.77 or "%CONNECT,001BDC06A3D5," - RN42 v6.15 */
-                            else if ((btFwVer == RN41_V4_77 && btStatusStr[7U]=='T')
-                                    || (btFwVer == RN42_V4_77 && btStatusStr[7U]=='T')
-                                    || (btFwVer == RN42_V6_15 && btStatusStr[21U]==','))
-                            {
-                                triggerBtRfCommStateChangeCallback(TRUE);
-                                bringUcOutOfSleep = 1U;
-                            }
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_v477_CONNECT;
-                                }
-                                else if (btFwVer == RN42_V6_15)
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_v615_CONNECT;
-                                }
-                                else
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_CONNECT;
-                                }
-                                numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        else if (btStatusStr[5U]=='_')
-                        {
-                            /* "%CONN_PARAM,000C,0000,03C0%" - RN4678 */
-                            if (btStatusStr[26U]=='%')
-                            {
-                                //TODO
-                            }
-                            else
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_CONN_PARAM - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        break;
-                    case 'D':
-                        /* "%DISCONN%" -> RN4678 */
-                        if (btStatusStr[8U]=='%')
-                        {
-                            /* This if is needed here for BLE connections as a
-                             * disconnect over BLE does not trigger an
-                             * RFCOMM_CLOSE status change as it does for classic
-                             * Bluetooth connections. */
-                            if (shimmerStatus.isBtConnected)
-                            {
-                                triggerBtRfCommStateChangeCallback(FALSE);
-                                bringUcOutOfSleep = 1U;
-                            }
-
-                            setRn4678ConnectionState(RN4678_DISCONNECTED);
-                        }
-                        /* "%DISCONNECT" -> RN42 */
-                        else if (btStatusStr[10U]=='T')
-                        {
-                            triggerBtRfCommStateChangeCallback(FALSE);
-                            bringUcOutOfSleep = 1U;
-                        }
-                        /* "%DISCON" - Read outstanding bytes */
-                        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                        {
-                            if (isBtDeviceRn41orRN42())
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_RN42_DISCONNECT;
-                            }
-                            else
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_DISCONN;
-                            }
-                            numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        break;
-                    case 'E':
-                        if (btStatusStr[2U]=='N')
-                        {
-                            if (btStatusStr[5U]=='I')
-                            {
-                                /* "%END_INQ%" */
-                                if (btStatusStr[8U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%END_IN" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_END_INQ - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                            else if (btStatusStr[5U]=='S')
-                            {
-                                /* "%END_SCN%" */
-                                if (btStatusStr[8U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%END_SC" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_END_SCN - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                        }
-                        else if (btStatusStr[2U]=='R')
-                        {
-                            if (btStatusStr[5U]=='C')
-                            {
-                                /* %ERR_CON is common to two status strings. If detected, read two more chars to determine which one it is */
-                                /* "%ERR_CONN%" */
-                                if (btStatusStr[9U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%ERR_CONN_PARAM%" */
-                                else if (btStatusStr[15U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%ERR_CONN_" - Read outstanding bytes */
-                                else if (btStatusStr[9U]=='_')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_CONN_PARAM - BT_STAT_STR_LEN_ERR_CONN;
-                                }
-                                /* "%ERR_CON" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_CONN - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                            else if (btStatusStr[5U]=='L')
-                            {
-                                /* "%ERR_LSEC%" */
-                                if (btStatusStr[9U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%ERR_LSE" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_LSEC - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                            else if (btStatusStr[5U]=='S')
-                            {
-                                /* "%ERR_SEC%" */
-                                if (btStatusStr[8U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%ERR_SE" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_SEC - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                        }
-                        break;
-                    case 'F':
-                        /* "%FACTORY_RESET%" */
-                        if (btStatusStr[14U]=='%')
-                        {
-                            /* TODO */
-                        }
-                        /* "%FACTOR" - Read outstanding bytes */
-                        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                        {
-                            numberOfCharRemaining = BT_STAT_STR_LEN_FACTORY_RESET - BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        break;
-                    case 'L':
-                        if (btStatusStr[2U]=='C')
-                        {
-                            /* "%LCONNECT,001BDC06A3D5,1%" - RN4678 BLE mode */
-                            if (btStatusStr[24U]=='%')
-                            {
-                                setRn4678ConnectionState(RN4678_CONNECTED_BLE);
-
-                                /* RN4678 seems to assume charactertic is advice once BLE connected */
-                                triggerBtRfCommStateChangeCallback(TRUE);
-
-                                bringUcOutOfSleep = 1U;
-                            }
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_LCONNECT - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                            break;
-                        }
-                        else if (btStatusStr[2U]=='B')
-                        {
-                            /* "%LBONDED%" */
-                            if (btStatusStr[8U]=='%')
-                            {
-                                /* TODO */
-                            }
-                            /* "%LBONDE" - Read outstanding bytes */
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_LBONDED - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        else if (btStatusStr[2U]=='S')
-                        {
-                            if (btStatusStr[6U]=='R')
-                            {
-                                /* "%LSECURED%" */
-                                if (btStatusStr[9U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%LSECURE_FAIL%" */
-                                else if (btStatusStr[13U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%LSECURE_F" */
-                                else if (btStatusStr[9U]=='F')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_LSECURE_FAIL - BT_STAT_STR_LEN_LSECURED;
-                                }
-                                /* "%LSECUR" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_LSECURED - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                            else if (btStatusStr[6U]=='A')
-                            {
-                                /* "%LSTREAM_OPEN%" */
-                                if (btStatusStr[13U]=='%')
-                                {
-                                    /* TODO */
-                                }
-                                /* "%LSTREA" - Read outstanding bytes */
-                                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_LSTREAM_OPEN - BT_STAT_STR_LEN_SMALLEST;
-                                }
-                            }
-                        }
-                        break;
-                    case 'M':
-                        /* "%MLDP_MODE%" */
-                        if (btStatusStr[10U]=='%')
-                        {
-                            /* TODO */
-                        }
-                        /* "%MLDP_M" - Read outstanding bytes */
-                        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                        {
-                            numberOfCharRemaining = BT_STAT_STR_LEN_MLDP_MODE - BT_STAT_STR_LEN_SMALLEST;
-                        }
-                        break;
-                    case 'R':
-                        if (btStatusStr[2U]=='E')
-                        {
-                            /* "%REBOOT%" -> RN4678 */
-                            if (btStatusStr[7U]=='%')
-                            {
-                                /* TODO */
-                                _NOP();
-                            }
-                            else
-                            {
-                                if (isBtDeviceRn41orRN42())
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_REBOOT;
-                                }
-                                else
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_REBOOT;
-                                }
-                                numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        else if (btStatusStr[2U]=='F')
-                        {
-                            if (btStatusStr[8U]=='C')
-                            {
-                                /* "%RFCOMM_CLOSE%" */
-                                if (btStatusStr[13U]=='%')
-                                {
-                                    triggerBtRfCommStateChangeCallback(FALSE);
-                                    bringUcOutOfSleep = 1U;
-                                }
-                                /* "%RFCOMM_CLOSE" - Read outstanding bytes */
-                                else if (btStatusStr[13U]=='\0')
-                                {
-                                    numberOfCharRemaining = BT_STAT_STR_LEN_RFCOMM_CLOSE - BT_STAT_STR_LEN_RFCOMM_OPEN;
-                                }
-                            }
-                            /* "%RFCOMM_OPEN%" */
-                            else if (btStatusStr[12U]=='%')
-                            {
-                                triggerBtRfCommStateChangeCallback(TRUE);
-                                bringUcOutOfSleep = 1U;
-                            }
-                            /* "%RFCOMM" - Read outstanding bytes */
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_RFCOMM_OPEN - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        break;
-                    case 'S':
-                        if (btStatusStr[3U]=='C')
-                        {
-                            /* "%SECURED%" */
-                            if (btStatusStr[8U]=='%')
-                            {
-                                /* TODO */
-                            }
-                            /* "%SECURE_FAIL%" */
-                            else if (btStatusStr[12U]=='%')
-                            {
-                                /* TODO */
-                            }
-                            /* "%SECURE_F" - Read outstanding bytes */
-                            else if (btStatusStr[7U]=='_')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_SECURE_FAIL - BT_STAT_STR_LEN_SECURED;
-                            }
-                            /* "%SECURE" - Read outstanding bytes */
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_SECURED - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        else if (btStatusStr[3U]=='S')
-                        {
-                            /* "%SESSION_OPEN%" */
-                            if (btStatusStr[13U]=='%')
-                            {
-                                /* TODO */
-                            }
-                            /* "%SESSION_CLOSE%" */
-                            else if (btStatusStr[14U]=='%')
-                            {
-                                /* TODO */
-                            }
-                            /* "%SESSION_CLOSE" - Read outstanding bytes */
-                            else if (btStatusStr[13U]=='E')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_SESSION_CLOSE - BT_STAT_STR_LEN_SESSION_OPEN;
-                            }
-                            /* "%SESSIO" - Read outstanding bytes */
-                            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
-                            {
-                                numberOfCharRemaining = BT_STAT_STR_LEN_SESSION_OPEN - BT_STAT_STR_LEN_SMALLEST;
-                            }
-                        }
-                        break;
-                    default:
-                        break;
-                    }
-
-                    if (numberOfCharRemaining)
-                    {
-                        waitingForArgs = numberOfCharRemaining;
-                    }
-                    else
-                    {
-                        waitingForArgs = 0;
-                        numberOfCharRemaining = 1U;
-                    }
-                    setDmaWaitingForResponse(numberOfCharRemaining);
-                    return bringUcOutOfSleep;
+                    return parseRn4678Status();
                 }
+#endif
                 else if (*(gActionPtr) == ACK_COMMAND_PROCESSED)
                 {
 #if USE_OLD_SD_SYNC_APPROACH
@@ -834,10 +417,10 @@ uint8_t Dma2ConversionDone(void)
                 case STOP_SDBT_COMMAND:
                 case START_LOGGING_COMMAND:
                 case STOP_LOGGING_COMMAND:
-                case GET_A_ACCEL_CALIBRATION_COMMAND:
-                case GET_MPU9150_GYRO_CALIBRATION_COMMAND:
-                case GET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-                case GET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+                case GET_LN_ACCEL_CALIBRATION_COMMAND:
+                case GET_GYRO_CALIBRATION_COMMAND:
+                case GET_MAG_CALIBRATION_COMMAND:
+                case GET_WR_ACCEL_CALIBRATION_COMMAND:
                 case GET_GSR_RANGE_COMMAND:
                 case GET_ALL_CALIBRATION_COMMAND:
                 case DEPRECATED_GET_DEVICE_VERSION_COMMAND:
@@ -846,19 +429,19 @@ uint8_t Dma2ConversionDone(void)
                 case GET_CHARGE_STATUS_LED_COMMAND:
                 case GET_BUFFER_SIZE_COMMAND:
                 case GET_UNIQUE_SERIAL_COMMAND:
-                case GET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-                case GET_LSM303DLHC_MAG_GAIN_COMMAND:
-                case GET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-                case GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-                case GET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-                case GET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-                case GET_MPU9150_GYRO_RANGE_COMMAND:
+                case GET_WR_ACCEL_RANGE_COMMAND:
+                case GET_MAG_GAIN_COMMAND:
+                case GET_MAG_SAMPLING_RATE_COMMAND:
+                case GET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+                case GET_WR_ACCEL_LPMODE_COMMAND:
+                case GET_WR_ACCEL_HRMODE_COMMAND:
+                case GET_GYRO_RANGE_COMMAND:
                 case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
                 case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
                 case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
-                case GET_MPU9150_SAMPLING_RATE_COMMAND:
-                case GET_MPU9150_ACCEL_RANGE_COMMAND:
-                case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+                case GET_GYRO_SAMPLING_RATE_COMMAND:
+                case GET_ALT_ACCEL_RANGE_COMMAND:
+                case GET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
                 case GET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
                 case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
                 case RESET_CALIBRATION_VALUE_COMMAND:
@@ -885,17 +468,17 @@ uint8_t Dma2ConversionDone(void)
                     /* Wake-up MCU so that the get command can be processed */
                     wakeupMcu = 1U;
                     break;
-                case SET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-                case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-                case SET_LSM303DLHC_MAG_GAIN_COMMAND:
+                case SET_WR_ACCEL_RANGE_COMMAND:
+                case SET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+                case SET_MAG_GAIN_COMMAND:
                 case SET_CHARGE_STATUS_LED_COMMAND:
-                case SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-                case SET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-                case SET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-                case SET_MPU9150_GYRO_RANGE_COMMAND:
-                case SET_MPU9150_SAMPLING_RATE_COMMAND:
-                case SET_MPU9150_ACCEL_RANGE_COMMAND:
-                case SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+                case SET_MAG_SAMPLING_RATE_COMMAND:
+                case SET_WR_ACCEL_LPMODE_COMMAND:
+                case SET_WR_ACCEL_HRMODE_COMMAND:
+                case SET_GYRO_RANGE_COMMAND:
+                case SET_GYRO_SAMPLING_RATE_COMMAND:
+                case SET_ALT_ACCEL_RANGE_COMMAND:
+                case SET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
                 case SET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
                 case SET_GSR_RANGE_COMMAND:
                 case SET_BT_COMMS_BAUD_RATE:
@@ -940,13 +523,14 @@ uint8_t Dma2ConversionDone(void)
                     *(gActionPtr) = data;
                     waitingForArgs = 8U;
                     break;
-                case SET_A_ACCEL_CALIBRATION_COMMAND:
-                case SET_MPU9150_GYRO_CALIBRATION_COMMAND:
-                case SET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-                case SET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+                case SET_LN_ACCEL_CALIBRATION_COMMAND:
+                case SET_GYRO_CALIBRATION_COMMAND:
+                case SET_MAG_CALIBRATION_COMMAND:
+                case SET_WR_ACCEL_CALIBRATION_COMMAND:
                     *(gActionPtr) = data;
                     waitingForArgs = 21U;
                     break;
+#if defined(SHIMMER3)
                 case RN4678_STATUS_STRING_SEPARATOR:
                     memset(btStatusStr, 0, sizeof(btStatusStr));
                     btStatusStr[0U] = RN4678_STATUS_STRING_SEPARATOR;
@@ -955,6 +539,7 @@ uint8_t Dma2ConversionDone(void)
                     /* Minus 1 because we've already received 1 x RN4678_STATUS_STRING_SEPARATOR */
                     waitingForArgs = BT_STAT_STR_LEN_SMALLEST - 1U;
                     break;
+#endif
 #if USE_OLD_SD_SYNC_APPROACH
                 case ACK_COMMAND_PROCESSED:
                     /* SD Sync Node - gets here when a node receives a sync packet from a center */
@@ -987,6 +572,7 @@ uint8_t Dma2ConversionDone(void)
 
                 return wakeupMcu;
             }
+#if defined(SHIMMER3)
         }
     }
     else
@@ -1004,8 +590,437 @@ uint8_t Dma2ConversionDone(void)
     }
 
     setDmaWaitingForResponseIfStatusStrEnabled();
+#endif
     return 0;
 }
+
+#if defined(SHIMMER3)
+uint8_t parseRn4678Status(void)
+{
+    uint8_t numberOfCharRemaining = 0U;
+    uint8_t bringUcOutOfSleep = 0U;
+
+    memcpy(btStatusStr+btStatusStrIndex, btRxBuff, waitingForArgs);
+    memset(btRxBuff, 0, waitingForArgs);
+    btStatusStrIndex += waitingForArgs;
+
+    enum BT_FIRMWARE_VERSION btFwVer = getBtFwVersion();
+
+    uint8_t firstChar = btStatusStr[1U];
+    switch (firstChar)
+    {
+    case 'A':
+        /* "%AUTHENTICATED%" */
+        if (btStatusStr[14U]=='%')
+        {
+            /* TODO */
+        }
+        /* "%AUTHEN" - Read outstanding bytes */
+        else if (btStatusStr[6U]=='N')
+        {
+            numberOfCharRemaining = BT_STAT_STR_LEN_AUTHENTICATED - BT_STAT_STR_LEN_SMALLEST;
+        }
+        /* "%AUTH_FAIL%" */
+        else if (btStatusStr[10U]=='%')
+        {
+            /* TODO */
+        }
+        /* "%AUTH_FA" - Read outstanding bytes */
+        else if (btStatusStr[6U]=='F')
+        {
+            numberOfCharRemaining = BT_STAT_STR_LEN_AUTH_FAIL - BT_STAT_STR_LEN_SMALLEST;
+        }
+        break;
+    case 'B':
+        /* "%BONDED%" */
+        if (btStatusStr[7U]=='%')
+        {
+            /* TODO */
+        }
+        /* "%BONDED" - Read outstanding bytes */
+        else
+        {
+            numberOfCharRemaining = BT_STAT_STR_LEN_BONDED - BT_STAT_STR_LEN_SMALLEST;
+        }
+        break;
+    case 'C':
+        if (btStatusStr[5U]=='E')
+        {
+            /* "%CONNECT,001BDC06A3D5%" - RN4678 */
+            if (btStatusStr[21U]=='%')
+            {
+                setRn4678ConnectionState(RN4678_CONNECTED_CLASSIC);
+            }
+            /* "%CONNECT" for RN42 v4.77 or "%CONNECT,001BDC06A3D5," - RN42 v6.15 */
+            else if ((btFwVer == RN41_V4_77 && btStatusStr[7U]=='T')
+                    || (btFwVer == RN42_V4_77 && btStatusStr[7U]=='T')
+                    || (btFwVer == RN42_V6_15 && btStatusStr[21U]==','))
+            {
+                triggerBtRfCommStateChangeCallback(TRUE);
+                bringUcOutOfSleep = 1U;
+            }
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_v477_CONNECT;
+                }
+                else if (btFwVer == RN42_V6_15)
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_v615_CONNECT;
+                }
+                else
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_CONNECT;
+                }
+                numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        else if (btStatusStr[5U]=='_')
+        {
+            /* "%CONN_PARAM,000C,0000,03C0%" - RN4678 */
+            if (btStatusStr[26U]=='%')
+            {
+                //TODO
+            }
+            else
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_CONN_PARAM - BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        break;
+    case 'D':
+        /* "%DISCONN%" -> RN4678 */
+        if (btStatusStr[8U]=='%')
+        {
+            /* This if is needed here for BLE connections as a
+             * disconnect over BLE does not trigger an
+             * RFCOMM_CLOSE status change as it does for classic
+             * Bluetooth connections. */
+            if (shimmerStatus.isBtConnected)
+            {
+                triggerBtRfCommStateChangeCallback(FALSE);
+                bringUcOutOfSleep = 1U;
+            }
+
+            setRn4678ConnectionState(RN4678_DISCONNECTED);
+        }
+        /* "%DISCONNECT" -> RN42 */
+        else if (btStatusStr[10U]=='T')
+        {
+            triggerBtRfCommStateChangeCallback(FALSE);
+            bringUcOutOfSleep = 1U;
+        }
+        /* "%DISCON" - Read outstanding bytes */
+        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+        {
+            if (isBtDeviceRn41orRN42())
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_RN42_DISCONNECT;
+            }
+            else
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_DISCONN;
+            }
+            numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
+        }
+        break;
+    case 'E':
+        if (btStatusStr[2U]=='N')
+        {
+            if (btStatusStr[5U]=='I')
+            {
+                /* "%END_INQ%" */
+                if (btStatusStr[8U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%END_IN" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_END_INQ - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+            else if (btStatusStr[5U]=='S')
+            {
+                /* "%END_SCN%" */
+                if (btStatusStr[8U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%END_SC" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_END_SCN - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+        }
+        else if (btStatusStr[2U]=='R')
+        {
+            if (btStatusStr[5U]=='C')
+            {
+                /* %ERR_CON is common to two status strings. If detected, read two more chars to determine which one it is */
+                /* "%ERR_CONN%" */
+                if (btStatusStr[9U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%ERR_CONN_PARAM%" */
+                else if (btStatusStr[15U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%ERR_CONN_" - Read outstanding bytes */
+                else if (btStatusStr[9U]=='_')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_CONN_PARAM - BT_STAT_STR_LEN_ERR_CONN;
+                }
+                /* "%ERR_CON" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_CONN - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+            else if (btStatusStr[5U]=='L')
+            {
+                /* "%ERR_LSEC%" */
+                if (btStatusStr[9U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%ERR_LSE" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_LSEC - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+            else if (btStatusStr[5U]=='S')
+            {
+                /* "%ERR_SEC%" */
+                if (btStatusStr[8U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%ERR_SE" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_ERR_SEC - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+        }
+        break;
+    case 'F':
+        /* "%FACTORY_RESET%" */
+        if (btStatusStr[14U]=='%')
+        {
+            /* TODO */
+        }
+        /* "%FACTOR" - Read outstanding bytes */
+        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+        {
+            numberOfCharRemaining = BT_STAT_STR_LEN_FACTORY_RESET - BT_STAT_STR_LEN_SMALLEST;
+        }
+        break;
+    case 'L':
+        if (btStatusStr[2U]=='C')
+        {
+            /* "%LCONNECT,001BDC06A3D5,1%" - RN4678 BLE mode */
+            if (btStatusStr[24U]=='%')
+            {
+                setRn4678ConnectionState(RN4678_CONNECTED_BLE);
+
+                /* RN4678 seems to assume charactertic is advice once BLE connected */
+                triggerBtRfCommStateChangeCallback(TRUE);
+
+                bringUcOutOfSleep = 1U;
+            }
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_LCONNECT - BT_STAT_STR_LEN_SMALLEST;
+            }
+            break;
+        }
+        else if (btStatusStr[2U]=='B')
+        {
+            /* "%LBONDED%" */
+            if (btStatusStr[8U]=='%')
+            {
+                /* TODO */
+            }
+            /* "%LBONDE" - Read outstanding bytes */
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_LBONDED - BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        else if (btStatusStr[2U]=='S')
+        {
+            if (btStatusStr[6U]=='R')
+            {
+                /* "%LSECURED%" */
+                if (btStatusStr[9U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%LSECURE_FAIL%" */
+                else if (btStatusStr[13U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%LSECURE_F" */
+                else if (btStatusStr[9U]=='F')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_LSECURE_FAIL - BT_STAT_STR_LEN_LSECURED;
+                }
+                /* "%LSECUR" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_LSECURED - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+            else if (btStatusStr[6U]=='A')
+            {
+                /* "%LSTREAM_OPEN%" */
+                if (btStatusStr[13U]=='%')
+                {
+                    /* TODO */
+                }
+                /* "%LSTREA" - Read outstanding bytes */
+                else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_LSTREAM_OPEN - BT_STAT_STR_LEN_SMALLEST;
+                }
+            }
+        }
+        break;
+    case 'M':
+        /* "%MLDP_MODE%" */
+        if (btStatusStr[10U]=='%')
+        {
+            /* TODO */
+        }
+        /* "%MLDP_M" - Read outstanding bytes */
+        else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+        {
+            numberOfCharRemaining = BT_STAT_STR_LEN_MLDP_MODE - BT_STAT_STR_LEN_SMALLEST;
+        }
+        break;
+    case 'R':
+        if (btStatusStr[2U]=='E')
+        {
+            /* "%REBOOT%" -> RN4678 */
+            if (btStatusStr[7U]=='%')
+            {
+                /* TODO */
+                _NOP();
+            }
+            else
+            {
+                if (isBtDeviceRn41orRN42())
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RN42_REBOOT;
+                }
+                else
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RN4678_REBOOT;
+                }
+                numberOfCharRemaining -= BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        else if (btStatusStr[2U]=='F')
+        {
+            if (btStatusStr[8U]=='C')
+            {
+                /* "%RFCOMM_CLOSE%" */
+                if (btStatusStr[13U]=='%')
+                {
+                    triggerBtRfCommStateChangeCallback(FALSE);
+                    bringUcOutOfSleep = 1U;
+                }
+                /* "%RFCOMM_CLOSE" - Read outstanding bytes */
+                else if (btStatusStr[13U]=='\0')
+                {
+                    numberOfCharRemaining = BT_STAT_STR_LEN_RFCOMM_CLOSE - BT_STAT_STR_LEN_RFCOMM_OPEN;
+                }
+            }
+            /* "%RFCOMM_OPEN%" */
+            else if (btStatusStr[12U]=='%')
+            {
+                triggerBtRfCommStateChangeCallback(TRUE);
+                bringUcOutOfSleep = 1U;
+            }
+            /* "%RFCOMM" - Read outstanding bytes */
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_RFCOMM_OPEN - BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        break;
+    case 'S':
+        if (btStatusStr[3U]=='C')
+        {
+            /* "%SECURED%" */
+            if (btStatusStr[8U]=='%')
+            {
+                /* TODO */
+            }
+            /* "%SECURE_FAIL%" */
+            else if (btStatusStr[12U]=='%')
+            {
+                /* TODO */
+            }
+            /* "%SECURE_F" - Read outstanding bytes */
+            else if (btStatusStr[7U]=='_')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_SECURE_FAIL - BT_STAT_STR_LEN_SECURED;
+            }
+            /* "%SECURE" - Read outstanding bytes */
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_SECURED - BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        else if (btStatusStr[3U]=='S')
+        {
+            /* "%SESSION_OPEN%" */
+            if (btStatusStr[13U]=='%')
+            {
+                /* TODO */
+            }
+            /* "%SESSION_CLOSE%" */
+            else if (btStatusStr[14U]=='%')
+            {
+                /* TODO */
+            }
+            /* "%SESSION_CLOSE" - Read outstanding bytes */
+            else if (btStatusStr[13U]=='E')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_SESSION_CLOSE - BT_STAT_STR_LEN_SESSION_OPEN;
+            }
+            /* "%SESSIO" - Read outstanding bytes */
+            else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST]=='\0')
+            {
+                numberOfCharRemaining = BT_STAT_STR_LEN_SESSION_OPEN - BT_STAT_STR_LEN_SMALLEST;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (numberOfCharRemaining)
+    {
+        waitingForArgs = numberOfCharRemaining;
+    }
+    else
+    {
+        waitingForArgs = 0;
+        numberOfCharRemaining = 1U;
+    }
+    setDmaWaitingForResponse(numberOfCharRemaining);
+    return bringUcOutOfSleep;
+}
+#endif
 
 void resetBtRxVariablesOnConnect(void)
 {
@@ -1755,10 +1770,10 @@ uint8_t processShimmerBtCmd(void)
     case STOP_SDBT_COMMAND:
     case START_LOGGING_COMMAND:
     case STOP_LOGGING_COMMAND:
-    case GET_A_ACCEL_CALIBRATION_COMMAND:
-    case GET_MPU9150_GYRO_CALIBRATION_COMMAND:
-    case GET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-    case GET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+    case GET_LN_ACCEL_CALIBRATION_COMMAND:
+    case GET_GYRO_CALIBRATION_COMMAND:
+    case GET_MAG_CALIBRATION_COMMAND:
+    case GET_WR_ACCEL_CALIBRATION_COMMAND:
     case GET_GSR_RANGE_COMMAND:
     case GET_ALL_CALIBRATION_COMMAND:
     case DEPRECATED_GET_DEVICE_VERSION_COMMAND:
@@ -1767,19 +1782,19 @@ uint8_t processShimmerBtCmd(void)
     case GET_CHARGE_STATUS_LED_COMMAND:
     case GET_BUFFER_SIZE_COMMAND:
     case GET_UNIQUE_SERIAL_COMMAND:
-    case GET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-    case GET_LSM303DLHC_MAG_GAIN_COMMAND:
-    case GET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-    case GET_MPU9150_GYRO_RANGE_COMMAND:
+    case GET_WR_ACCEL_RANGE_COMMAND:
+    case GET_MAG_GAIN_COMMAND:
+    case GET_MAG_SAMPLING_RATE_COMMAND:
+    case GET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+    case GET_WR_ACCEL_LPMODE_COMMAND:
+    case GET_WR_ACCEL_HRMODE_COMMAND:
+    case GET_GYRO_RANGE_COMMAND:
     case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
-    case GET_MPU9150_SAMPLING_RATE_COMMAND:
-    case GET_MPU9150_ACCEL_RANGE_COMMAND:
-    case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+    case GET_GYRO_SAMPLING_RATE_COMMAND:
+    case GET_ALT_ACCEL_RANGE_COMMAND:
+    case GET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
     case GET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
     case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
     case RESET_CALIBRATION_VALUE_COMMAND:
@@ -1802,17 +1817,17 @@ uint8_t processShimmerBtCmd(void)
         break;
 
     /* 1 command byte, 1 argument byte */
-    case SET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-    case SET_LSM303DLHC_MAG_GAIN_COMMAND:
+    case SET_WR_ACCEL_RANGE_COMMAND:
+    case SET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+    case SET_MAG_GAIN_COMMAND:
     case SET_CHARGE_STATUS_LED_COMMAND:
-    case SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-    case SET_MPU9150_GYRO_RANGE_COMMAND:
-    case SET_MPU9150_SAMPLING_RATE_COMMAND:
-    case SET_MPU9150_ACCEL_RANGE_COMMAND:
-    case SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+    case SET_MAG_SAMPLING_RATE_COMMAND:
+    case SET_WR_ACCEL_LPMODE_COMMAND:
+    case SET_WR_ACCEL_HRMODE_COMMAND:
+    case SET_GYRO_RANGE_COMMAND:
+    case SET_GYRO_SAMPLING_RATE_COMMAND:
+    case SET_ALT_ACCEL_RANGE_COMMAND:
+    case SET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
     case SET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
     case SET_GSR_RANGE_COMMAND:
     case SET_BT_COMMS_BAUD_RATE:
@@ -1885,10 +1900,10 @@ uint8_t processShimmerBtCmd(void)
 #endif
 
     /* 1 command byte, 21 argument bytes */
-    case SET_A_ACCEL_CALIBRATION_COMMAND:
-    case SET_MPU9150_GYRO_CALIBRATION_COMMAND:
-    case SET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-    case SET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+    case SET_LN_ACCEL_CALIBRATION_COMMAND:
+    case SET_GYRO_CALIBRATION_COMMAND:
+    case SET_MAG_CALIBRATION_COMMAND:
+    case SET_WR_ACCEL_CALIBRATION_COMMAND:
         if(numBytesInBtRxBufWhenLastProcessed>=(1U+21U))
         {
             readActionAndArgBytes(21U);
@@ -2031,10 +2046,10 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case STOP_SDBT_COMMAND:
     case START_LOGGING_COMMAND:
     case STOP_LOGGING_COMMAND:
-    case GET_A_ACCEL_CALIBRATION_COMMAND:
-    case GET_MPU9150_GYRO_CALIBRATION_COMMAND:
-    case GET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-    case GET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+    case GET_LN_ACCEL_CALIBRATION_COMMAND:
+    case GET_GYRO_CALIBRATION_COMMAND:
+    case GET_MAG_CALIBRATION_COMMAND:
+    case GET_WR_ACCEL_CALIBRATION_COMMAND:
     case GET_GSR_RANGE_COMMAND:
     case GET_ALL_CALIBRATION_COMMAND:
     case DEPRECATED_GET_DEVICE_VERSION_COMMAND:
@@ -2043,19 +2058,19 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case GET_CHARGE_STATUS_LED_COMMAND:
     case GET_BUFFER_SIZE_COMMAND:
     case GET_UNIQUE_SERIAL_COMMAND:
-    case GET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-    case GET_LSM303DLHC_MAG_GAIN_COMMAND:
-    case GET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-    case GET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-    case GET_MPU9150_GYRO_RANGE_COMMAND:
+    case GET_WR_ACCEL_RANGE_COMMAND:
+    case GET_MAG_GAIN_COMMAND:
+    case GET_MAG_SAMPLING_RATE_COMMAND:
+    case GET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+    case GET_WR_ACCEL_LPMODE_COMMAND:
+    case GET_WR_ACCEL_HRMODE_COMMAND:
+    case GET_GYRO_RANGE_COMMAND:
     case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
-    case GET_MPU9150_SAMPLING_RATE_COMMAND:
-    case GET_MPU9150_ACCEL_RANGE_COMMAND:
-    case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+    case GET_GYRO_SAMPLING_RATE_COMMAND:
+    case GET_ALT_ACCEL_RANGE_COMMAND:
+    case GET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
     case GET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
     case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
     case RESET_CALIBRATION_VALUE_COMMAND:
@@ -2073,17 +2088,17 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case UPD_SDLOG_CFG_COMMAND:
     case UPD_CALIB_DUMP_COMMAND:
     case GET_BT_VERSION_STR_COMMAND:
-    case SET_LSM303DLHC_ACCEL_RANGE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_SAMPLING_RATE_COMMAND:
-    case SET_LSM303DLHC_MAG_GAIN_COMMAND:
+    case SET_WR_ACCEL_RANGE_COMMAND:
+    case SET_WR_ACCEL_SAMPLING_RATE_COMMAND:
+    case SET_MAG_GAIN_COMMAND:
     case SET_CHARGE_STATUS_LED_COMMAND:
-    case SET_LSM303DLHC_MAG_SAMPLING_RATE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_LPMODE_COMMAND:
-    case SET_LSM303DLHC_ACCEL_HRMODE_COMMAND:
-    case SET_MPU9150_GYRO_RANGE_COMMAND:
-    case SET_MPU9150_SAMPLING_RATE_COMMAND:
-    case SET_MPU9150_ACCEL_RANGE_COMMAND:
-    case SET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
+    case SET_MAG_SAMPLING_RATE_COMMAND:
+    case SET_WR_ACCEL_LPMODE_COMMAND:
+    case SET_WR_ACCEL_HRMODE_COMMAND:
+    case SET_GYRO_RANGE_COMMAND:
+    case SET_GYRO_SAMPLING_RATE_COMMAND:
+    case SET_ALT_ACCEL_RANGE_COMMAND:
+    case SET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
     case SET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
     case SET_GSR_RANGE_COMMAND:
     case SET_BT_COMMS_BAUD_RATE:
@@ -2113,10 +2128,10 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case SET_CONFIG_SETUP_BYTES_COMMAND:
     case SET_RWC_COMMAND:
     case SET_DERIVED_CHANNEL_BYTES:
-    case SET_A_ACCEL_CALIBRATION_COMMAND:
-    case SET_MPU9150_GYRO_CALIBRATION_COMMAND:
-    case SET_LSM303DLHC_MAG_CALIBRATION_COMMAND:
-    case SET_LSM303DLHC_ACCEL_CALIBRATION_COMMAND:
+    case SET_LN_ACCEL_CALIBRATION_COMMAND:
+    case SET_GYRO_CALIBRATION_COMMAND:
+    case SET_MAG_CALIBRATION_COMMAND:
+    case SET_WR_ACCEL_CALIBRATION_COMMAND:
 #if !USE_OLD_SD_SYNC_APPROACH
     case SET_SD_SYNC_COMMAND:
 #endif
