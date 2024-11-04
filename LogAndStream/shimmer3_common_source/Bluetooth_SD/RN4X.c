@@ -639,7 +639,11 @@ void runSetCommands(void)
             {
                 doesBtConfigNeedUpdating = 0;
                 BT_useSpecificAdvertisingName(0U);
+#if FW_IS_LOGANDSTREAM
                 sprintf(commandbuf, "S-,%s\r", advertisingName);
+#else
+                sprintf(commandbuf, "SN,%s\r", advertisingName);
+#endif
                 writeCommandBufAndExpectAok();
                 return;
             }
@@ -913,6 +917,13 @@ void runSetCommands(void)
                 }
             }
 
+#if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
+            /* Skip to next stage */
+            if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
+            {
+                bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
+            }
+#else
             /* Skipping BLE setup for the moment if sync is enabled to reduce
              * initialisation time while sensing */
             if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
@@ -932,9 +943,9 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-    #endif
+#endif
                     writeCommandNoRsp("GDM\r");
                     return;
                 }
@@ -942,9 +953,9 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_MODEL_STRING)
                 {
                     bt_setcommands_step++;
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DM", btRxFullResponse);
-    #endif
+#endif
                     // Sets the model string in BLE Device Information Service.
                     if(doesBtConfigNeedUpdating)
                     {
@@ -959,9 +970,9 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-    #endif
+#endif
                     writeCommandNoRsp("GDN\r");
                     return;
                 }
@@ -969,9 +980,9 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
                 {
                     bt_setcommands_step++;
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DN", btRxFullResponse);
-    #endif
+#endif
                     //Sets the manufacturer string in BLE Device Information service
                     if(doesBtConfigNeedUpdating)
                     {
@@ -986,9 +997,9 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-    #endif
+#endif
                     writeCommandNoRsp("GDR\r");
                     return;
                 }
@@ -996,9 +1007,9 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
                 {
                     bt_setcommands_step++;
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DR", btRxFullResponse);
-    #endif
+#endif
                     if (doesBtConfigNeedUpdating)
                     {
                         // Sets the software revision of the firmware. This can accept a maximum of 4 characters
@@ -1012,9 +1023,9 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
                 {
                     bt_setcommands_step++;
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-    #endif
+#endif
                     writeCommandNoRsp("GT\r");
                     return;
                 }
@@ -1022,9 +1033,9 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
                 {
                     bt_setcommands_step++;
-    #if BT_DMA_USED_FOR_RX
+#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("T", btRxFullResponse);
-    #endif
+#endif
                     if (doesBtConfigNeedUpdating)
                     {
                         doesBtConfigNeedUpdating = 0;
@@ -1034,6 +1045,7 @@ void runSetCommands(void)
                     }
                 }
             }
+#endif
         }
 
         /* Get current status string prefix and suffix */
@@ -1199,72 +1211,61 @@ void runSetCommands(void)
             }
         }
 
-        if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                || shimmerStatus.isSyncEnabled)
+#if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
+        /* Skip to next stage */
+        if (bt_setcommands_step == REBOOT + 1)
         {
-            /* Skip to next stage */
-            if (bt_setcommands_step == REBOOT + 1)
-            {
-                bt_setcommands_step = CMD_MODE_STOP;
-            }
+            bt_setcommands_step = CMD_MODE_STOP;
         }
-        else
+#else
+        /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
+        if (btFwVer == RN4678_V1_23_0)
         {
-            /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
-            if (btFwVer == RN4678_V1_23_0)
+            if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
             {
-                if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
+                bt_setcommands_step++;
+                if (!isRnCommandModeActive())
                 {
-                    bt_setcommands_step++;
-                    if (!isRnCommandModeActive())
-                    {
-                        btCmdModeStart();
-                        return;
-                    }
-                }
-
-                if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
-                {
-                    bt_setcommands_step++;
-                    /* Append MAC ID to end of BLE advertising name */
-
-                    /* Note: We were using sprintf with "%02x" to make this a
-                     * one-liner but that requires full print support which
-                     * increases flash requirements by 6KB */
-                    bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
-                    bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
-                    bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
-                    bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
-                    bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
-                    bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
-                    bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
-                    bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
-                    bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
-                    bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
-                    bleCompleteLocalName[20U] = 0;
-
-                    sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
-                    writeCommandBufAndExpectAok();
+                    btCmdModeStart();
                     return;
                 }
+            }
 
-                /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
-    //            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
-    //            {
-    //                bt_setcommands_step++;
-    //                sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
-    //                writeCommandBufAndExpectAok();
-    //                return;
-    //            }
-            }
-            else
+            if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
             {
-                if (bt_setcommands_step == REBOOT + 1)
-                {
-                    bt_setcommands_step = CMD_MODE_STOP;
-                }
+                bt_setcommands_step++;
+                /* Append MAC ID to end of BLE advertising name */
+
+                /* Note: We were using sprintf with "%02x" to make this a
+                 * one-liner but that requires full print support which
+                 * increases flash requirements by 6KB */
+                bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
+                bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
+                bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
+                bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
+                bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
+                bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
+                bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
+                bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
+                bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
+                bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
+                bleCompleteLocalName[20U] = 0;
+
+                sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
+                writeCommandBufAndExpectAok();
+                return;
             }
+
+            /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
+//            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
+//            {
+//                bt_setcommands_step++;
+//                sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
+//                writeCommandBufAndExpectAok();
+//                return;
+//            }
         }
+#endif
 
         if (bt_setcommands_step == CMD_MODE_STOP)
         {
@@ -1810,7 +1811,7 @@ void BT_init(void)
 //  BT_setPagingTime("0080"); // 80ms
     BT_setPagingTime("0100"); // 160ms
 
-#if BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
+#if (FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
     /* 0 = Dual mode */
     BT_setRn4678BtMode("0");
 #else
@@ -2464,7 +2465,9 @@ void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled)
     {
         updateBtConnectionStatusInterruptDirection();
         P1IFG &= ~BIT0;     // clear flag
+#if !FW_IS_LOGANDSTREAM
         P1IE |= BIT0;       // enable interrupt
+#endif
     }
     else
     {
@@ -2731,18 +2734,15 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
 
 uint8_t getDefaultBaudForBtVersion(void)
 {
-    if(shimmerStatus.isSyncEnabled)
-    {
-        /* SDLog sync has significant difficulty using higher bauds for RN4678 BT modules
-         * while trying to SD log and sync at the same time due to missing status
-         * string bytes - especially when set to 1000000 baud. Sync seems very
-         * stable at 115200 baud. */
-        return BAUD_115200;
-    }
-    else
-    {
-        return (doesBtDeviceSupport1Mbps() ? BAUD_1000000 : BAUD_460800);
-    }
+#if FW_IS_LOGANDSTREAM
+    return (doesBtDeviceSupport1Mbps() ? BAUD_1000000 : BAUD_460800);
+#else
+    /* SDLog has significant difficulty using higher bauds for RN4678 BT modules
+     * while trying to SD log and sync at the same time due to missing status
+     * string bytes - especially when set to 1000000 baud. Sync seems very
+     * stable at 115200 baud. */
+    return BAUD_115200;
+#endif
 }
 
 void setBleDeviceInformation(char *daughtCardIdStrPtr, uint8_t fwVerMajorNew, uint8_t fwVerMinorNew, uint8_t fwVerRelNew)

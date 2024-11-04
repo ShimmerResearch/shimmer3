@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+/* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
+#define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
 #define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
 
