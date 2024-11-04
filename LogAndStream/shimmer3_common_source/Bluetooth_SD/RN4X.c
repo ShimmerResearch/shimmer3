@@ -639,7 +639,9 @@ void runSetCommands(void)
             {
                 doesBtConfigNeedUpdating = 0;
                 BT_useSpecificAdvertisingName(0U);
+                // LogAndStream used S-, SDLog used SN
                 sprintf(commandbuf, "S-,%s\r", advertisingName);
+//                sprintf(commandbuf, "SN,%s\r", advertisingName);
                 writeCommandBufAndExpectAok();
                 return;
             }

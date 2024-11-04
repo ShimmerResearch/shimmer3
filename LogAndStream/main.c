@@ -2422,9 +2422,9 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-        if ((batt_td > battInterval) && (!shimmerStatus.isSensing))
+        if ((batt_td > battInterval))
         {              //10 mins = 19660800
-            if (TaskSet(TASK_BATT_READ))
+            if (!shimmerStatus.isSensing && TaskSet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
             battLastTs64 = batt_my_local_time_64;
         }
