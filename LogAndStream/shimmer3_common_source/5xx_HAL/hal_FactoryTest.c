@@ -153,7 +153,7 @@ void sd_card_test(void)
         {
             ReadWriteSDTest();
             sprintf(buffer, " - %s: SD card read/write test\r\n",
-                    shimmerStatus.badFile ? "FAIL" : "PASS");
+                    shimmerStatus.sdBadFile ? "FAIL" : "PASS");
             send_test_report(buffer);
         }
     }
