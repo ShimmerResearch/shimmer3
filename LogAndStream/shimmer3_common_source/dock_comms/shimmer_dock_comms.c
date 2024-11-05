@@ -92,7 +92,7 @@ void DockUart_resetVariables(void)
 
 uint8_t DockUart_rxCallback(uint8_t data)
 {
-  if (shimmerStatus.isInitialising)
+  if (shimmerStatus.initialising)
   {
     return 0;
   }
@@ -715,7 +715,7 @@ void DockUart_sendRsp(void)
     *(uartRespBuf + uart_resp_len++) = UART_PROP_CARD_MEM;
     if ((uartDcMemLength + uart_resp_len) < UART_RSP_PACKET_SIZE)
     {
-      if (!shimmerStatus.isSensing)
+      if (!shimmerStatus.sensing)
       {
         eepromRead(uartDcMemOffset + 16U, (uint16_t) uartDcMemLength,
                (uartRespBuf + uart_resp_len));

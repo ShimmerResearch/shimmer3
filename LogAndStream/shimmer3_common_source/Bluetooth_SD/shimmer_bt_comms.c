@@ -84,7 +84,7 @@ uint8_t Dma2ConversionDone(void)
 
     if (!*btRxExp
             && (areBtStatusStringsEnabled()
-                    || (shimmerStatus.isBtConnected || bt_waitForStartCmd || bt_waitForMacAddress || bt_waitForVersion || bt_waitForInitialBoot || bt_waitForReturnNewLine)))
+                    || (shimmerStatus.btConnected || bt_waitForStartCmd || bt_waitForMacAddress || bt_waitForVersion || bt_waitForInitialBoot || bt_waitForReturnNewLine)))
     {
         if (bt_waitForStartCmd)
         {
@@ -404,7 +404,7 @@ uint8_t Dma2ConversionDone(void)
                 uint8_t wakeupMcu = 0;
 
                 /* Filter supported BT commands if SD sync is enabled */
-                if (shimmerStatus.isSyncEnabled
+                if (shimmerStatus.sdSyncEnabled
                         && (data!=RN4678_STATUS_STRING_SEPARATOR
                         || data!=ACK_COMMAND_PROCESSED
                         || data!=SET_SD_SYNC_COMMAND))
@@ -709,7 +709,7 @@ uint8_t parseRn4678Status(void)
              * disconnect over BLE does not trigger an
              * RFCOMM_CLOSE status change as it does for classic
              * Bluetooth connections. */
-            if (shimmerStatus.isBtConnected)
+            if (shimmerStatus.btConnected)
             {
                 triggerBtRfCommStateChangeCallback(FALSE);
                 bringUcOutOfSleep = 1U;

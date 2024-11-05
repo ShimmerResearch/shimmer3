@@ -918,7 +918,7 @@ void runSetCommands(void)
             /* Skipping BLE setup for the moment if sync is enabled to reduce
              * initialisation time while sensing */
             if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                    || shimmerStatus.isSyncEnabled)
+                    || shimmerStatus.sdSyncEnabled)
             {
                 /* Skip to next stage */
                 if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1202,7 +1202,7 @@ void runSetCommands(void)
         }
 
         if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                   || shimmerStatus.isSyncEnabled)
+                   || shimmerStatus.sdSyncEnabled)
         {
             /* Skip to next stage */
             if (bt_setcommands_step == REBOOT + 1)
@@ -1331,7 +1331,7 @@ void runMasterCommands(void)
         if (bt_runmastercommands_step == 1)
         {
             bt_runmastercommands_step++;
-            if (deviceConn && (!shimmerStatus.isBtConnected))
+            if (deviceConn && (!shimmerStatus.btConnected))
             {   //Connect
                 sprintf(commandbuf, "C,%s\r", targetBt);
                 if (isBtDeviceRn41orRN42())
@@ -1344,7 +1344,7 @@ void runMasterCommands(void)
                     writeCommand(commandbuf, "Trying\r\n");
                 }
             }
-            else if ((!deviceConn) && (shimmerStatus.isBtConnected))
+            else if ((!deviceConn) && (shimmerStatus.btConnected))
             {  //Disconnect
                 sprintf(commandbuf, "K,\r");
                 writeCommand(commandbuf, "KILL\r\n");
@@ -1776,7 +1776,7 @@ void BT_init(void)
     setCommandModeActive(0);
     // connect/disconnect commands
     deviceConn = 0;
-    shimmerStatus.isBtConnected = 0;
+    shimmerStatus.btConnected = 0;
     BT_useSpecificAdvertisingName(0U);
 
     clearExpectedResponseBuf();
@@ -2466,7 +2466,7 @@ void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled)
     {
         updateBtConnectionStatusInterruptDirection();
         P1IFG &= ~BIT0;     // clear flag
-        if(shimmerStatus.isSyncEnabled)
+        if(shimmerStatus.sdSyncEnabled)
         {
             P1IE |= BIT0;       // enable interrupt
         }
@@ -2736,7 +2736,7 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
 
 uint8_t getDefaultBaudForBtVersion(void)
 {
-    if(shimmerStatus.isSyncEnabled)
+    if(shimmerStatus.sdSyncEnabled)
     {
         /* SDLog sync has significant difficulty using higher bauds for RN4678 BT modules
          * while trying to SD log and sync at the same time due to missing status

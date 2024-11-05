@@ -428,7 +428,7 @@ void SyncCenterT10(void)
 #else
     *(resPacket + packet_length++) = SET_SD_SYNC_COMMAND;
 #endif
-    *(resPacket + packet_length++) = shimmerStatus.isSensing;
+    *(resPacket + packet_length++) = shimmerStatus.sensing;
     myLocalTimeLong = getRwcTime();
     *(uint64_t*) (resPacket + packet_length) = myLocalTimeLong;
     packet_length += 8;
@@ -525,7 +525,7 @@ void SyncNodeR10(void)
         }
         else
         {
-            if (onSingleTouch && !shimmerStatus.isSensing && sd_tolog)
+            if (onSingleTouch && !shimmerStatus.sensing && sd_tolog)
             {
                 taskSetCb(TASK_STARTSENSING);
             }
@@ -695,16 +695,16 @@ void handleSyncTimerTrigger(void)
     }
     else                                   //idle: no_RC mode
     {
-        if (shimmerStatus.isDocked)
+        if (shimmerStatus.docked)
         {
-            if (shimmerStatus.isSensing)
+            if (shimmerStatus.sensing)
             {
                 /* Note SDLog calls TASK_STOPSENSING here whereas
                  * LogAndStream could be in the middle of streaming over
                  * Bluetooth */
                 stopLogging = 1;
             }
-            if (shimmerStatus.isBtPoweredOn)
+            if (shimmerStatus.btPoweredOn)
             {
                 btStopCb(0);
             }
@@ -714,7 +714,7 @@ void handleSyncTimerTrigger(void)
 
 void handleSyncTimerTriggerCenter(void)
 {
-    if (shimmerStatus.isSensing && (syncNodeNum > 0))
+    if (shimmerStatus.sensing && (syncNodeNum > 0))
     {
         if (syncCnt == 1)
         {
@@ -782,7 +782,7 @@ void handleSyncTimerTriggerCenter(void)
                         else if ((cReboot >= 2)
                                 && (cReboot < 5 * SYNC_FACTOR))
                         {
-                            if (shimmerStatus.isBtPoweredOn)
+                            if (shimmerStatus.btPoweredOn)
                             {
                                 syncCurrNodeDone = syncCurrNode
                                         + SYNC_CD * SYNC_FACTOR - 1;
@@ -903,6 +903,7 @@ void CommTimerStart(void)
     TA0CTL = TASSEL_1 + MC_2 + TACLR;    //ACLK, continuous mode, clear TAR
     TA0CCTL1 = CCIE;
     TA0CCR1 = GetTA0() + 16384;
+    shimmerStatus.sdSyncCommTimerRunning = 1;
 }
 
 inline void CommTimerStop(void)
@@ -910,6 +911,7 @@ inline void CommTimerStop(void)
     TA0CTL = MC_0; // StopTb0()
     //rcommStatus=0;
     TA0CCTL1 &= ~CCIE;
+    shimmerStatus.sdSyncCommTimerRunning = 0;
 }
 
 inline uint16_t GetTA0(void)
