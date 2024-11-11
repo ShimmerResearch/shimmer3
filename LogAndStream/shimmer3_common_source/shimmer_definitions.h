@@ -12,22 +12,20 @@
 
 typedef volatile struct STATTypeDef_t
 { //STATUS
-    uint8_t initialising:1;
-    uint8_t docked:1;
-    uint8_t sensing:1;
-    uint8_t configuring:1;
-    uint8_t buttonPressed:1;
-    uint8_t btConnected:1;
-    uint8_t btPoweredOn:1;
-    uint8_t btSupportEnabled:1;
-    uint8_t btStreaming:1;
-    uint8_t btstreamReady:1;
-    uint8_t btstreamCmd:2;
-#if defined(SHIMMER3R)
-    uint8_t ledRed:1;
-    uint8_t dockUartStep;
-#endif
-    uint8_t battStat:1;
+    uint8_t initialising :1;
+    uint8_t docked :1;
+    uint8_t sensing :1;
+    uint8_t configuring :1;
+    uint8_t buttonPressed :1;
+
+    uint8_t btConnected :1;
+    uint8_t btPoweredOn :1;
+    uint8_t btSupportEnabled :1;
+    uint8_t btStreaming :1;
+    uint8_t btstreamReady :1;
+    uint8_t btstreamCmd :2;
+
+    uint8_t battStat;
 #if defined(SHIMMER3R)
     uint32_t battStatLed;
 #endif
@@ -35,6 +33,7 @@ typedef volatile struct STATTypeDef_t
 #if defined(SHIMMER4_SDK)
     uint8_t battDigital[10];
 #endif
+
     uint8_t sdInserted:1;
     uint8_t sdPowerOn:1;
 #if defined(SHIMMER3R)
@@ -46,6 +45,7 @@ typedef volatile struct STATTypeDef_t
     uint8_t sdBadFile:1;
     uint8_t sdSyncEnabled:1;
     uint8_t sdSyncCommTimerRunning:1;
+
     uint8_t toggleLedRedCmd:1;
 #if defined(SHIMMER3R)
     uint32_t testResult;
