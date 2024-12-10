@@ -3930,6 +3930,7 @@ void ProcessCommand(void)
     {
         SetSdCfgFlag(1);
     }
+    //TODO update_calib is not used any more
     if (update_calib && CheckSdInslot() && !shimmerStatus.sdBadFile)
     {
         if (!shimmerStatus.docked)

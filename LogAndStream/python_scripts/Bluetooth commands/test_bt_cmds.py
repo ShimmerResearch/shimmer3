@@ -221,13 +221,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 self.assertTrue(False, (
                     "Original value in Shimmer equals test value and is therefore not a valid test of setting being changed"))
             else:
-                self.assertTrue(False, ("RX byte != TX byte at indexes listed in console"))
+                self.assertTrue(False, "RX byte != TX byte at indexes listed in console")
 
     def bt_cmd_test_wait_for_ack(self, timeout_ms=500):
         result = self.shimmer.bluetooth_port.wait_for_ack(timeout_ms)
         if not result:
-            print("Error waiting for ACK")
-            self.assertTrue(False)
+            self.assertTrue(False, "Error waiting for ACK")
 
         # Clear CRC byte
         if self.shimmer.bt_crc_byte_count > 0:
@@ -241,8 +240,14 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_01_get_inquiry_response(self):
         print("\r\nTest 01 - Inquiry command:")
+
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
+
+        num_inquiry_bytes = 11 if self.shimmer.is_hardware_shimmer3r() else 8
+
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
+                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
 
     def test_02_reset_default_config(self, run_with_other_test=False):
         if not run_with_other_test:
@@ -322,8 +327,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_14_all_calibration_response(self):
         print("Test 14 - Get all calibration response command")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
+
+        num_sensors = 6 if self.shimmer.is_hardware_shimmer3r() else 4
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALL_CALIBRATION_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.ALL_CALIBRATION_RESPONSE, 4 * 21)
+                                               shimmer_comms_bluetooth.BtCmds.ALL_CALIBRATION_RESPONSE, num_sensors * 21)
 
     def test_15_get_buffer_size(self):
         print("Test 15 - Buffer size repsonse Command: ")
@@ -939,6 +948,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_78_set_crc(self):
         print("Test 78 - Set CRC Command")
+
+        if not self.shimmer.is_hardware_version_set():
+            self.test_04_get_shimmer_new_version(True)
+
+        num_inquiry_bytes = 11 if self.shimmer.is_hardware_shimmer3r() else 8
+
         self.shimmer.bt_crc_byte_count = 1  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
         self.shimmer.bluetooth_port.send_bluetooth(
             [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
@@ -946,7 +961,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         # Using inquiry command here to test whether CRC has been enabled
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
+                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
 
         self.shimmer.bt_crc_byte_count = 0  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
         self.shimmer.bluetooth_port.send_bluetooth(
@@ -955,7 +970,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         # Make sure CRC gets disabled
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, 8)
+                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
 
     def test_79_set_rwc(self):
         print("Test 79 - Set RWC command")
@@ -1105,7 +1120,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_firmware_version_set():
             self.test_05_get_fw_version(True)
 
-        if self.shimmer.is_bt_cmd_common_pressure_calibation_supported():
+        if self.shimmer.is_bt_cmd_common_pressure_calibration_supported():
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE, 1)
