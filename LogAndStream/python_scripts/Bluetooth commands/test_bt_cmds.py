@@ -74,6 +74,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.assertFalse(isinstance(response, bool) or response is None or len(response) == 0,
                              "Error reading response")
 
+            self.assertFalse(isinstance(response, bool) or response is None or all(response) == 0,
+                             "FAIL")
+
             # ACK
             self.assertTrue(response[i] == shimmer_comms_bluetooth.BtCmds.ACK_COMMAND_PROCESSED)
             i += 1
@@ -593,6 +596,23 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE, 1)
         print(response)
 
+    def test_48_get_alt_accel_calibration_command(self):
+        print("Test 48 - get alt accel calibration command ")
+
+    def test_49_get_alt_accel_sampling_rate_command(self):
+        print("Test 49 ")
+
+    def test_50_get_alt_mag_calibration_command(self):
+        print("Test 50 ")
+
+    def test_51_get_alt_mag_sampling_rate_command(self):
+        print("Test 51")
+
+    def test_52_get_pressure_sampling_rate_command(self):
+        print("Test 52")
+
+
+
     # set commands
 
     def test_48_set_sampling_rate(self):
@@ -1030,6 +1050,21 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     tx_bytes,
                                     [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
                                     shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
+
+    def test_xx_set_alt_accel_calibration_command(self):
+        print("Test xx - Set alt Accel_calibration")
+
+    def test_xx_set_alt_accel_sampling_rate_command(self):
+        print("Test xx - Set alt Accel Sampling rate")
+
+    def test_xx_set_alt_mag_sampling_rate_command(self):
+        print("Test xx - Set Alt mag sampling rate command")
+
+    def test_xx_set_alt_mag_calibration_command(self):
+        print("Test xx ")
+
+    def test_xx_set_pressure_sampling_rate_command(self):
+        print("Test xx")
 
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
