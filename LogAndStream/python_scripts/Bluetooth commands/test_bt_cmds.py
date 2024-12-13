@@ -74,9 +74,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.assertFalse(isinstance(response, bool) or response is None or len(response) == 0,
                              "Error reading response")
 
-            self.assertFalse(isinstance(response, bool) or response is None or all(response) == 0,
-                             "FAIL")
-
             # ACK
             self.assertTrue(response[i] == shimmer_comms_bluetooth.BtCmds.ACK_COMMAND_PROCESSED)
             i += 1
@@ -312,16 +309,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("Test 10 - Get Accel Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_A_ACCEL_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.A_ACCEL_CALIBRATION_RESPONSE, 21)
+        self.assertFalse(all(response) == 0, "FAIL")
 
     def test_11_get_gyro_calibration(self):
         print("Test 11 - Get Gyro Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_GYRO_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.GYRO_CALIBRATION_RESPONSE, 21)
+        self.assertFalse(all(response) == 0, "FAIL")
 
     def test_12_get_mag_calibration(self):
         print("Test 12 - Get Mag Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 21)
+        self.assertFalse(all(response) == 0, "FAIL")
 
     def test_13_get_gsr_range(self):
         print("Test 13 - Get GSR Command:")
@@ -335,7 +335,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         num_sensors = 6 if self.shimmer.is_hardware_shimmer3r() else 4
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALL_CALIBRATION_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.ALL_CALIBRATION_RESPONSE, num_sensors * 21)
+                                               shimmer_comms_bluetooth.BtCmds.ALL_CALIBRATION_RESPONSE,
+                                               num_sensors * 21)
+        self.assertFalse(all(response) == 0, "FAIL")
 
     def test_15_get_buffer_size(self):
         print("Test 15 - Buffer size repsonse Command: ")
@@ -403,10 +405,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP180_CALIBRATION_COEFFICIENTS_RESPONSE, 22)
+            self.assertFalse(all(response) == 0, "FAIL")
         elif self.shimmer.is_bmp280_present():
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP280_CALIBRATION_COEFFICIENTS_RESPONSE, 24)
+            self.assertFalse(all(response) == 0, "FAIL")
         else:
             print("Skipping test, BMP180/BMP280 not present in device")
 
@@ -535,6 +539,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND, 1)
 
+        self.assertFalse(all(response) == 0, "FAIL")
+
         print("Calib bytes: " + util_shimmer.byte_array_to_hex_string(response))
 
         # print(util_shimmer.byte_array_to_hex_string(calib_dump_concat))
@@ -595,22 +601,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common([shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, 10, 0, 0],
                                                shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE, 1)
         print(response)
-
-    def test_48_get_alt_accel_calibration_command(self):
-        print("Test 48 - get alt accel calibration command ")
-
-    def test_49_get_alt_accel_sampling_rate_command(self):
-        print("Test 49 ")
-
-    def test_50_get_alt_mag_calibration_command(self):
-        print("Test 50 ")
-
-    def test_51_get_alt_mag_sampling_rate_command(self):
-        print("Test 51")
-
-    def test_52_get_pressure_sampling_rate_command(self):
-        print("Test 52")
-
 
 
     # set commands
@@ -1051,21 +1041,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
                                     shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
 
-    def test_xx_set_alt_accel_calibration_command(self):
-        print("Test xx - Set alt Accel_calibration")
-
-    def test_xx_set_alt_accel_sampling_rate_command(self):
-        print("Test xx - Set alt Accel Sampling rate")
-
-    def test_xx_set_alt_mag_sampling_rate_command(self):
-        print("Test xx - Set Alt mag sampling rate command")
-
-    def test_xx_set_alt_mag_calibration_command(self):
-        print("Test xx ")
-
-    def test_xx_set_pressure_sampling_rate_command(self):
-        print("Test xx")
-
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
     #     print("Test 86 - streaming and logging")
@@ -1162,7 +1137,68 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         else:
             print("Skipping test, command not supported in firmware")
 
-    def test_96_factory_test_bluetooth(self):
+    def test_96_get_alt_accel_calibration_command(self):
+        print("Test 48 - get alt accel calibration command ")
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE, 1)
+
+    def test_97_get_alt_accel_sampling_rate_command(self):
+        print("Test 49 ")
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE, 1)
+
+    def test_98_get_alt_mag_calibration_command(self):
+        print("Test 50 ")
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
+
+    def test_99_get_alt_mag_sampling_rate_command(self):
+        print("Test 51")
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
+
+    def test_100_get_pressure_sampling_rate_command(self):
+        print("Test 52")
+        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_SAMPLING_RATE_COMMAND,
+                                               shimmer_comms_bluetooth.BtCmds.PRESSURE_SAMPLING_RATE_RESPONSE, 1)
+
+    def test_101_set_alt_accel_calibration_command(self):
+        tx_bytes = [0x00]
+        print("Test xx - Set alt Accel_calibration")
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_CALIBRATION_COMMAND, tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE)
+
+
+    def test_102_set_alt_accel_sampling_rate_command(self):
+        print("Test xx - Set alt Accel Sampling rate")
+        tx_bytes = [0x00]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_SAMPLING_RATE_COMMAND, tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE)
+
+    def test_103_set_alt_mag_sampling_rate_command(self):
+        print("Test xx - Set Alt mag sampling rate command")
+        tx_bytes = [0x03]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_SAMPLING_RATE_COMMAND, tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SAMPLING_RATE_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.ALT_MAG_SAMPLING_RATE_RESPONSE)
+
+    def test_104_set_alt_mag_calibration_command(self):
+        print("Test xx ")
+        tx_bytes = [0x03]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_CALIBRATION_COMMAND, tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE)
+
+    def test_105_set_pressure_sampling_rate_command(self):
+        print("Test xx")
+        tx_bytes = [0x00]
+        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_PRESSURE_SAMPLING_RATE_COMMAND, tx_bytes,
+                                    shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_SAMPLING_RATE_COMMAND,
+                                    shimmer_comms_bluetooth.BtCmds.PRESSURE_SAMPLING_RATE_RESPONSE)
+
+    def test_106_factory_test_bluetooth(self):
         print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
         tx_bytes = 0
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
@@ -1175,7 +1211,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
                 break
 
-    def test_97_reset_config_and_calib_after_testing(self):
+    def test_107_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
         self.test_02_reset_default_config(True)
         self.test_03_reset_default_calib(True)
