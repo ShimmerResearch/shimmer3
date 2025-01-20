@@ -825,7 +825,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.GET_SHIMMERNAME_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.SHIMMERNAME_RESPONSE)
 
-    def test_72_set_ExpID(self):
+    def test_072_set_ExpID(self):
         print("Test 072 - Set ExpId command")
         experiment_id = "UnitTest72"
         tx_bytes = [ord(c) for c in experiment_id]
