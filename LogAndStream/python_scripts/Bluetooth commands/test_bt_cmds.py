@@ -511,7 +511,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_038_get_dir(self):
         print("Test 038 - Get dir response command:")
 
-        self.test_28_get_status(True)
+        self.test_028_get_status(True)
 
         if self.shimmer.status_is_docked:
             self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
@@ -1090,13 +1090,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_093_toggle_LED(self):
         print("Test 093 - toggle LED")
 
-        self.test_28_get_status(True)
+        self.test_028_get_status(True)
         red_led_state_before = self.shimmer.status_toggle_led_red
 
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
         self.bt_cmd_test_wait_for_ack()
 
-        self.test_28_get_status(True)
+        self.test_028_get_status(True)
 
         red_led_state_after = self.shimmer.status_toggle_led_red
         self.assertTrue(red_led_state_before != red_led_state_after, "LED state didn't change in status")
@@ -1157,48 +1157,35 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
 
-    def test_100_get_pressure_sampling_rate_command(self):
-        print("Test 100 - Get Pressure Sampling Rate Command")
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_SAMPLING_RATE_COMMAND,
-                                                shimmer_comms_bluetooth.BtCmds.PRESSURE_SAMPLING_RATE_RESPONSE, 1)
-
-    def test_101_set_alt_accel_calibration_command(self):
+    def test_100_set_alt_accel_calibration_command(self):
         tx_bytes = [0x00]
         print("Test 101 - Set alt Accel calibration")
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_CALIBRATION_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE)
 
-
-    def test_102_set_alt_accel_sampling_rate_command(self):
+    def test_101_set_alt_accel_sampling_rate_command(self):
         print("Test 102 - Set alt Accel Sampling rate")
         tx_bytes = [0x00]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_SAMPLING_RATE_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE)
 
-    def test_103_set_alt_mag_sampling_rate_command(self):
+    def test_102_set_alt_mag_sampling_rate_command(self):
         print("Test 103 - Set Alt mag sampling rate command")
         tx_bytes = [0x03]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_SAMPLING_RATE_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SAMPLING_RATE_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.ALT_MAG_SAMPLING_RATE_RESPONSE)
 
-    def test_104_set_alt_mag_calibration_command(self):
+    def test_103_set_alt_mag_calibration_command(self):
         print("Test 104 - Set Alt Mag Calibration Command")
         tx_bytes = [0x03]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_CALIBRATION_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE)
 
-    def test_105_set_pressure_sampling_rate_command(self):
-        print("Test 105 - Set Pressure Sampling Rate Command")
-        tx_bytes = [0x00]
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_PRESSURE_SAMPLING_RATE_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_SAMPLING_RATE_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.PRESSURE_SAMPLING_RATE_RESPONSE)
-
-    def test_106_factory_test_bluetooth(self):
+    def test_104_factory_test_bluetooth(self):
         print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
         tx_bytes = 0
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
@@ -1211,10 +1198,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                 print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
                 break
 
-    def test_107_reset_config_and_calib_after_testing(self):
+    def test_105_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
-        self.test_02_reset_default_config(True)
-        self.test_03_reset_default_calib(True)
+        self.test_002_reset_default_config(True)
+        self.test_003_reset_default_calib(True)
+
 
 if __name__ == '__main__':
     unittest.main()
