@@ -420,9 +420,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("Test 025 - Get alternative Mag Sens Adj Vals response command:")
 
         if not self.shimmer.is_hardware_version_set():
-            self.test_04_get_shimmer_new_version(True)
+            self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_expansion_board_set():
-            self.test_06_get_daughter_card_id(True)
+            self.test_006_get_daughter_card_id(True)
 
         if self.shimmer.hw_ver == shimmer_device.SrHwVer.SHIMMER3R.value or self.shimmer.is_icm20948_present():
             self.shimmer.bluetooth_port.send_bluetooth(
@@ -571,7 +571,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_044_get_unique_serial_response(self):
         print("Test 044 - Unique Serial Response")
         if not self.shimmer.is_hardware_version_set():
-            self.test_04_get_shimmer_new_version(True)
+            self.test_004_get_shimmer_new_version(True)
 
         expected_len = 1
         if self.shimmer.hw_ver == shimmer_device.SrHwVer.SHIMMER3.value:
@@ -1192,7 +1192,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         self.shimmer.bluetooth_port.wait_for_ack(2000)
         end = "//***************************** TEST END *************************************//\r\n"
         while True:
-            response = self.shimmer.bluetooth_port.ser.readline().decode('utf-8')
+            response = self.shimmer.bluetooth_port.ser.readline().decode('cp1252')
             print(response, end='')
             if response == end:
                 print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
