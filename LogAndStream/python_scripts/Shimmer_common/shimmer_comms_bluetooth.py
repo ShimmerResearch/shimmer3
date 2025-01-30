@@ -307,7 +307,7 @@ class ShimmerBluetooth:
 
     def wait_for_ack(self, timeout_ms=500):
         response = self.wait_for_response(1, timeout_ms)
-        return True if response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
+        return True if len(response) == 1 and response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
 
     def get_qty_waiting_in_port(self):
         return self.ser.inWaiting()

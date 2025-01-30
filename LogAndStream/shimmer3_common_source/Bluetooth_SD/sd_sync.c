@@ -19,7 +19,7 @@
 #include "shimmer_bt_comms.h"
 #include "RN4X.h"
 #include "../../shimmer_btsd.h"
-#include "../shimmer_externs.h"
+#include "log_and_stream_externs.h"
 
 uint8_t nodeName[MAX_NODES][MAX_CHARS], shortExpFlag;
 uint8_t syncNodeCnt, syncNodeNum, syncThis, syncNodeSucc, nReboot,
@@ -704,7 +704,7 @@ void handleSyncTimerTrigger(void)
                  * Bluetooth */
                 stopLogging = 1;
             }
-            if (shimmerStatus.btPoweredOn)
+            if (shimmerStatus.btPowerOn)
             {
                 btStopCb(0);
             }
@@ -782,7 +782,7 @@ void handleSyncTimerTriggerCenter(void)
                         else if ((cReboot >= 2)
                                 && (cReboot < 5 * SYNC_FACTOR))
                         {
-                            if (shimmerStatus.btPoweredOn)
+                            if (shimmerStatus.btPowerOn)
                             {
                                 syncCurrNodeDone = syncCurrNode
                                         + SYNC_CD * SYNC_FACTOR - 1;

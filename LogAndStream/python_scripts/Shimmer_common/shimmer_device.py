@@ -210,7 +210,10 @@ class Shimmer3:
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_PROTO3_MINI.value and self.daughter_card_rev_major <= 4)
                  or (self.daughter_card_id == SrBoardCodes.EXP_BRD_ADXL377_ACCEL_200G.value and self.daughter_card_rev_major <= 3)))
 
-    def is_bt_cmd_common_pressure_calibation_supported(self):
+    def is_hardware_shimmer3r(self):
+        return self.hw_ver == SrHwVer.SHIMMER3R.value
+
+    def is_bt_cmd_common_pressure_calibration_supported(self):
         return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0, 16, 6))
                 or (self.hw_ver == SrHwVer.SHIMMER3R.value and self.compare_versions(0, 1, 0)))
 

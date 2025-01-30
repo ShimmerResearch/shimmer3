@@ -64,7 +64,7 @@
 #include "../5xx_HAL/hal_Board.h"
 #include "../msp430_clock/msp430_clock.h"
 
-#include "../shimmer_externs.h"
+#include "log_and_stream_externs.h"
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
