@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-/* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
-#define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
 #define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
 
@@ -428,13 +426,6 @@ void BT_resetDefaults(void);
 //(i.e. clear LPM3 bits)
 //otherwise return 0
 void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data));
-
-//this function needs to be called from within the BT_PIO ISR
-//in order to inform the RN42 driver about the state change
-//value needs to be 1 if interrupt was low to high else 0
-void setBtIsConnected(uint8_t value);
-
-uint8_t isBtConnected(void);
 
 //this function needs to be called from within the BT_RTS ISR
 //in order to inform the RN42 driver about the state change
