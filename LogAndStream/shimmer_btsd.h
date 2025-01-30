@@ -479,9 +479,6 @@ typedef uint8_t error_t;
 #define SDBUFF_SIZE     512 //4095  512
 
 // BATTERY
-#define BATT_HIGH       0
-#define BATT_MID        1
-#define BATT_LOW        2
 #define BATT_INTERVAL   1966080  // 19660800 = 10min interval
 #define BATT_INTERVAL_D 65535
 

@@ -22,7 +22,7 @@
 #include "../Bluetooth_SD/shimmer_bt_comms.h"
 #include "../Bluetooth_SD/RN4X.h"
 #include "../CAT24C16/cat24c16.h"
-#include "../shimmer_externs.h"
+#include "log_and_stream_externs.h"
 #else
 #include "s4.h"
 #include "s4_taskList.h"
@@ -645,7 +645,7 @@ void DockUart_sendRsp(void)
     *(uartRespBuf + uart_resp_len++) = 5;
     *(uartRespBuf + uart_resp_len++) = UART_COMP_BAT;
     *(uartRespBuf + uart_resp_len++) = UART_PROP_VALUE;
-    memcpy(uartRespBuf + uart_resp_len, &shimmerStatus.battVal[0], 3);
+    memcpy(uartRespBuf + uart_resp_len, &batteryStatus.battStatusRaw.rawBytes[0], 3);
     uart_resp_len += 3;
   }
   else if (uartSendRspRtcConfigTime)

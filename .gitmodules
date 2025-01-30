@@ -1,0 +1,3 @@
+[submodule "LogAndStream/log-and-stream-common"]
+	path = LogAndStream/log-and-stream-common
+	url = https://github.com/ShimmerResearch/log-and-stream-common.git
