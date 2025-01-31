@@ -604,8 +604,8 @@ void Init(void)
     // previously configured port settings
 //     PM5CTL0 &= ~LOCKLPM5;
 
-    // Needs to be here before LED functions are called:
-    setBattCritical(0);
+    // Need to reset battery critical alarm before LED functions are called:
+    batteryInit();
 
     Board_init();
 
@@ -696,9 +696,6 @@ void Init(void)
     wr2sd = 0;
     undockEvent = 0;
     time_newUnDockEvent = 0;
-    resetBatteryCriticalCount();
-    /* Reset to battery "charging"/"checking" LED indication on boot */
-    resetBatteryChargingStatus();
 
     /* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
     adsClockTied = 0;
