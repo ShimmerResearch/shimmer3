@@ -254,7 +254,7 @@ static FRESULT ff_result;
 /*battery evaluation vars*/
 uint8_t battVal[3];
 uint8_t battWait;
-uint32_t battLastTs64, battInterval;
+uint32_t battLastTs64;
 uint8_t setUndock, onUserButton, onSingleTouch, onDefault,
         preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp,
         sampleBmpTempFreq, preSampleMpuMag, mpuMagFreq, mpuMagCount,
@@ -859,7 +859,7 @@ void handleIfDockedStateOnBoot(void)
     if (P2IN & BIT3)
     {
 #endif
-        battInterval = BATT_INTERVAL_D;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
         P2IES |= BIT3;       //look for falling edge
         shimmerStatus.docked = 1;
         shimmerStatus.sdlogReady = 0;
@@ -870,7 +870,7 @@ void handleIfDockedStateOnBoot(void)
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         P2IES &= ~BIT3;      //look for rising edge
         shimmerStatus.docked = 0;
         P6OUT |= BIT0;       //   DETECT_N set to high
@@ -2426,7 +2426,7 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-        if ((batt_td > battInterval))
+        if ((batt_td > getBatteryIntervalTicks()))
         {              //10 mins = 19660800
             if (!shimmerStatus.sensing && TaskSet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
@@ -6860,8 +6860,9 @@ void SetupDock()
     shimmerStatus.configuring = 1;
     if (shimmerStatus.docked)
     {
-        battInterval = BATT_INTERVAL_D;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
         resetBatteryCriticalCount();
+
         shimmerStatus.sdlogCmd = 0;
         shimmerStatus.sdlogReady = 0;
         newDirFlag = 1;
@@ -6877,7 +6878,7 @@ void SetupDock()
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         if (!shimmerStatus.sensing)
         {
             UART_deactivate();
