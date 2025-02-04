@@ -2466,10 +2466,7 @@ void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled)
     {
         updateBtConnectionStatusInterruptDirection();
         P1IFG &= ~BIT0;     // clear flag
-        if(shimmerStatus.sdSyncEnabled)
-        {
-            P1IE |= BIT0;       // enable interrupt
-        }
+        P1IE |= BIT0;       // enable interrupt
     }
     else
     {
