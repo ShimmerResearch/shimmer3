@@ -626,6 +626,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_049_set_sensors(self):
         print("Test 049 - set sensors command ")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
         # Enable: LN Accel, Gyro, Mag, ExtCh7, ExtCh6, Battery, WR Accel, ExtCh15, IntCh1, IntCh12,
         # IntCh13, IntCh14, Pressure (i.e., 11 analog ch and 11 digital ch)
         tx_bytes = [0xE3, 0x3F, 0x84]
@@ -982,6 +984,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_078_set_crc(self):
         print("Test 078 - Set CRC Command")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
         num_inquiry_bytes = 11 if self.shimmer.is_hardware_shimmer3r() else 8
         self.shimmer.bt_crc_byte_count = 1  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
         self.shimmer.bluetooth_port.send_bluetooth(
@@ -1247,21 +1251,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_104_factory_test_bluetooth(self):
         tx_bytes = 0
-        if not self.shimmer.is_hardware_version_set():
-            self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_firmware_version_set():
             self.test_005_get_fw_version(True)
-
-            print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
-            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
-            self.shimmer.bluetooth_port.wait_for_ack(2000)
-            end = "//***************************** TEST END *************************************//\r\n"
-            while True:
-                response = self.shimmer.bluetooth_port.ser.readline().decode('cp1252')
-                print(response, end='')
-                if response == end:
-                    print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
-                    break
+        print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
+        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
+        self.shimmer.bluetooth_port.wait_for_ack(2000)
+        end = "//***************************** TEST END *************************************//\r\n"
+        while True:
+            response = self.shimmer.bluetooth_port.ser.readline().decode('cp1252')
+            print(response, end='')
+            if response == end:
+                print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
+                break
 
     def test_105_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
