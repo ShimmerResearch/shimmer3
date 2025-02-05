@@ -131,7 +131,8 @@ class Shimmer3:
               + "." + str(self.fw_ver_internal))
 
     def print_daughter_card_id(self):
-        res = "SR" + str(self.daughter_card_id) + "." + str(self.daughter_card_rev_major) + "." + str(self.daughter_card_rev_minor)
+        res = "SR" + str(self.daughter_card_id) + "." + str(self.daughter_card_rev_major) + "." + str(
+            self.daughter_card_rev_minor)
         if self.daughter_card_id == 255 and self.daughter_card_rev_major == 255 and self.daughter_card_rev_minor == 255:
             res += " (No expansion board detected)"
         print(res)
@@ -220,7 +221,3 @@ class Shimmer3:
     def compare_versions(self, comp_major, comp_minor, comp_internal):
         return util_shimmer.compare_versions(self.fw_ver_major, self.fw_ver_minor, self.fw_ver_internal, comp_major,
                                              comp_minor, comp_internal)
-
-    def is_hw_and_fw_ver_supported(self):
-        return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0,16,6))
-            or (self.hw_ver == SrHwVer.SHIMMER3R.value and self.compare_versions(0, 1, 0)))
