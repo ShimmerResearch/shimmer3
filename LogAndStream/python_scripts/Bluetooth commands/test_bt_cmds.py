@@ -313,19 +313,19 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("Test 010 - Get Accel Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_A_ACCEL_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.A_ACCEL_CALIBRATION_RESPONSE, 21)
-        self.assertTrue(all(response) == 0, "FAIL")
+        self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_011_get_gyro_calibration(self):
         print("Test 011 - Get Gyro Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_GYRO_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.GYRO_CALIBRATION_RESPONSE, 21)
-        self.assertTrue(all(response) == 0, "FAIL")
+        self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_012_get_mag_calibration(self):
         print("Test 012 - Get Mag Calibration Command:")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 21)
-        self.assertTrue(all(response) == 0, "FAIL")
+        self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_013_get_gsr_range(self):
         print("Test 013 - Get GSR Command:")
@@ -341,7 +341,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALL_CALIBRATION_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.ALL_CALIBRATION_RESPONSE,
                                                num_sensors * 21)
-        self.assertTrue(all(response) == 0, "FAIL")
+        self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_015_get_buffer_size(self):
         print("Test 015 - Buffer size repsonse Command: ")
@@ -381,7 +381,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.ACCEL_LPMODE_RESPONSE, 1)
 
     def test_021_get_wr_accel_hrmode(self):
-        print("Test 021 - GET WR accel hrmode command:")
+        print("Test 021 - Get WR accel hrmode command:")
         self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ACCEL_HRMODE_COMMAND,
                                     shimmer_comms_bluetooth.BtCmds.ACCEL_HRMODE_RESPONSE, 1)
 
@@ -409,12 +409,12 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP180_CALIBRATION_COEFFICIENTS_RESPONSE, 22)
-            self.assertTrue(all(response) == 0, "FAIL")
+            self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
         elif self.shimmer.is_bmp280_present():
             response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.BMP280_CALIBRATION_COEFFICIENTS_RESPONSE, 24)
-            self.assertTrue(all(response) == 0, "FAIL")
+            self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
         else:
             print("Skipping test, BMP180/BMP280 not present in device")
 
@@ -542,7 +542,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND, 1)
 
-        self.assertTrue(all(response) == 0, "FAIL")
+        self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
         print("Calib bytes: " + util_shimmer.byte_array_to_hex_string(response))
 
@@ -577,7 +577,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             print(bytes(response))
 
     def test_044_get_unique_serial_response(self):
-        print("Test 044 - Unique Serial Response")
+        print("Test 044 - Get Unique Serial Response")
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
 
@@ -593,13 +593,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("MCU's unique serial ID: ", response)
 
     def test_045_get_pres_oversampling_ratio(self):
-        print("Test 045 - Pres Oversampling")
+        print("Test 045 - Get Pres Oversampling")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_PRES_OVERSAMPLING_RATIO_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.PRES_OVERSAMPLING_RATIO_RESPONSE, 1)
         print(response)
 
     def test_046_get_alt_accel_range(self):
-        print("Test 046 - ALT accel range")
+        print("Test 046 - Get ALT accel range")
         response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_RANGE_COMMAND,
                                                shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_RANGE_RESPONSE, 1)
         print(response)
