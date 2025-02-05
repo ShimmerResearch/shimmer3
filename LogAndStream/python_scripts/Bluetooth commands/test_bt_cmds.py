@@ -1251,8 +1251,6 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_104_factory_test_bluetooth(self):
         tx_bytes = 0
-        if not self.shimmer.is_firmware_version_set():
-            self.test_005_get_fw_version(True)
         print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
         self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
         self.shimmer.bluetooth_port.wait_for_ack(2000)
