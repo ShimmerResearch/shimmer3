@@ -220,3 +220,7 @@ class Shimmer3:
     def compare_versions(self, comp_major, comp_minor, comp_internal):
         return util_shimmer.compare_versions(self.fw_ver_major, self.fw_ver_minor, self.fw_ver_internal, comp_major,
                                              comp_minor, comp_internal)
+
+    def is_hw_and_fw_ver_supported(self):
+        return ((self.hw_ver == SrHwVer.SHIMMER3.value and self.compare_versions(0,16,6))
+            or (self.hw_ver == SrHwVer.SHIMMER3R.value and self.compare_versions(0, 1, 0)))

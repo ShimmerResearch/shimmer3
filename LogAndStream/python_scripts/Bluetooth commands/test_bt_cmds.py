@@ -89,7 +89,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             if tx_cmd_byte == shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND:
                 # read each channel type for the num channels
                 idx_length_channels = 11 if self.shimmer.is_hardware_shimmer3r() else 8
-                   # 2+6 for Shimmer3 2+6+3 for S3R; +2 for header bytes
+                # 2+6 for Shimmer3 2+6+3 for S3R; +2 for header bytes
                 length_channels = response[idx_length_channels]
                 response_channels = self.shimmer.bluetooth_port.wait_for_response(length_channels)
                 if isinstance(response_channels, bool):
@@ -133,7 +133,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
         return response[i:len(response)]
 
-    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd, set_delay_s=0.5, check_original_value=True):
+    def bt_cmd_test_set_common(self, set_cmd, set_bytes, get_cmd, response_cmd, set_delay_s=0.5,
+                               check_original_value=True):
 
         comparison_offset = 0
         length_to_read = len(set_bytes)
@@ -196,7 +197,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                     and ((check_original_value and (set_bytes[i + comparison_offset] is response[i]))
                          or (not check_original_value and (set_bytes[i + comparison_offset] is not response[i])))):
                 if (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND
-                      and ((128 + 96) <= i <= (128 + 101))):
+                        and ((128 + 96) <= i <= (128 + 101))):
                     # print("Skipping MAC ID in infomem C")
                     continue
                 elif (get_cmd_byte == shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND
@@ -510,21 +511,27 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print(util_shimmer_time.seconds_to_time_str(int(bytes(response)), True))
 
     def test_038_get_dir(self):
-        print("Test 038 - Get dir response command:")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
 
-        self.test_028_get_status(True)
+            print("Test 038 - Get dir response command:")
+            self.test_028_get_status(True)
 
-        if self.shimmer.status_is_docked:
-            self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
-        elif not self.shimmer.status_sd_in_slot:
-            self.assertTrue(False, "No SD card detected")
-        elif self.shimmer.status_sd_error:
-            self.assertTrue(False, "SD card error detected")
+            if self.shimmer.status_is_docked:
+                self.assertTrue(False, "Shimmer must be undocked for this command to work reliably")
+            elif not self.shimmer.status_sd_in_slot:
+                self.assertTrue(False, "No SD card detected")
+            elif self.shimmer.status_sd_error:
+                self.assertTrue(False, "SD card error detected")
+            else:
+                response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
+                                                       shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
+                                                       is_instream_response=True)
+                print(bytes(response))
         else:
-            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_DIR_COMMAND,
-                                                   shimmer_comms_bluetooth.BtCmds.DIR_RESPONSE, 1,
-                                                   is_instream_response=True)
-            print(bytes(response))
+            print("Skipping test, command not supported in Firmware")
 
     def test_039_get_infomem(self):
         print("Test 039 - Get infomem response command:")
@@ -564,10 +571,18 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         print("batt_voltage: %03f , charging_status: %d" % (batt_voltage, charging_status))
 
     def test_043_get_BT_FW_VERSION(self):
-        print("Test 043 - Get BT FW Version response command")
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.BT_VERSION_STR_RESPONSE, 1)
-        print(bytes(response))
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            print("Test 043 - Get BT FW Version response command")
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_BT_VERSION_STR_COMMAND,
+                                                   shimmer_comms_bluetooth.BtCmds.BT_VERSION_STR_RESPONSE, 1)
+            print(bytes(response))
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_044_get_unique_serial_response(self):
         print("Test 044 - Unique Serial Response")
@@ -603,14 +618,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                                shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE, 1)
         print(response)
 
-
     # set commands
 
     def test_048_set_sampling_rate(self):
         print("Test 048 - set accel sensitivity command ")
 
         sampling_rate_hz = 102.4
-        sampling_rate_ticks = int(32768/sampling_rate_hz)
+        sampling_rate_ticks = int(32768 / sampling_rate_hz)
 
         tx_bytes = [sampling_rate_ticks & 0xFF, (sampling_rate_ticks >> 8) & 0xFF]
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_SAMPLING_RATE_COMMAND,
@@ -772,17 +786,25 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_066_set_daughter_card_id(self):
         print("Test 066 - Set daughter card ID")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
 
-        if not self.shimmer.is_expansion_board_set():
-            self.test_06_get_daughter_card_id(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            if not self.shimmer.is_expansion_board_set():
+                self.test_006_get_daughter_card_id(True)
 
-        # Not going to risk changing the daughter card ID here so just going to try and write the same one back
-        tx_bytes = [self.shimmer.daughter_card_id, self.shimmer.daughter_card_rev_major, self.shimmer.daughter_card_rev_minor]
-        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
-                                    tx_bytes,
-                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
-                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE,
-                                    check_original_value=False)
+            # Not going to risk changing the daughter card ID here so just going to try and write the same one back
+            tx_bytes = [self.shimmer.daughter_card_id, self.shimmer.daughter_card_rev_major,
+                        self.shimmer.daughter_card_rev_minor]
+            self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
+                                        tx_bytes,
+                                        [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_ID_COMMAND, 0x03, 0x00],
+                                        shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_ID_RESPONSE,
+                                        check_original_value=False)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_067_set_baud_rate(self):
         print("Test 067 - Set baud Rate Command")
@@ -870,30 +892,45 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         #  Sampling rate = 512 Hz
         #  Sensors Enabled = wr-accel, pressure & temperature and battery voltage
 
-        tx_bytes = [0x40, 0x00, 0x01, 0x00, 0x30, 0x04, 0x71, 0xFF, 0x01, 0x08, 0x00, 0x80, 0x10, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x02, 0x01, 0x00, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x0B, 0x00,
-                    0x00, 0x00, 0x08, 0xCD, 0x08, 0xCD, 0x08, 0xCD, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x9C,
-                    0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x96, 0x19,
-                    0x96, 0x19, 0x96, 0x00, 0x9C, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00,
+        tx_bytes = [0x40, 0x00, 0x01, 0x00, 0x30, 0x04, 0x71, 0xFF, 0x01, 0x08, 0x00, 0x88, 0x10, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x02, 0x01,
+                    0x00, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x0B, 0x00, 0x00, 0x00, 0x08, 0xCD,
+                    0x08, 0xCD, 0x08, 0xCD,
+                    0x00, 0x5C, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x9C, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x9C, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x19, 0x96, 0x19, 0x96, 0x19, 0x96, 0x00, 0x9C, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x9C,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x02, 0x9B, 0x02, 0x9B, 0x02, 0x9B, 0x00, 0x9C, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00,
-                    0x9C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x87, 0x06, 0x87, 0x06, 0x87, 0x00, 0x9C, 0x00,
-                    0x64, 0x00, 0x00, 0x00, 0x00, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x9C, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x06, 0x87, 0x06, 0x87, 0x06, 0x87, 0x00, 0x9C, 0x00, 0x64, 0x00, 0x00, 0x00,
+                    0x00, 0x9C, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x53, 0x68, 0x69, 0x6D, 0x6D,
-                    0x65, 0x72, 0x5F, 0x41, 0x36, 0x31, 0x35, 0x55, 0x6E, 0x69, 0x74, 0x54, 0x65, 0x73, 0x74, 0x73,
-                    0xFF, 0xFF, 0xFF, 0x66, 0x79, 0x2D, 0x6D, 0x00, 0x00, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x53, 0x68, 0x69, 0x6D, 0x6D, 0x65, 0x72, 0x5F, 0x41,
+                    0x36, 0x31, 0x35, 0x55,
+                    0x6E, 0x69, 0x74, 0x54, 0x65, 0x73, 0x74, 0x73, 0xFF, 0xFF, 0xFF, 0x66, 0x79, 0x2D, 0x6D, 0x00,
+                    0x00, 0x31, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x66, 0x18, 0x4B, 0x6E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+                    0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00]
 
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_INFOMEM_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_INFOMEM_COMMAND,
@@ -901,96 +938,115 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_077_set_calib_dump(self):
         print("Test 077 - Set Calib Command")
-        tx_bytes = [0x52, 0x01,  # Calib byte length
-                    0x03, 0x00,  # Device version
-                    0x02, 0x00, 0x00,  # Firmware identifier
-                    0x00, 0x16, 0x04,  # FW version
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            tx_bytes = [0x52, 0x01,  # Calib byte length
+                        0x03, 0x00,  # Device version
+                        0x02, 0x00, 0x00,  # Firmware identifier
+                        0x00, 0x16, 0x04,  # FW version
 
-                    # 0x02 = SC_SENSOR_ANALOG_ACCEL
-                    0x02, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x08, 0xCD, 0x08, 0xCD, 0x08, 0xCD, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x9C, 0x00, 0x9C,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        # 0x02 = SC_SENSOR_ANALOG_ACCEL
+                        0x02, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x08, 0xCD, 0x08, 0xCD, 0x08, 0xCD, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x5C, 0x00, 0x9C, 0x00, 0x9C,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # 0x1E = SC_SENSOR_GYRO
-                    0x1E, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x33, 0x2C, 0x33, 0x2C, 0x33, 0x2C, 0x00, 0x9C, 0x00, 0x9C,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1E, 0x00, 0x01, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x96, 0x19, 0x96, 0x19, 0x96, 0x00, 0x9C, 0x00, 0x9C,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1E, 0x00, 0x02, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0xD0, 0x0C, 0xD0, 0x0C, 0xD0, 0x00, 0x9C, 0x00, 0x9C,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1E, 0x00, 0x03, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x68, 0x06, 0x68, 0x06, 0x68, 0x00, 0x9C, 0x00, 0x9C,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        # 0x1E = SC_SENSOR_GYRO
+                        0x1E, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x33, 0x2C, 0x33, 0x2C, 0x33, 0x2C, 0x00, 0x9C, 0x00, 0x9C,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1E, 0x00, 0x01, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x96, 0x19, 0x96, 0x19, 0x96, 0x00, 0x9C, 0x00, 0x9C,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1E, 0x00, 0x02, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0xD0, 0x0C, 0xD0, 0x0C, 0xD0, 0x00, 0x9C, 0x00, 0x9C,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1E, 0x00, 0x03, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x68, 0x06, 0x68, 0x06, 0x68, 0x00, 0x9C, 0x00, 0x9C,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # 0x1F = SC_SENSOR_WR_ACCEL
-                    0x1F, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x87, 0x06, 0x87, 0x06, 0x87, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1F, 0x00, 0x01, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1F, 0x00, 0x02, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x44, 0x03, 0x44, 0x03, 0x44, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
-                    0x1F, 0x00, 0x03, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xA2, 0x01, 0xA2, 0x01, 0xA2, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        # 0x1F = SC_SENSOR_WR_ACCEL
+                        0x1F, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x87, 0x06, 0x87, 0x06, 0x87, 0x00, 0x9C, 0x00, 0x64,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1F, 0x00, 0x01, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0x9C, 0x00, 0x64,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1F, 0x00, 0x02, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x44, 0x03, 0x44, 0x03, 0x44, 0x00, 0x9C, 0x00, 0x64,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
+                        0x1F, 0x00, 0x03, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xA2, 0x01, 0xA2, 0x01, 0xA2, 0x00, 0x9C, 0x00, 0x64,
+                        0x00, 0x00, 0x00, 0x00, 0x9C,  # Calibration bytes
 
-                    # 0x20 = SC_SENSOR_WR_MAG
-                    0x20, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x9B, 0x02, 0x9B, 0x02, 0x9B, 0x00, 0x9C, 0x00, 0x64,
-                    0x00, 0x00, 0x00, 0x00, 0x9C]  # Calibration bytes
+                        # 0x20 = SC_SENSOR_WR_MAG
+                        0x20, 0x00, 0x00, 0x15,  # 1 byte ID, 2 bytes Range, 1 byte data length
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Calib timestamp
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x9B, 0x02, 0x9B, 0x02, 0x9B, 0x00, 0x9C, 0x00, 0x64,
+                        0x00, 0x00, 0x00, 0x00, 0x9C]  # Calibration bytes
 
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CALIB_DUMP_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND, 2)
+            self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CALIB_DUMP_COMMAND, tx_bytes,
+                                        shimmer_comms_bluetooth.BtCmds.GET_CALIB_DUMP_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.RSP_CALIB_DUMP_COMMAND, 2)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_078_set_crc(self):
         print("Test 078 - Set CRC Command")
-
         if not self.shimmer.is_hardware_version_set():
-            self.test_04_get_shimmer_new_version(True)
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
 
-        num_inquiry_bytes = 11 if self.shimmer.is_hardware_shimmer3r() else 8
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            num_inquiry_bytes = 11 if self.shimmer.is_hardware_shimmer3r() else 8
 
-        self.shimmer.bt_crc_byte_count = 1  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
-        self.shimmer.bluetooth_port.send_bluetooth(
-            [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
-        self.bt_cmd_test_wait_for_ack()
+            self.shimmer.bt_crc_byte_count = 1  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
+            self.shimmer.bluetooth_port.send_bluetooth(
+                [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
+            self.bt_cmd_test_wait_for_ack()
 
-        # Using inquiry command here to test whether CRC has been enabled
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
+            # Using inquiry command here to test whether CRC has been enabled
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
+                                                   shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
 
-        self.shimmer.bt_crc_byte_count = 0  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
-        self.shimmer.bluetooth_port.send_bluetooth(
-            [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
-        self.bt_cmd_test_wait_for_ack()
+            self.shimmer.bt_crc_byte_count = 0  # 1 = 1 byte CRC, 2 = 2 bytes CRC (default = 0)
+            self.shimmer.bluetooth_port.send_bluetooth(
+                [shimmer_comms_bluetooth.BtCmds.SET_CRC_COMMAND, self.shimmer.bt_crc_byte_count])
+            self.bt_cmd_test_wait_for_ack()
 
-        # Make sure CRC gets disabled
-        response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
+            # Make sure CRC gets disabled
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.INQUIRY_COMMAND,
+                                                   shimmer_comms_bluetooth.BtCmds.INQUIRY_RESPONSE, num_inquiry_bytes)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_079_set_rwc(self):
         print("Test 079 - Set RWC command")
-        ts_ms = time.time()
-        tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_RWC_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_RWC_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.RWC_RESPONSE)
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            ts_ms = time.time()
+            tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
+            self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_RWC_COMMAND, tx_bytes,
+                                        shimmer_comms_bluetooth.BtCmds.GET_RWC_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.RWC_RESPONSE)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_080_update_calib_dump(self):  # not present in set
         print("Test 080 - UPD Calib Dump Command")
@@ -1013,35 +1069,58 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_083_set_alt_accel_range(self):
         print("Test 083 - Set alt accel")
-        tx_bytes = [0x01]
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_RANGE_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_RANGE_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_RANGE_RESPONSE)
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            tx_bytes = [0x01]
+            self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_RANGE_COMMAND, tx_bytes,
+                                        shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_RANGE_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_RANGE_RESPONSE)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_084_set_pres_oversampling_ratio(self):
         print("Test 084 - Set pres oversampling ratio")
-        tx_bytes = [0x01]
-        self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_PRES_OVERSAMPLING_RATIO_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_PRES_OVERSAMPLING_RATIO_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.PRES_OVERSAMPLING_RATIO_RESPONSE)
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            tx_bytes = [0x01]
+            self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_PRES_OVERSAMPLING_RATIO_COMMAND, tx_bytes,
+                                        shimmer_comms_bluetooth.BtCmds.GET_PRES_OVERSAMPLING_RATIO_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.PRES_OVERSAMPLING_RATIO_RESPONSE)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_085_set_daughter_card_mem(self):
         print("Test 085 - Set daughter card mem")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            shimmer_name = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, " \
+                           "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            tx_bytes = [ord(c) for c in shimmer_name]
 
-        shimmer_name = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-        tx_bytes = [ord(c) for c in shimmer_name]
+            self.bt_cmd_test_set_common(
+                [shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                tx_bytes,
+                [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
 
-        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
-                                    tx_bytes,
-                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
-                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
-
-        # Reset the EEPROM memory
-        tx_bytes = [0xFF] * len(shimmer_name)
-        self.bt_cmd_test_set_common([shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
-                                    tx_bytes,
-                                    [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
-                                    shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
+            # Reset the EEPROM memory
+            tx_bytes = [0xFF] * len(shimmer_name)
+            self.bt_cmd_test_set_common(
+                [shimmer_comms_bluetooth.BtCmds.SET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                tx_bytes,
+                [shimmer_comms_bluetooth.BtCmds.GET_DAUGHTER_CARD_MEM_COMMAND, len(tx_bytes), 0, 0],
+                shimmer_comms_bluetooth.BtCmds.DAUGHTER_CARD_MEM_RESPONSE)
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
@@ -1062,20 +1141,33 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_089_set_instream_response(self):
         print(" Test 089: Instream response ack")
-        tx_bytes = [0x00]  # default 1
-        self.shimmer.bluetooth_port.send_bluetooth(
-                                [shimmer_comms_bluetooth.BtCmds.SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE] + tx_bytes)
-        self.bt_cmd_test_wait_for_ack()
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            tx_bytes = [0x00]  # default 1
+            self.shimmer.bluetooth_port.send_bluetooth(
+                [shimmer_comms_bluetooth.BtCmds.SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE] + tx_bytes)
+            self.bt_cmd_test_wait_for_ack()
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_090_set_sd_sync_response(self):
         print("test 090: Set SD Sync")
-
-        ts_ms = time.time()
-        tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
-        tx_bytes = [0x00] + tx_bytes + [0x00]  # first byte is to mock whether sensor isSensing, last byte mocks CRC
-        self.shimmer.bluetooth_port.send_bluetooth(
-                                [shimmer_comms_bluetooth.BtCmds.SET_SD_SYNC_COMMAND] + tx_bytes)
-        self.bt_cmd_test_wait_for_ack()
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            ts_ms = time.time()
+            tx_bytes = util_shimmer_time.ms_to_shimmer_rtc_bytes(ts_ms)
+            tx_bytes = [0x00] + tx_bytes + [0x00]  # first byte is to mock whether sensor isSensing, last byte mocks CRC
+            self.shimmer.bluetooth_port.send_bluetooth(
+                [shimmer_comms_bluetooth.BtCmds.SET_SD_SYNC_COMMAND] + tx_bytes)
+            self.bt_cmd_test_wait_for_ack()
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     # TODO decide what to do about this command
     # def test_91_start_logging(self):
@@ -1091,22 +1183,28 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     def test_093_toggle_LED(self):
         print("Test 093 - toggle LED")
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            self.test_028_get_status(True)
+            red_led_state_before = self.shimmer.status_toggle_led_red
 
-        self.test_028_get_status(True)
-        red_led_state_before = self.shimmer.status_toggle_led_red
-
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
-        self.bt_cmd_test_wait_for_ack()
-
-        self.test_028_get_status(True)
-
-        red_led_state_after = self.shimmer.status_toggle_led_red
-        self.assertTrue(red_led_state_before != red_led_state_after, "LED state didn't change in status")
-
-        # Turn LED off at end of test
-        if self.shimmer.status_toggle_led_red:
             self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
             self.bt_cmd_test_wait_for_ack()
+
+            self.test_028_get_status(True)
+
+            red_led_state_after = self.shimmer.status_toggle_led_red
+            self.assertTrue(red_led_state_before != red_led_state_after, "LED state didn't change in status")
+
+            # Turn LED off at end of test
+            if self.shimmer.status_toggle_led_red:
+                self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.TOGGLE_LED_COMMAND])
+                self.bt_cmd_test_wait_for_ack()
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_094_dummy_command(self):
         print("Test 094 - DummyCommand")
@@ -1128,9 +1226,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     def test_095_get_Pressure_Calibration_coefficients(self):
         print("Test 095 - Get Common Pressure Calibration Chip")
         if not self.shimmer.is_hardware_version_set():
-            self.test_04_get_shimmer_new_version(True)
+            self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_firmware_version_set():
-            self.test_05_get_fw_version(True)
+            self.test_005_get_fw_version(True)
 
         if self.shimmer.is_bt_cmd_common_pressure_calibration_supported():
             response = self.bt_cmd_test_get_common(
@@ -1146,7 +1244,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             print("Test 096 - get alt accel calibration command ")
 
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE, 1)
+                                                   shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE, 1)
 
     def test_097_get_alt_accel_sampling_rate_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1154,7 +1252,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         else:
             print("Test 097 - Get Alt Accel Sampling Command ")
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE, 1)
+                                                   shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE, 1)
 
     def test_098_get_alt_mag_calibration_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1162,7 +1260,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         else:
             print("Test 098 - Get Alt Mag Calibration Command ")
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
+                                                   shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
 
     def test_099_get_alt_mag_sampling_rate_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1170,7 +1268,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         else:
             print("Test 099 - Get Alt Mag Sampling Rate Command")
             response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
-                                               shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
+                                                   shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
 
     def test_100_set_alt_accel_calibration_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1179,8 +1277,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             tx_bytes = [0x00]
             print("Test 100 - Set alt Accel calibration")
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_CALIBRATION_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE)
+                                        shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE)
 
     def test_101_set_alt_accel_sampling_rate_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1189,8 +1287,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             print("Test 101 - Set alt Accel Sampling rate")
             tx_bytes = [0x00]
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_SAMPLING_RATE_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE)
+                                        shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE)
 
     def test_102_set_alt_mag_sampling_rate_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1199,8 +1297,8 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             print("Test 102 - Set Alt mag sampling rate command")
             tx_bytes = [0x03]
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_SAMPLING_RATE_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SAMPLING_RATE_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.ALT_MAG_SAMPLING_RATE_RESPONSE)
+                                        shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_SAMPLING_RATE_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_MAG_SAMPLING_RATE_RESPONSE)
 
     def test_103_set_alt_mag_calibration_command(self):
         if not self.shimmer.is_hardware_shimmer3r():
@@ -1209,21 +1307,29 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             print("Test 103 - Set Alt Mag Calibration Command")
             tx_bytes = [0x03]
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_CALIBRATION_COMMAND, tx_bytes,
-                                    shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
-                                    shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE)
+                                        shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE)
 
     def test_104_factory_test_bluetooth(self):
-        print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
         tx_bytes = 0
-        self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
-        self.shimmer.bluetooth_port.wait_for_ack(2000)
-        end = "//***************************** TEST END *************************************//\r\n"
-        while True:
-            response = self.shimmer.bluetooth_port.ser.readline().decode('cp1252')
-            print(response, end='')
-            if response == end:
-                print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
-                break
+        if not self.shimmer.is_hardware_version_set():
+            self.test_004_get_shimmer_new_version(True)
+        if not self.shimmer.is_firmware_version_set():
+            self.test_005_get_fw_version(True)
+
+        if self.shimmer.is_hw_and_fw_ver_supported():
+            print(Fore.LIGHTMAGENTA_EX + "Factory Test Start")
+            self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.SET_FACTORY_TEST, tx_bytes])
+            self.shimmer.bluetooth_port.wait_for_ack(2000)
+            end = "//***************************** TEST END *************************************//\r\n"
+            while True:
+                response = self.shimmer.bluetooth_port.ser.readline().decode('cp1252')
+                print(response, end='')
+                if response == end:
+                    print(Fore.LIGHTMAGENTA_EX + "Factory Test End")
+                    break
+        else:
+            print("Skipping test, command not supported in Firmware")
 
     def test_105_reset_config_and_calib_after_testing(self):
         print("\r\nResetting Shimmer's config and calibration\r\n")
