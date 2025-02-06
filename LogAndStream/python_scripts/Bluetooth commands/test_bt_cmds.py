@@ -613,7 +613,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
     # set commands
 
     def test_048_set_sampling_rate(self):
-        print("Test 048 - set accel sensitivity command ")
+        print("Test 048 - Set accel sensitivity command ")
 
         sampling_rate_hz = 102.4
         sampling_rate_ticks = int(32768 / sampling_rate_hz)
@@ -625,7 +625,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.SAMPLING_RATE_RESPONSE)
 
     def test_049_set_sensors(self):
-        print("Test 049 - set sensors command ")
+        print("Test 049 - Set sensors command ")
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         # Enable: LN Accel, Gyro, Mag, ExtCh7, ExtCh6, Battery, WR Accel, ExtCh15, IntCh1, IntCh12,
@@ -652,7 +652,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.assertTrue(False)
 
     def test_050_set_accel_sensitivity(self):
-        print("Test 050 - set accel sensitivity command ")
+        print("Test 050 - Set accel sensitivity command ")
         tx_bytes = [0x01]  # default 0
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ACCEL_RANGE_COMMAND,
                                     tx_bytes,
@@ -660,7 +660,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.ACCEL_RANGE_RESPONSE)
 
     def test_051_set_config_bytes(self):
-        print("Test 051 - set Config Bytes command ")
+        print("Test 051 - Set Config Bytes command ")
         tx_bytes = [0x06, 0x01, 0x02, 0x03]  # default
         self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_CONFIG_SETUP_BYTES_COMMAND, tx_bytes,
                                     shimmer_comms_bluetooth.BtCmds.GET_CONFIG_SETUP_BYTES_COMMAND,
@@ -765,7 +765,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
                                     shimmer_comms_bluetooth.BtCmds.INTERNAL_EXP_POWER_ENABLE_RESPONSE)
 
     def test_065_set_exg_regs_response(self):
-        print("Test 065 - set_exg_regs_response")
+        print("Test 065 - Set_exg_regs_response")
         # Chip 0
         # tx_bytes = [0x00, 0x80, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01]  # default = ExG off
         tx_bytes = [0x03, 0xAB, 0x10, 0x15, 0x15, 0x00, 0x00, 0x00, 0x02, 0x01]  # Square wave @ 512 Hz
@@ -1068,13 +1068,13 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
 
     # TODO decide what to do about this command
     # def test_86_start_streaming_and_logging(self):
-    #     print("Test 86 - streaming and logging")
+    #     print("Test 86 - Streaming and logging")
     #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.START_SDBT_COMMAND])
     #     self.bt_cmd_test_wait_for_ack()
 
     # TODO decide what to do about this command
     # def test_87_stop_streaming_and_logging(self):
-    #     print("Test 87 - streaming and logging")
+    #     print("Test 87 - Streaming and logging")
     #     self.shimmer.bluetooth_port.send_bluetooth([shimmer_comms_bluetooth.BtCmds.STOP_SDBT_COMMAND])
     #     self.bt_cmd_test_wait_for_ack()
 
@@ -1164,7 +1164,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print("- Not supported for this Model ")
         else:
             print("Test 096 - get alt accel calibration command ")
 
@@ -1175,7 +1175,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print("- Not supported for this Model ")
         else:
             print("Test 097 - Get Alt Accel Sampling Command ")
             self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
@@ -1185,7 +1185,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print("- Not supported for this Model ")
         else:
             print("Test 098 - Get Alt Mag Calibration Command ")
             self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
@@ -1195,7 +1195,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print("- Not supported for this Model ")
         else:
             print("Test 099 - Get Alt Mag Sampling Rate Command")
             self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_MAG_CALIBRATION_COMMAND,
@@ -1205,7 +1205,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print(" - Not supported for this Model ")
         else:
             tx_bytes = [0x00]
             print("Test 100 - Set alt Accel calibration")
@@ -1217,10 +1217,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print(" - Not supported for this Model ")
         else:
             print("Test 101 - Set alt Accel Sampling rate")
-            tx_bytes = [0x00]
+            tx_bytes = [0x01]
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_ACCEL_SAMPLING_RATE_COMMAND, tx_bytes,
                                         shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_SAMPLING_RATE_COMMAND,
                                         shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_SAMPLING_RATE_RESPONSE)
@@ -1229,7 +1229,7 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print(" - Not supported for this Model ")
         else:
             print("Test 102 - Set Alt mag sampling rate command")
             tx_bytes = [0x03]
@@ -1241,10 +1241,11 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_version_set():
             self.test_004_get_shimmer_new_version(True)
         if not self.shimmer.is_hardware_shimmer3r():
-            print("Not supported for this Model ")
+            print(" - Not supported for this Model ")
         else:
             print("Test 103 - Set Alt Mag Calibration Command")
-            tx_bytes = [0x03]
+            tx_bytes = [0x03, 0x00, 0x03, 0x00, 0x01, 0x11, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x15, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x08]
             self.bt_cmd_test_set_common(shimmer_comms_bluetooth.BtCmds.SET_ALT_MAG_CALIBRATION_COMMAND, tx_bytes,
                                         shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
                                         shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE)
