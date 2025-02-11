@@ -1154,9 +1154,10 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
             self.test_005_get_fw_version(True)
 
         if self.shimmer.is_bt_cmd_common_pressure_calibration_supported():
-            self.bt_cmd_test_get_common(
+            response = self.bt_cmd_test_get_common(
                 shimmer_comms_bluetooth.BtCmds.GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND,
                 shimmer_comms_bluetooth.BtCmds.PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE, 1)
+            self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
         else:
             print("Skipping test, command not supported in firmware")
 
