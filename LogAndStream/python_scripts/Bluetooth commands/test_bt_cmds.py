@@ -1168,8 +1168,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_shimmer3r():
             print(" - Not supported for this Model ")
         else:
-            self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
-                                        shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE, 1)
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_ACCEL_CALIBRATION_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_ACCEL_CALIBRATION_RESPONSE, 21)
+            self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_097_get_alt_accel_sampling_rate_command(self):
         print("Test 097 - Get Alt Accel Sampling Command ")
@@ -1188,8 +1189,9 @@ class TestShimmerBluetoothCommunication(unittest.TestCase):
         if not self.shimmer.is_hardware_shimmer3r():
             print(" - Not supported for this Model ")
         else:
-            self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
-                                        shimmer_comms_bluetooth.BtCmds.MAG_CALIBRATION_RESPONSE, 1)
+            response = self.bt_cmd_test_get_common(shimmer_comms_bluetooth.BtCmds.GET_ALT_MAG_CALIBRATION_COMMAND,
+                                        shimmer_comms_bluetooth.BtCmds.ALT_MAG_CALIBRATION_RESPONSE, 21)
+            self.assertTrue(all(val != 0 for val in response) == 0, "FAIL")
 
     def test_099_get_alt_mag_sampling_rate_command(self):
         print("Test 099 - Get Alt Mag Sampling Rate Command")
