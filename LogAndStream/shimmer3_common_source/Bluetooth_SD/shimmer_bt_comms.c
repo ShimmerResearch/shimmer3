@@ -285,17 +285,6 @@ uint8_t Dma2ConversionDone(void)
                 BT_setGoodCommand();
             }
         }
-#if USE_OLD_SD_SYNC_APPROACH
-        else if (getRcommVar())
-        {
-            /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
-            // 1 byte of RC command
-            setRcommResp(btRxBuff, 1U);
-            setRcommVar(0);
-            setDmaWaitingForResponse(1U);
-            return TaskSet(TASK_RCCENTERR1);
-        }
-#endif
         else
         {
 #endif
@@ -355,10 +344,6 @@ uint8_t Dma2ConversionDone(void)
 #endif
                 else if (*(gActionPtr) == ACK_COMMAND_PROCESSED)
                 {
-#if USE_OLD_SD_SYNC_APPROACH
-                    /* Store local time as early as possible after sync bytes have been received */
-                    saveLocalTime();
-#else
                     /* If waiting for command byte */
                     if(!waitingForArgsLength)
                     {
@@ -373,7 +358,6 @@ uint8_t Dma2ConversionDone(void)
                             return 0;
                         }
                     }
-#endif
                 }
 
                 if (waitingForArgsLength)
@@ -402,16 +386,6 @@ uint8_t Dma2ConversionDone(void)
             {
                 uint8_t data = btRxBuff[0];
                 uint8_t wakeupMcu = 0;
-
-                /* Filter supported BT commands if SD sync is enabled */
-                if (isBtModuleRunningInSyncMode()
-                        && !(data == RN4678_STATUS_STRING_SEPARATOR
-                                || data == ACK_COMMAND_PROCESSED
-                                || data == SET_SD_SYNC_COMMAND))
-                {
-                    setDmaWaitingForResponse(1U);
-                    return wakeupMcu;
-                }
 
                 switch (data)
                 {
@@ -552,13 +526,6 @@ uint8_t Dma2ConversionDone(void)
                     waitingForArgs = BT_STAT_STR_LEN_SMALLEST - 1U;
                     break;
 #endif
-#if USE_OLD_SD_SYNC_APPROACH
-                case ACK_COMMAND_PROCESSED:
-                    /* SD Sync Node - gets here when a node receives a sync packet from a center */
-                    *(gActionPtr) = data;
-                    waitingForArgs = SYNC_PACKET_PAYLOAD_SIZE;
-                    break;
-#else
                 case ACK_COMMAND_PROCESSED:
                     /* Wait for command byte */
                     *(gActionPtr) = data;
@@ -571,7 +538,6 @@ uint8_t Dma2ConversionDone(void)
                     *(gActionPtr) = data;
                     waitingForArgs = SYNC_PACKET_PAYLOAD_SIZE + BT_SD_SYNC_CRC_MODE;
                     break;
-#endif
                 default:
                     setDmaWaitingForResponse(1U);
                     break;

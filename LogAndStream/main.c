@@ -2721,9 +2721,6 @@ void BtStop(uint8_t isCalledFromMain)
     clearBtTxBuf(isCalledFromMain);
 
     TaskClear(TASK_RCNODER10);
-#if USE_OLD_SD_SYNC_APPROACH
-    setRcommVar(0);                   //don't try to get routine comm info
-#endif
 
 #if BT_DMA_USED_FOR_RX
     DMA2_disable();                  //dma2 for bt disabled
@@ -3888,11 +3885,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_RTC_DIFF_1] = *(((uint8_t*) rwcTimeDiffPtr) + 6);
         sdHeadText[SDH_RTC_DIFF_0] = *(((uint8_t*) rwcTimeDiffPtr) + 7);
         break;
-#if USE_OLD_SD_SYNC_APPROACH
-    case ACK_COMMAND_PROCESSED:
-#else
     case SET_SD_SYNC_COMMAND:
-#endif
         if(isBtModuleRunningInSyncMode())
         {
             /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
@@ -3906,7 +3899,6 @@ void ProcessCommand(void)
             sendNack = 1;
         }
         break;
-#if !USE_OLD_SD_SYNC_APPROACH
     case ACK_COMMAND_PROCESSED:
         /* Slave response received by Master */
         if (args[0] == SD_SYNC_RESPONSE)
@@ -3916,19 +3908,14 @@ void ProcessCommand(void)
             TaskSet(TASK_RCCENTERR1);
         }
         break;
-#endif
     default:
         ;
     }
 
     /* Send Response back for all commands except when FW has received an ACK */
     if (gAction != ACK_COMMAND_PROCESSED
-#if USE_OLD_SD_SYNC_APPROACH
-            )
-#else
             /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
             && (gAction != SET_SD_SYNC_COMMAND || sendNack))
-#endif
     {
         if (sendNack == 0)
         {

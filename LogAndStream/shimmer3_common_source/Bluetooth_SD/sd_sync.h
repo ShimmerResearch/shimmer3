@@ -13,7 +13,6 @@
 #include "../5xx_HAL/hal_CRC.h"
 #include "../../shimmer_btsd.h"
 
-#define USE_OLD_SD_SYNC_APPROACH        0
 #define BT_SD_SYNC_CRC_MODE             CRC_1BYTES_ENABLED
 
 // BT routine communication
@@ -33,11 +32,7 @@
 //Center to Node Sync Packet - SET_SD_SYNC_COMMAND(1 byte):Status(1 byte):Time(8 bytes, LSB order):CRC(0/1/2 bytes, LSB order)
 #define SYNC_PACKET_MAX_SIZE     (SYNC_PACKET_SIZE_CMD+SYNC_PACKET_PAYLOAD_SIZE+CRC_2BYTES_ENABLED)
 #define SYNC_PACKET_PAYLOAD_SIZE 9
-#if USE_OLD_SD_SYNC_APPROACH
-#define SYNC_PACKET_ACK_IDX      0
-#else
 #define SYNC_PACKET_CMD_IDX      0
-#endif
 #define SYNC_PACKET_SIZE_CMD     1
 #define SYNC_PACKET_FLG_IDX      1
 #define SYNC_PACKET_TIME_IDX     2
@@ -67,10 +62,6 @@ void resetMyTimeDiff(void);
 void resetMyTimeDiffArrays(void);
 void resetMyTimeDiffLongMin(void);
 uint8_t * getMyTimeDiffPtr(void);
-#if USE_OLD_SD_SYNC_APPROACH
-void setRcommVar(uint8_t val);
-uint8_t getRcommVar(void);
-#endif
 void setSyncResp(uint8_t *args, uint8_t count);
 uint8_t isBtSdSyncRunning(void);
 uint8_t getSyncNodeNum(void);
