@@ -2639,24 +2639,35 @@ __interrupt void TIMER0_B1_ISR(void)
                     }
                     else
                     {
-                        /* Flash twice if sync is not successfull */
-                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
-                                && !shimmerStatus.docked
-                                && shimmerStatus.sensing
-                                && shimmerStatus.sdSyncEnabled
-                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+                        /* Flash if BT is on */
+                        if (shimmerStatus.btPoweredOn
+                                && (blinkCnt20 == 12 || blinkCnt20 == 14))
                         {
-                            if (getSyncCnt() > 3)
-                            {
-                                Board_ledOn(LED_BLUE);
-                            }
-                            //TODO should there be an else here?
+                            Board_ledOn(LED_BLUE);
                         }
                         else
                         {
                             Board_ledOff(LED_BLUE);
                         }
+
+//                        /* Flash twice if sync is not successfull */
+//                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
+//                                && !shimmerStatus.docked
+//                                && shimmerStatus.sensing
+//                                && shimmerStatus.sdSyncEnabled
+//                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+//                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+//                        {
+//                            if (getSyncCnt() > 3)
+//                            {
+//                                Board_ledOn(LED_BLUE);
+//                            }
+//                            //TODO should there be an else here?
+//                        }
+//                        else
+//                        {
+//                            Board_ledOff(LED_BLUE);
+//                        }
                     }
                 }
             }
@@ -3886,7 +3897,7 @@ void ProcessCommand(void)
         sdHeadText[SDH_RTC_DIFF_0] = *(((uint8_t*) rwcTimeDiffPtr) + 7);
         break;
     case SET_SD_SYNC_COMMAND:
-        if(isBtModuleRunningInSyncMode())
+        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
         {
             /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
             fullSyncResp[0] = gAction;
@@ -3900,12 +3911,19 @@ void ProcessCommand(void)
         }
         break;
     case ACK_COMMAND_PROCESSED:
-        /* Slave response received by Master */
-        if (args[0] == SD_SYNC_RESPONSE)
+        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
         {
-            /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
-            setSyncResp(&args[1], 1U);
-            TaskSet(TASK_RCCENTERR1);
+            /* Slave response received by Master */
+            if (args[0] == SD_SYNC_RESPONSE)
+            {
+                /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
+                setSyncResp(&args[1], 1U);
+                TaskSet(TASK_RCCENTERR1);
+            }
+        }
+        else
+        {
+            sendNack = 1;
         }
         break;
     default:
@@ -3913,9 +3931,9 @@ void ProcessCommand(void)
     }
 
     /* Send Response back for all commands except when FW has received an ACK */
-    if (gAction != ACK_COMMAND_PROCESSED
-            /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
-            && (gAction != SET_SD_SYNC_COMMAND || sendNack))
+    /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
+    if (!(gAction == ACK_COMMAND_PROCESSED || gAction == SET_SD_SYNC_COMMAND)
+            || sendNack)
     {
         if (sendNack == 0)
         {
