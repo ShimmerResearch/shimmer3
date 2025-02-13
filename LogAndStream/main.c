@@ -199,7 +199,7 @@ uint8_t fwInfo[7], ackStr[4],
         nbrAdcChans, nbrDigiChans, infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
-uint8_t currentBuffer, sendAck, inquiryResponse,
+uint8_t currentBuffer, sendAck, sendNack, inquiryResponse,
         samplingRateResponse, stopSensing,
         lnAccelCalibrationResponse, gyroCalibrationResponse,
         magCalibrationResponse, wrAccelCalibrationResponse,
@@ -790,6 +790,7 @@ void Init(void)
 void resetBtResponseBools(void)
 {
     sendAck = 0;
+    sendNack = 0;
     inquiryResponse = 0;
     samplingRateResponse = 0;
     lnAccelCalibrationResponse = 0;
@@ -980,6 +981,11 @@ void checkBtModeConfig(void)
         else
         {
             shimmerStatus.sdSyncEnabled = 0;
+        }
+
+        if (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode())
+        {
+            BtStop(0);
         }
 
         if (shimmerStatus.btSupportEnabled && !shimmerStatus.btPoweredOn)
@@ -2703,6 +2709,9 @@ void BtStart(void)
 #else
         clearBtRxBuf();
 #endif
+
+        setBtModuleRunningInSyncMode(shimmerStatus.sdSyncEnabled);
+
         BT_start();
     }
 }
@@ -3884,11 +3893,19 @@ void ProcessCommand(void)
 #else
     case SET_SD_SYNC_COMMAND:
 #endif
-        /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
-        fullSyncResp[0] = gAction;
-        memcpy(&fullSyncResp[1], &args[0], SYNC_PACKET_MAX_SIZE-SYNC_PACKET_SIZE_CMD);
-        setSyncResp(&fullSyncResp[0], SYNC_PACKET_MAX_SIZE);
-        TaskSet(TASK_RCNODER10);
+        if(isBtModuleRunningInSyncMode())
+        {
+            /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
+            fullSyncResp[0] = gAction;
+            memcpy(&fullSyncResp[1], &args[0], SYNC_PACKET_MAX_SIZE-SYNC_PACKET_SIZE_CMD);
+            setSyncResp(&fullSyncResp[0], SYNC_PACKET_MAX_SIZE);
+            TaskSet(TASK_RCNODER10);
+        }
+        else
+        {
+            sendNack = 1;
+        }
+        break;
 #if !USE_OLD_SD_SYNC_APPROACH
     case ACK_COMMAND_PROCESSED:
         /* Slave response received by Master */
@@ -3904,16 +3921,20 @@ void ProcessCommand(void)
         ;
     }
 
-	/* Send ACK back for all commands except when FW has received an ACK */
+    /* Send Response back for all commands except when FW has received an ACK */
     if (gAction != ACK_COMMAND_PROCESSED
 #if USE_OLD_SD_SYNC_APPROACH
             )
 #else
             /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
-            && gAction != SET_SD_SYNC_COMMAND)
+            && (gAction != SET_SD_SYNC_COMMAND || sendNack))
 #endif
     {
-        sendAck = 1;
+        if (sendNack == 0)
+        {
+            /* Send ACK back for all commands except when FW is sending a NACK */
+            sendAck = 1;
+        }
         TaskSet(TASK_BT_RESPOND);
     }
 
@@ -3968,6 +3989,11 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) = ACK_COMMAND_PROCESSED;
             sendAck = 0;
+        }
+        if (sendNack)
+        {
+            *(resPacket + packet_length++) = NACK_COMMAND_PROCESSED;
+            sendNack = 0;
         }
         if (inquiryResponse)
         {
@@ -6988,7 +7014,7 @@ void ChangeBtBaudRateFunc()
 uint8_t SendStatusByte()
 {
     if (shimmerStatus.btConnected
-            && !shimmerStatus.sdSyncEnabled)
+            && !isBtModuleRunningInSyncMode())
     {
         dockedResponse = 1;
         sendAck = 1;

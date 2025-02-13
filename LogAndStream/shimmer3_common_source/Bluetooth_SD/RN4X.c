@@ -117,6 +117,8 @@ rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
 
+uint8_t btModuleSyncModeEn;
+
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
 #define RINGFIFO_WR(ringFifo, dataIn, mask)     {ringFifo.data[mask & ringFifo.wrIdx++] = (dataIn);}
@@ -918,7 +920,7 @@ void runSetCommands(void)
             /* Skipping BLE setup for the moment if sync is enabled to reduce
              * initialisation time while sensing */
             if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                    || shimmerStatus.sdSyncEnabled)
+                    || isBtModuleRunningInSyncMode())
             {
                 /* Skip to next stage */
                 if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1202,7 +1204,7 @@ void runSetCommands(void)
         }
 
         if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                   || shimmerStatus.sdSyncEnabled)
+                   || isBtModuleRunningInSyncMode())
         {
             /* Skip to next stage */
             if (bt_setcommands_step == REBOOT + 1)
@@ -2733,7 +2735,7 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
 
 uint8_t getDefaultBaudForBtVersion(void)
 {
-    if(shimmerStatus.sdSyncEnabled)
+    if(isBtModuleRunningInSyncMode())
     {
         /* SDLog sync has significant difficulty using higher bauds for RN4678 BT modules
          * while trying to SD log and sync at the same time due to missing status
@@ -3054,6 +3056,16 @@ uint8_t* getMacIdStrPtr(void)
 uint8_t* getMacIdBytesPtr(void)
 {
     return &macIdBytes[0];
+}
+
+void setBtModuleRunningInSyncMode(uint8_t mode)
+{
+    btModuleSyncModeEn = mode;
+}
+
+uint8_t isBtModuleRunningInSyncMode(void)
+{
+    return btModuleSyncModeEn;
 }
 
 #if !BT_DMA_USED_FOR_RX

@@ -514,6 +514,8 @@ void string2hexString(char* input, char* output);
 void bt_setMacId(uint8_t *buf);
 uint8_t* getMacIdStrPtr(void);
 uint8_t* getMacIdBytesPtr(void);
+void setBtModuleRunningInSyncMode(uint8_t mode);
+uint8_t isBtModuleRunningInSyncMode(void);
 #if !BT_DMA_USED_FOR_RX
 RingFifoRx_t *getRxFifoPtr(void);
 void readByteFromBtRxBuf(uint8_t *buf);

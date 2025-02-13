@@ -404,10 +404,10 @@ uint8_t Dma2ConversionDone(void)
                 uint8_t wakeupMcu = 0;
 
                 /* Filter supported BT commands if SD sync is enabled */
-                if (shimmerStatus.sdSyncEnabled
-                        && (data!=RN4678_STATUS_STRING_SEPARATOR
-                        || data!=ACK_COMMAND_PROCESSED
-                        || data!=SET_SD_SYNC_COMMAND))
+                if (isBtModuleRunningInSyncMode()
+                        && !(data == RN4678_STATUS_STRING_SEPARATOR
+                                || data == ACK_COMMAND_PROCESSED
+                                || data == SET_SD_SYNC_COMMAND))
                 {
                     setDmaWaitingForResponse(1U);
                     return wakeupMcu;
