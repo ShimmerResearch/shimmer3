@@ -174,7 +174,6 @@ enum BT_SET_COMMAND_STAGES
     UPDATE_STAT_STR_PREFIX_AND_SUFFIX,
     UPDATE_BAUD_RATE_1,
     UPDATE_BAUD_RATE_2,
-    UPDATE_BAUD_RATE_3,
     RN42_REENTER_CMD_MODE,
     REBOOT,
     RN4678_REENTER_CMD_MODE,
@@ -329,19 +328,13 @@ void writeCommand(char *cmd, char *response);
 void writeCommandWithCmdLen(char *cmd, uint8_t cmdLen, char *response);
 void runSetCommands(void);
 void runMasterCommands(void);
-void runSetBaudRate(void);
 void sendBaudRateUpdateToBtModule(void);
-uint8_t handlePostBaudRateChange(void);
 
 void writeCommandBufAndExpectAok(void);
 void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen);
 void btCmdModeStartAfterRn4xTempBaudChange(void);
 void btCmdModeStart(void);
 void btCmdModeStop(void);
-
-//set new baud rate. This change is effective immediately.
-//For the RN42, this change is only temporary. Reverts to previously configured rate after reset.
-void BT_changeBaudRateInBtModule(uint8_t baudRate);
 
 void setBtBaudRateToUse(uint8_t baudRate);
 

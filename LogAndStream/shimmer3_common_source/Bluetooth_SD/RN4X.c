@@ -92,7 +92,7 @@ rn42TxPowerPostAug2012_et rn42TxPowerPostAug2012;
 uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
-uint8_t bt_setbaudrate_step, bt_setbaudrate_start, useSpecificAdvertisingName;
+uint8_t bt_setbaudrate_step, useSpecificAdvertisingName;
 uint8_t btBaudRateToUse, charsReceived;
 btOperatingMode radioMode;
 
@@ -1135,21 +1135,33 @@ void runSetCommands(void)
             bt_setcommands_step++;
             if (updateBaudDuringBoot)
             {
-                if (handlePostBaudRateChange())
-                {
-                    return;
-                }
-            }
-        }
-
-        if (bt_setcommands_step == UPDATE_BAUD_RATE_3)
-        {
-            bt_setcommands_step++;
-            if (updateBaudDuringBoot)
-            {
+                BT_setUpdateBaudDuringBoot(0U);
                 // change MSP430 UART to use new baud rate
                 setupUART(btBaudRateToUse);
-                BT_setUpdateBaudDuringBoot(0U);
+                if (isBtDeviceRn41orRN42())
+                {
+                    /* RN42 automatically exists command mode after the
+                     * temporary baud rate is updated. */
+                    setCommandModeActive(0);
+                }
+                else
+                {
+                    /* BT module rebooted here so no need to do it again */
+                    setRebootRequired(0);
+
+                    // reset RN4678 to activate new baud rate
+                    setBtModuleReset(1);
+                    _delay_cycles(96000); // 4ms
+                    // take RN4678 out of reset
+                    setBtModuleReset(0);
+
+                    /* Set DMA to listen for %REBOOT% after power cycle */
+                    BT_setWaitForInitialBoot(1);
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitingForResponse(BT_STAT_STR_LEN_RN4678_REBOOT);
+#endif
+                    return;
+                }
             }
         }
 
@@ -1376,73 +1388,6 @@ void runMasterCommands(void)
     return;
 }
 
-void runSetBaudRate(void)
-{
-    if (!bt_setbaudrate_start)
-    {
-        BT_rst_MessageProgress();
-        command_received = 1;
-        bt_setbaudrate_start = 1;
-#if BT_DMA_USED_FOR_RX
-        DMA2AndCtsDisable();
-#endif
-    }
-    if (command_received)
-    {
-        command_received = 0;
-        if (bt_setbaudrate_step == 0)
-        {
-            bt_setbaudrate_step++;
-            if (!isRnCommandModeActive())
-            {
-                btCmdModeStart();
-#if BT_CTS_CONTROL_ENABLED
-                setIsBtClearToSend(1);
-#endif
-                return; //wait until response is received
-            }
-        }
-        // Connect
-        if (bt_setbaudrate_step == 1)
-        {
-            bt_setbaudrate_step++;
-            sendBaudRateUpdateToBtModule();
-            return;
-        }
-
-        if ((bt_setbaudrate_step == 2))
-        {
-            bt_setbaudrate_step++;
-            if (handlePostBaudRateChange())
-            {
-                return;
-            }
-        }
-
-        if ((bt_setbaudrate_step == 3))
-        {
-            bt_setbaudrate_step = 0;
-            bt_setbaudrate_start = 0;
-
-            // change MSP430 UART to use new baud rate
-            setupUART(btBaudRateToUse);
-
-            if (baudRateChange_cb)
-            {
-                baudRateChange_cb();
-            }
-        }
-
-#if BT_DMA_USED_FOR_RX
-        /* Charge up the DMA again to be able to read status strings from BT
-         * module. If status strings are disabled, this is done when the
-         * connection status pin interrupt is triggered. */
-        setDmaWaitingForResponseIfStatusStrEnabled();
-#endif
-    }
-    return;
-}
-
 void sendBaudRateUpdateToBtModule(void)
 {
     if (isBtDeviceRn41orRN42())
@@ -1574,35 +1519,6 @@ void sendBaudRateUpdateToBtModule(void)
     }
 }
 
-uint8_t handlePostBaudRateChange(void)
-{
-    uint8_t waitForResponse = 0;
-
-    if (isBtDeviceRn41orRN42())
-    {
-        /* RN42 automatically exists command mode after the temporary
-         * baud rate is updated. */
-        setCommandModeActive(0);
-    }
-    else
-    {
-        // reset RN4678 to activate new baud rate
-        setBtModuleReset(1);
-        _delay_cycles(96000); // 4ms
-        // take RN4678 out of reset
-        BT_setWaitForInitialBoot(1);
-
-#if BT_DMA_USED_FOR_RX
-        setDmaWaitingForResponse(BT_STAT_STR_LEN_RN4678_REBOOT);
-#endif
-
-        setBtModuleReset(0);
-
-        waitForResponse = 1U;
-    }
-    return waitForResponse;
-}
-
 void writeCommandBufAndExpectAok(void)
 {
     writeCommandBufAndExpectAokWithCmdLen(strlen(commandbuf));
@@ -1648,15 +1564,6 @@ void btCmdModeStop(void)
 #endif
 }
 
-void BT_changeBaudRateInBtModule(uint8_t baudRate)
-{
-    if (baudRate <= BAUD_1000000)
-    {
-        btBaudRateToUse = baudRate;
-        runSetBaudRate();
-    }
-}
-
 void setBtBaudRateToUse(uint8_t baudRate)
 {
     if (baudRate <= BAUD_1000000)
@@ -1687,13 +1594,11 @@ void BT_setGoodCommand(void)
         runSetCommands();
     if (bt_runmastercommands_start)
         runMasterCommands();
-    if (bt_setbaudrate_start)
-        runSetBaudRate();
 }
 
 uint8_t areBtSetupCommandsRunning(void)
 {
-    return (bt_setbaudrate_start || bt_setcommands_start || bt_runmastercommands_start);
+    return (bt_setcommands_start || bt_runmastercommands_start);
 }
 
 void sendNextCharIfNotInProgress(void)
@@ -1748,7 +1653,6 @@ void BT_init(void)
     txie_reg = 0;
     command_received = 0;
     bt_setbaudrate_step = 0;
-    bt_setbaudrate_start = 0;
     bt_getmac_step = 0;
     bt_getmac_start = 0;
     bt_setcommands_start = 0;
@@ -1814,13 +1718,17 @@ void BT_init(void)
 //  BT_setPagingTime("0080"); // 80ms
     BT_setPagingTime("0100"); // 160ms
 
-#if (BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
-    /* 0 = Dual mode */
-    BT_setRn4678BtMode("0");
-#else
-    /* 2 = Bluetooth Classic only */
-    BT_setRn4678BtMode("2");
-#endif
+    if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
+            || isBtModuleRunningInSyncMode())
+    {
+        /* 2 = Bluetooth Classic only */
+        BT_setRn4678BtMode("2");
+    }
+    else
+    {
+        /* 0 = Dual mode */
+        BT_setRn4678BtMode("0");
+    }
 
     // Enable fast mode with HW flow control enabled
     BT_setRn4678FastMode("9000");
@@ -2268,7 +2176,6 @@ void BT_rst_MessageProgress(void)
 
     command_received = 0;
     bt_setbaudrate_step = 0;
-    bt_setbaudrate_start = 0;
     bt_setcommands_step = 0;
     bt_setcommands_start = 0;
     bt_runmastercommands_step = 0;
@@ -2735,7 +2642,7 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
 
 uint8_t getDefaultBaudForBtVersion(void)
 {
-    if(isBtModuleRunningInSyncMode())
+    if (isBtModuleRunningInSyncMode())
     {
         /* SDLog sync has significant difficulty using higher bauds for RN4678 BT modules
          * while trying to SD log and sync at the same time due to missing status
