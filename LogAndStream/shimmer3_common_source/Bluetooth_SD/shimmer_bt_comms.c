@@ -96,7 +96,7 @@ uint8_t Dma2ConversionDone(void)
                     && btRxBuff[2] == 'D')
             {
                 BT_setWaitForStartCmd(0);
-                setCommandModeActive(1U);
+                setRnCommandModeActive(1U);
                 memset(btRxBuff, 0, len);
                 BT_setGoodCommand();
             }
@@ -1136,7 +1136,7 @@ void processStartRnCmdResponse(void)
         isRn4678CmdDetectedOnBoot = 1U;
     }
 
-    setCommandModeActive(1U);
+    setRnCommandModeActive(1U);
     clearBtCmdTxRxBuffsAndProceed();
 }
 
@@ -1657,7 +1657,7 @@ uint8_t processRnCmdResponse(void)
             && unwrappedResponse[1]=='N'
             && unwrappedResponse[2]=='D')
     {
-        setCommandModeActive(0U);
+        setRnCommandModeActive(0U);
         responseParsed = 1;
         cmdExpectedAfterEol = 0;
     }

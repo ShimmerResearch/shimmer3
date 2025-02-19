@@ -1133,28 +1133,33 @@ void runSetCommands(void)
         if (bt_setcommands_step == UPDATE_BAUD_RATE_2)
         {
             bt_setcommands_step++;
+            if (updateBaudDuringBoot && isBtDeviceRn4678())
+            {
+                /* BT module rebooted here so no need to do it again */
+                setRebootRequired(0);
+                sprintf(commandbuf, "R,1\r");
+                writeCommand(commandbuf, "Rebooting\r\n");
+                return;
+            }
+        }
+
+        if (bt_setcommands_step == UPDATE_BAUD_RATE_3)
+        {
+            bt_setcommands_step++;
             if (updateBaudDuringBoot)
             {
                 BT_setUpdateBaudDuringBoot(0U);
+
                 // change MSP430 UART to use new baud rate
                 setupUART(btBaudRateToUse);
-                if (isBtDeviceRn41orRN42())
-                {
-                    /* RN42 automatically exists command mode after the
-                     * temporary baud rate is updated. */
-                    setCommandModeActive(0);
-                }
-                else
-                {
-                    /* BT module rebooted here so no need to do it again */
-                    setRebootRequired(0);
 
-                    // reset RN4678 to activate new baud rate
-                    setBtModuleReset(1);
-                    _delay_cycles(96000); // 4ms
-                    // take RN4678 out of reset
-                    setBtModuleReset(0);
+                /* RN42 automatically exists command mode after the
+                 * temporary baud rate is updated and we're rebooting RN4678 so
+                 * it CMD mode needs to be entered again. */
+                setRnCommandModeActive(0);
 
+                if (isBtDeviceRn4678())
+                {
                     /* Set DMA to listen for %REBOOT% after power cycle */
                     BT_setWaitForInitialBoot(1);
 #if BT_DMA_USED_FOR_RX
@@ -1171,10 +1176,10 @@ void runSetCommands(void)
          * required if any set commands have been called up to this point in the
          * boot sequence). Therefore we must reenter command mode for the RN4X
          * here before calling a reboot. */
-        if (bt_setcommands_step == RN42_REENTER_CMD_MODE)
+        if (bt_setcommands_step == REENTER_CMD_MODE)
         {
             bt_setcommands_step++;
-            if (isBtDeviceRn41orRN42() && btRebootRequired && !isRnCommandModeActive())
+            if (!isRnCommandModeActive())
             {
                 /* Experimentally found that a delay is needed after the baud
                  * rate is changed before we can call the start command.
@@ -1209,7 +1214,7 @@ void runSetCommands(void)
                 {
                     writeCommand(commandbuf, "Rebooting\r\n%REBOOT%");
                 }
-                setCommandModeActive(0);
+                setRnCommandModeActive(0);
                 setRebootRequired(0);
                 return;
             }
@@ -1298,7 +1303,7 @@ void runSetCommands(void)
         {
             bt_setcommands_step = 0;
             bt_setcommands_start = 0;
-            setCommandModeActive(0);
+            setRnCommandModeActive(0);
 
             if (runSetCommands_cb)
             {
@@ -1679,7 +1684,7 @@ void BT_init(void)
     BT_rn4xDisableRemoteConfig(0);
     getVersion = 0;
     memset(receiveBuffer, 0, 8);
-    setCommandModeActive(0);
+    setRnCommandModeActive(0);
     // connect/disconnect commands
     deviceConn = 0;
     shimmerStatus.btConnected = 0;
@@ -2401,7 +2406,7 @@ void setBtModuleReset(uint8_t isResetHeld)
     if (isResetHeld)
     {
         P4OUT &= ~BIT4;
-        setCommandModeActive(0);
+        setRnCommandModeActive(0);
     }
     else
     {
@@ -2546,7 +2551,7 @@ uint8_t areBtStatusStringsEnabled(void)
     return btStatusStringsAreEnabled;
 }
 
-void setCommandModeActive(uint8_t state)
+void setRnCommandModeActive(uint8_t state)
 {
     command_mode_active = state;
 }

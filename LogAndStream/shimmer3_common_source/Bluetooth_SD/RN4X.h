@@ -174,7 +174,8 @@ enum BT_SET_COMMAND_STAGES
     UPDATE_STAT_STR_PREFIX_AND_SUFFIX,
     UPDATE_BAUD_RATE_1,
     UPDATE_BAUD_RATE_2,
-    RN42_REENTER_CMD_MODE,
+    UPDATE_BAUD_RATE_3,
+    REENTER_CMD_MODE,
     REBOOT,
     RN4678_REENTER_CMD_MODE,
     RN4678_SET_BLE_LOCAL_ADV_NAME,
@@ -473,7 +474,7 @@ void setBtRxFullResponsePtr(char *ptr);
 uint8_t getBtClearTxBufFlag(void);
 void setBtClearTxBufFlag(uint8_t val);
 uint8_t areBtStatusStringsEnabled(void);
-void setCommandModeActive(uint8_t state);
+void setRnCommandModeActive(uint8_t state);
 uint8_t isRnCommandModeActive(void);
 char* getTxCmdBufPtr(void);
 void clearBtCmdBuf(void);
