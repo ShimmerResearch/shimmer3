@@ -782,8 +782,6 @@ void Init(void)
     shimmerStatus.initialising = 0;
     shimmerStatus.configuring = 0;
 
-    checkBtModeConfig();
-
     setBootStage(BOOT_STAGE_END);
 }
 
@@ -972,33 +970,28 @@ void checkBtModeConfig(void)
     {
         shimmerStatus.btSupportEnabled =
                 (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_BLUETOOTH_DISABLE) ? 0 : 1;
+
         // Don't allow sync to be enabled if BT is disabled.
-        if (shimmerStatus.btSupportEnabled)
-        {
-            shimmerStatus.sdSyncEnabled =
-                    (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC) ? 1 : 0;
-        }
-        else
-        {
-            shimmerStatus.sdSyncEnabled = 0;
-        }
+        shimmerStatus.sdSyncEnabled =
+                (shimmerStatus.btSupportEnabled
+                        && (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)) ?
+                        1 : 0;
 
-        if (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode())
+        /* Turn off BT if it has been disabled but it's still powered on. Also
+         * turn off if BT module is not in the right configuration for SD sync.
+         * Leave the SD sync code to turn on/off BT later when required. */
+        if ((!shimmerStatus.btSupportEnabled && shimmerStatus.btPoweredOn)
+                || (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode()))
         {
             BtStop(0);
-            /* Experimentally it was found that a delay is needed after stopping
-             * BT before it's started again */
-            _delay_cycles(2400000); // 100ms
         }
 
-        if (shimmerStatus.btSupportEnabled && !shimmerStatus.btPoweredOn)
+        /* Turn on BT if normal LogAndStream mode is turned on */
+        if (shimmerStatus.btSupportEnabled
+                && !shimmerStatus.sdSyncEnabled
+                && !shimmerStatus.btPoweredOn)
         {
-//            BtStart();
             InitialiseBtAfterBoot();
-        }
-        if (!shimmerStatus.btSupportEnabled && shimmerStatus.btPoweredOn)
-        {
-            BtStop(0);
         }
     }
 }
@@ -6995,7 +6988,6 @@ void SdInfoSync()
     ChangeBtBaudRateFunc();
 #endif
     CheckOnDefault();
-    checkBtModeConfig();
 }
 
 #if BT_ENABLE_BAUD_RATE_CHANGE
@@ -7045,6 +7037,7 @@ void ReadSdConfiguration(void)
     newDirFlag = 1;
     SdPowerOn();
     ParseConfig();
+    checkBtModeConfig();
 }
 void SdPowerOff(void)
 {
@@ -7087,6 +7080,7 @@ void IniReadInfoMem()
     Config2SdHead();
     Infomem2Names();
 //return 0;
+    checkBtModeConfig();
 }
 
 void RwcCheck()
