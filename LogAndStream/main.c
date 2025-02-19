@@ -986,6 +986,9 @@ void checkBtModeConfig(void)
         if (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode())
         {
             BtStop(0);
+            /* Experimentally it was found that a delay is needed after stopping
+             * BT before it's started again */
+            _delay_cycles(2400000); // 100ms
         }
 
         if (shimmerStatus.btSupportEnabled && !shimmerStatus.btPoweredOn)

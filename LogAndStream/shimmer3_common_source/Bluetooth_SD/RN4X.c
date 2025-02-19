@@ -1548,6 +1548,13 @@ void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen)
 void btCmdModeStartAfterRn4xTempBaudChange(void)
 {
     msp430_clock_disable();
+
+    /* DMA was locked onto waiting for 1 byte (as set by default at the end of
+     * Dma2ConversionDone) whereas we need it to be 5 bytes here. Simplest way
+     * that makes it work is to disable the DMA before changing the number of
+     * bytes. */
+    DMA2_disable();
+
     btCmdModeStart();
 }
 
