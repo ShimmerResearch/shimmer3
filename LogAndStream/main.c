@@ -4012,7 +4012,7 @@ void SendResponse(void)
             ReadBatt();
             *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
             *(resPacket + packet_length++) = VBATT_RESPONSE;
-            memcpy((resPacket + packet_length), batteryStatus.battStatusRaw.rawBytes[0], 3);
+            memcpy((resPacket + packet_length), &batteryStatus.battStatusRaw.rawBytes[0], 3);
             packet_length += 3;
             btVbattResponse = 0;
         }
