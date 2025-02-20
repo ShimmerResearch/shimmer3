@@ -2067,6 +2067,9 @@ void HandleBtRfCommStateChange(bool isOpen)
         /* Revert to default state if changed */
         useAckPrefixForInstreamResponses = 1U;
 
+        /* Check BT module configuration after disconnection in case
+         * sensor configuration (i.e., BT on vs. BT off vs. SD Sync) was changed
+         *  during the last connection. */
         checkBtModeConfig();
     }
 
@@ -7037,6 +7040,10 @@ void ReadSdConfiguration(void)
     newDirFlag = 1;
     SdPowerOn();
     ParseConfig();
+
+    /* Check BT module configuration after sensor configuration read from SD
+     * card to see if it is in the correct state (i.e., BT on vs. BT off vs. SD
+     * Sync) */
     checkBtModeConfig();
 }
 void SdPowerOff(void)
@@ -7079,7 +7086,10 @@ void IniReadInfoMem()
     }
     Config2SdHead();
     Infomem2Names();
-//return 0;
+
+    /* Check BT module configuration after sensor configuration read from
+     * infomem to see if it is in the correct state (i.e., BT on vs. BT off vs.
+     * SD Sync) */
     checkBtModeConfig();
 }
 
