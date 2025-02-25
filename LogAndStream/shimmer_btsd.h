@@ -46,7 +46,7 @@
 #ifndef SHIMMER_BTSD_H
 #define SHIMMER_BTSD_H
 
-#include "shimmer3_common_source/Bluetooth_SD/RN4X.h"
+#include <stdint.h>
 
 //these are defined in the Makefile for BtStream (TinyOS)
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
@@ -59,7 +59,7 @@
 #define FW_VER_MAJOR          0     //Major version number: 0-65535
 #define FW_VER_MINOR          22    //Minor version number: 0-255
 #endif
-#define FW_VER_REL            9     //internal version number: 0-255
+#define FW_VER_REL            11     //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE    (1)
@@ -96,8 +96,6 @@ typedef uint8_t error_t;
 #define SENSOR_BMPX80_PRESSURE         0x04
 
 
-#define MAX_COMMAND_ARG_SIZE     131   //maximum number of arguments for any command sent
-                                       //(daughter card mem write)
 //#define RESPONSE_PACKET_SIZE     131   //biggest possibly required  (daughter card mem read + 1 byte for ack)
 #define MAX_NUM_CHANNELS         45    //3xanalogAccel + 3xdigiGyro + 3xdigiMag +
                                        //3xLSM303DLHCAccel + 3xMPU9150Accel + 3xMPU9150MAG +
@@ -466,7 +464,8 @@ typedef uint8_t error_t;
 #define SDH_SDERROR_EN                 0x01
 #define SDH_IAMMASTER                  0x02
 #define SDH_TIME_SYNC                  0x04
-#define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+//#define SDH_TIME_STAMP                 0x08// not used now, reserved as 1
+#define SDH_BLUETOOTH_DISABLE          0x08
 #define SDH_RWCERROR_EN                0x10// when 0, won't flash error. when 1, will flash error if RTC isn't set (RTC_offset == 0)
 #define SDH_USER_BUTTON_ENABLE         0x20
 #define SDH_SET_PMUX                   0x40// not used now, reserved as 0
@@ -533,15 +532,5 @@ typedef enum
    TASK_FACTORY_TEST        = (0x00000001UL << 16U)
 } TASK_FLAGS;
 #define TASK_SIZE    32
-
-typedef enum
-{
-    BOOT_STAGE_START,
-    BOOT_STAGE_I2C,
-    BOOT_STAGE_BLUETOOTH,
-    BOOT_STAGE_BLUETOOTH_FAILURE,
-    BOOT_STAGE_CONFIGURATION,
-    BOOT_STAGE_END
-} boot_stage_t;
 
 #endif

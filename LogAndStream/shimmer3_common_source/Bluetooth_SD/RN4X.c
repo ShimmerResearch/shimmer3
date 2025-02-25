@@ -64,6 +64,8 @@
 #include "../5xx_HAL/hal_Board.h"
 #include "../msp430_clock/msp430_clock.h"
 
+#include "../shimmer_externs.h"
+
 uint8_t starting;
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
@@ -97,7 +99,7 @@ btOperatingMode radioMode;
 uint8_t discoverable, authenticate, encrypt, 
         resetDefaultsRequest, setSvcClassRequest, setDevClassRequest,
         setSvcNameRequest, getMacAddress, getVersion;
-volatile uint8_t waitForInitialBoot, btConnected, updateBaudDuringBoot;
+volatile uint8_t waitForInitialBoot, updateBaudDuringBoot;
 #if BT_DMA_USED_FOR_RX
 volatile uint8_t waitForReturnNewLine, waitForMacAddress, waitForBtFwVersion, waitForStartCmd;
 #endif
@@ -637,9 +639,6 @@ void runSetCommands(void)
             {
                 doesBtConfigNeedUpdating = 0;
                 BT_useSpecificAdvertisingName(0U);
-
-                // NOTE: LogAndStream uses "S-," command here to set the BT friendly name. "SN," sets the device name.
-                /* Not sure what the difference is and whether this distinction is needed. "S-" looks like it might be a legacy command. */
 #if FW_IS_LOGANDSTREAM
                 sprintf(commandbuf, "S-,%s\r", advertisingName);
 #else
@@ -925,111 +924,125 @@ void runSetCommands(void)
                 bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
             }
 #else
-            /* BLE commands for RN4678 functionality */
-            /* https://ww1.microchip.com/downloads/en/DeviceDoc/RN4678-Bluetooth-Dual-Mode-Module-Command-Reference-User-Guide-DS50002506C.pdf */
-            if (bt_setcommands_step == RN4678_GET_MODEL_STRING)
+            /* Skipping BLE setup for the moment if sync is enabled to reduce
+             * initialisation time while sensing */
+            if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
+                    || shimmerStatus.sdSyncEnabled)
             {
-                bt_setcommands_step++;
-
-#if BT_DMA_USED_FOR_RX
-                setDmaWaitForReturnNewLine();
-#endif
-                writeCommandNoRsp("GDM\r");
-                return;
-            }
-
-            if (bt_setcommands_step == RN4678_SET_MODEL_STRING)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                parseRnGetResponse("DM", btRxFullResponse);
-#endif
-                // Sets the model string in BLE Device Information Service.
-                if(doesBtConfigNeedUpdating)
+                /* Skip to next stage */
+                if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
                 {
-                    doesBtConfigNeedUpdating = 0;
-                    sprintf(commandbuf, "SDM,%s\r", daughtCardIdStrPtrForBle);
-                    writeCommandBufAndExpectAok();
-                    return;
+                    bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
                 }
             }
-
-            if (bt_setcommands_step == RN4678_GET_MANUFACTURER_STRING)
+            else
             {
-                bt_setcommands_step++;
-
-#if BT_DMA_USED_FOR_RX
-                setDmaWaitForReturnNewLine();
-#endif
-                writeCommandNoRsp("GDN\r");
-                return;
-            }
-
-            if (bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                parseRnGetResponse("DN", btRxFullResponse);
-#endif
-                //Sets the manufacturer string in BLE Device Information service
-                if(doesBtConfigNeedUpdating)
+                /* BLE commands for RN4678 functionality */
+                /* https://ww1.microchip.com/downloads/en/DeviceDoc/RN4678-Bluetooth-Dual-Mode-Module-Command-Reference-User-Guide-DS50002506C.pdf */
+                if (bt_setcommands_step == RN4678_GET_MODEL_STRING)
                 {
-                    doesBtConfigNeedUpdating = 0;
-                    sprintf(commandbuf, "SDN,%s\r", rn4678BleManufacturer);
-                    writeCommandBufAndExpectAok();
+                    bt_setcommands_step++;
+
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitForReturnNewLine();
+#endif
+                    writeCommandNoRsp("GDM\r");
                     return;
                 }
-            }
 
-            if (bt_setcommands_step == RN4678_GET_SOFTWARE_REVISION_STRING)
-            {
-                bt_setcommands_step++;
-
-#if BT_DMA_USED_FOR_RX
-                setDmaWaitForReturnNewLine();
-#endif
-                writeCommandNoRsp("GDR\r");
-                return;
-            }
-
-            if (bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                parseRnGetResponse("DR", btRxFullResponse);
-#endif
-                if (doesBtConfigNeedUpdating)
+                if (bt_setcommands_step == RN4678_SET_MODEL_STRING)
                 {
-                    // Sets the software revision of the firmware. This can accept a maximum of 4 characters
-                    doesBtConfigNeedUpdating = 0;
-                    sprintf(commandbuf, "SDR,%s\r", rn4678BleSwRevision);
-                    writeCommandBufAndExpectAok();
+                    bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+                    parseRnGetResponse("DM", btRxFullResponse);
+#endif
+                    // Sets the model string in BLE Device Information Service.
+                    if(doesBtConfigNeedUpdating)
+                    {
+                        doesBtConfigNeedUpdating = 0;
+                        sprintf(commandbuf, "SDM,%s\r", daughtCardIdStrPtrForBle);
+                        writeCommandBufAndExpectAok();
+                        return;
+                    }
+                }
+
+                if (bt_setcommands_step == RN4678_GET_MANUFACTURER_STRING)
+                {
+                    bt_setcommands_step++;
+
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitForReturnNewLine();
+#endif
+                    writeCommandNoRsp("GDN\r");
                     return;
                 }
-            }
 
-            if (bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                setDmaWaitForReturnNewLine();
-#endif
-                writeCommandNoRsp("GT\r");
-                return;
-            }
-
-            if (bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
-            {
-                bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
-                parseRnGetResponse("T", btRxFullResponse);
-#endif
-                if (doesBtConfigNeedUpdating)
+                if (bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
                 {
-                    doesBtConfigNeedUpdating = 0;
-                    sprintf(commandbuf, "ST,%s\r", rn4678BleConnectionParameters);
-                    writeCommandBufAndExpectAok();
+                    bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+                    parseRnGetResponse("DN", btRxFullResponse);
+#endif
+                    //Sets the manufacturer string in BLE Device Information service
+                    if(doesBtConfigNeedUpdating)
+                    {
+                        doesBtConfigNeedUpdating = 0;
+                        sprintf(commandbuf, "SDN,%s\r", rn4678BleManufacturer);
+                        writeCommandBufAndExpectAok();
+                        return;
+                    }
+                }
+
+                if (bt_setcommands_step == RN4678_GET_SOFTWARE_REVISION_STRING)
+                {
+                    bt_setcommands_step++;
+
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitForReturnNewLine();
+#endif
+                    writeCommandNoRsp("GDR\r");
                     return;
+                }
+
+                if (bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
+                {
+                    bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+                    parseRnGetResponse("DR", btRxFullResponse);
+#endif
+                    if (doesBtConfigNeedUpdating)
+                    {
+                        // Sets the software revision of the firmware. This can accept a maximum of 4 characters
+                        doesBtConfigNeedUpdating = 0;
+                        sprintf(commandbuf, "SDR,%s\r", rn4678BleSwRevision);
+                        writeCommandBufAndExpectAok();
+                        return;
+                    }
+                }
+
+                if (bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
+                {
+                    bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitForReturnNewLine();
+#endif
+                    writeCommandNoRsp("GT\r");
+                    return;
+                }
+
+                if (bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
+                {
+                    bt_setcommands_step++;
+#if BT_DMA_USED_FOR_RX
+                    parseRnGetResponse("T", btRxFullResponse);
+#endif
+                    if (doesBtConfigNeedUpdating)
+                    {
+                        doesBtConfigNeedUpdating = 0;
+                        sprintf(commandbuf, "ST,%s\r", rn4678BleConnectionParameters);
+                        writeCommandBufAndExpectAok();
+                        return;
+                    }
                 }
             }
 #endif
@@ -1252,13 +1265,6 @@ void runSetCommands(void)
 //                return;
 //            }
         }
-        else
-        {
-            if (bt_setcommands_step == REBOOT + 1)
-            {
-                bt_setcommands_step = CMD_MODE_STOP;
-            }
-        }
 #endif
 
         if (bt_setcommands_step == CMD_MODE_STOP)
@@ -1324,7 +1330,7 @@ void runMasterCommands(void)
         if (bt_runmastercommands_step == 1)
         {
             bt_runmastercommands_step++;
-            if (deviceConn && (!isBtConnected()))
+            if (deviceConn && (!shimmerStatus.btConnected))
             {   //Connect
                 sprintf(commandbuf, "C,%s\r", targetBt);
                 if (isBtDeviceRn41orRN42())
@@ -1337,7 +1343,7 @@ void runMasterCommands(void)
                     writeCommand(commandbuf, "Trying\r\n");
                 }
             }
-            else if ((!deviceConn) && (isBtConnected()))
+            else if ((!deviceConn) && (shimmerStatus.btConnected))
             {  //Disconnect
                 sprintf(commandbuf, "K,\r");
                 writeCommand(commandbuf, "KILL\r\n");
@@ -1769,7 +1775,7 @@ void BT_init(void)
     setCommandModeActive(0);
     // connect/disconnect commands
     deviceConn = 0;
-    setBtIsConnected(0);
+    shimmerStatus.btConnected = 0;
     BT_useSpecificAdvertisingName(0U);
 
     clearExpectedResponseBuf();
@@ -2228,16 +2234,6 @@ void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data))
     dataAvailableFuncPtr = receiveFuncPtr;
 }
 
-void setBtIsConnected(uint8_t value)
-{
-    btConnected = value;
-}
-
-uint8_t isBtConnected(void)
-{
-    return btConnected;
-}
-
 void BT_rtsInterrupt(uint8_t value)
 {
     txOverflow = value;
@@ -2470,9 +2466,8 @@ void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled)
         updateBtConnectionStatusInterruptDirection();
         P1IFG &= ~BIT0;     // clear flag
 #if !FW_IS_LOGANDSTREAM
-        P1IE &= ~BIT0;
-#endif
         P1IE |= BIT0;       // enable interrupt
+#endif
     }
     else
     {

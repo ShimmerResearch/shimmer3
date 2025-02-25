@@ -429,13 +429,6 @@ void BT_resetDefaults(void);
 //otherwise return 0
 void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data));
 
-//this function needs to be called from within the BT_PIO ISR
-//in order to inform the RN42 driver about the state change
-//value needs to be 1 if interrupt was low to high else 0
-void setBtIsConnected(uint8_t value);
-
-uint8_t isBtConnected(void);
-
 //this function needs to be called from within the BT_RTS ISR
 //in order to inform the RN42 driver about the state change
 //value needs to be 1 if interrupt was low to high else 0

@@ -13,6 +13,7 @@
 
 #include "msp430.h"
 #include "../shimmer_sd_include.h"
+#include "../shimmer_externs.h"
 
 factory_test_target_t factoryTestTarget;
 factory_test_t factoryTestToRun;
@@ -22,7 +23,6 @@ char buffer[100];
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 extern void ReadWriteSDTest(void);
-extern bool SD_ERROR;
 
 void run_factory_test(void)
 {
@@ -153,7 +153,7 @@ void sd_card_test(void)
         {
             ReadWriteSDTest();
             sprintf(buffer, " - %s: SD card read/write test\r\n",
-                    SD_ERROR ? "FAIL" : "PASS");
+                    shimmerStatus.sdBadFile ? "FAIL" : "PASS");
             send_test_report(buffer);
         }
     }

@@ -108,7 +108,6 @@ uint8_t RcFindSmallest(void);
 void handleSyncTimerTrigger(void);
 void handleSyncTimerTriggerCenter(void);
 void handleSyncTimerTriggerNode(void);
-void startBtForSync(void);
 
 void CommTimerStart(void);
 void CommTimerStop(void);
