@@ -67,7 +67,8 @@
 #include "shimmer3_common_source/shimmer_sd_include.h"
 #include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
-#include "shimmer3_common_source/shimmer_globals.h"
+#include "log_and_stream_globals.h"
+#include "battery.h"
 
 void Init(void);
 void resetBtResponseBools(void);
@@ -174,6 +175,7 @@ void ChangeBtBaudRateFunc();
 inline uint8_t Skip65ms();
 void SetStartSensing();
 void setStopSensing(uint8_t state);
+void saveBatteryVoltageAndUpdateStatus(void);
 void ReadWriteSDTest(void);
 void SamplingClkAssignment(uint8_t *storedConfigPtr);
 uint16_t getBmpX80SamplingTimeInTicks(void);
@@ -250,8 +252,9 @@ volatile uint8_t fileBad, fileBadCnt;
 static FRESULT ff_result;
 
 /*battery evaluation vars*/
+uint8_t battVal[3];
 uint8_t battWait;
-uint32_t battLastTs64, battInterval;
+uint32_t battLastTs64;
 uint8_t setUndock, onUserButton, onSingleTouch, onDefault,
         preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp,
         sampleBmpTempFreq, preSampleMpuMag, mpuMagFreq, mpuMagCount,
@@ -291,8 +294,7 @@ uint8_t streamDataInProc;
 char *dierecord;
 
 /* variables used for delayed undock-start */
-bool battCritical;
-uint8_t undockEvent, wr2sd, battCriticalCount;
+uint8_t undockEvent, wr2sd;
 uint64_t time_newUnDockEvent;
 
 /* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
@@ -543,7 +545,7 @@ void main(void)
         {
             TaskClear(TASK_STARTSENSING);
             shimmerStatus.configuring = 1;
-            if (!shimmerStatus.sensing && !battCritical)
+            if (!shimmerStatus.sensing && !batteryStatus.battCritical)
             {
                 if (newDirFlag && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
                 {
@@ -602,8 +604,8 @@ void Init(void)
     // previously configured port settings
 //     PM5CTL0 &= ~LOCKLPM5;
 
-    // Needs to be here before LED functions are called:
-    battCritical = FALSE;
+    // Need to reset battery critical alarm before LED functions are called:
+    batteryInit();
 
     Board_init();
 
@@ -694,7 +696,6 @@ void Init(void)
     wr2sd = 0;
     undockEvent = 0;
     time_newUnDockEvent = 0;
-    battCriticalCount = 0;
 
     /* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
     adsClockTied = 0;
@@ -857,7 +858,7 @@ void handleIfDockedStateOnBoot(void)
     if (P2IN & BIT3)
     {
 #endif
-        battInterval = BATT_INTERVAL_D;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
         P2IES |= BIT3;       //look for falling edge
         shimmerStatus.docked = 1;
         shimmerStatus.sdlogReady = 0;
@@ -868,7 +869,7 @@ void handleIfDockedStateOnBoot(void)
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         P2IES &= ~BIT3;      //look for rising edge
         shimmerStatus.docked = 0;
         P6OUT |= BIT0;       //   DETECT_N set to high
@@ -1134,7 +1135,7 @@ void InitialiseBt(void)
 
     /* Try the baud that's stored in the EEPROM firstly, if that fails try
      * 115200, 1000000 or 460800 and then all other bauds. If they all fail, soft-reset */
-    while (!shimmerStatus.btPoweredOn)
+    while (!shimmerStatus.btPowerOn)
     {
 #if BT_DMA_USED_FOR_RX
         _delay_cycles(2400000); // 100ms
@@ -2247,12 +2248,14 @@ __interrupt void Port2_ISR(void)
         //dock_detect_N
     case P2IV_P2IFG3:
         TaskSet(TASK_SETUP_DOCK);
+        /* Reset to battery "charging"/"checking" LED indication on docking change */
+        resetBatteryChargingStatus();
         if (!undockEvent)
         {
             if (!(P2IN & BIT3)) // undocked
             {
                 undockEvent = 1;
-                battCritical = FALSE;
+                setBattCritical(0);
                 time_newUnDockEvent = RTC_get64();
             }
             //see slaa513 for example using multiple time bases on a single timer module
@@ -2428,7 +2431,7 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-        if ((batt_td > battInterval))
+        if ((batt_td > getBatteryIntervalTicks()))
         {              //10 mins = 19660800
             if (!shimmerStatus.sensing && TaskSet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
@@ -2447,13 +2450,28 @@ __interrupt void TIMER0_B1_ISR(void)
                 Board_ledOff(LED_GREEN0 + LED_YELLOW);
                 Board_ledOn(LED_RED);
             }
+            else if (P2IN & BIT3) // Docked
+            {
+                Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
+                if (batteryStatus.battStatLedCharging != LED_ALL_OFF)
+                {
+                    if (batteryStatus.battStatLedFlash)
+                    {
+                        Board_ledToggle(batteryStatus.battStatLedCharging);
+                    }
+                    else
+                    {
+                        Board_ledOn(batteryStatus.battStatLedCharging);
+                    }
+                }
+            }
             else
             {
                 Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
-            }
-            if (P2IN & BIT3 || !blinkCnt50)
-            {
-                BattBlinkOn();
+                if (!blinkCnt50)
+                {
+                    BattBlinkOn();
+                }
             }
 
             // code for keeping LED_GREEN0 on when user button pressed
@@ -2624,7 +2642,7 @@ __interrupt void TIMER0_B1_ISR(void)
 
                     // good file - blue:
                     /* Toggle blue LED while a connection is established */
-                    if (shimmerStatus.btPoweredOn && shimmerStatus.btConnected)
+                    if (shimmerStatus.btPowerOn && shimmerStatus.btConnected)
                     {
                         Board_ledToggle(LED_BLUE);
                     }
@@ -2686,7 +2704,7 @@ __interrupt void TIMER0_B1_ISR(void)
 // BT start Timer
 void BtStartDone()
 {
-    shimmerStatus.btPoweredOn = 1;
+    shimmerStatus.btPowerOn = 1;
     if (!shimmerStatus.sensing)
     {
         shimmerStatus.configuring = 0;
@@ -2695,7 +2713,7 @@ void BtStartDone()
 
 void BtStart(void)
 {
-    if (!shimmerStatus.btPoweredOn)
+    if (!shimmerStatus.btPowerOn)
     {
         /* Long delays starting BT, need to disable WDT */
         if (!(WDTCTL & WDTHOLD))
@@ -2738,7 +2756,7 @@ void BtStop(uint8_t isCalledFromMain)
 
     updateBtConnectionStatusInterruptDirection();
     shimmerStatus.btConnected = 0;
-    shimmerStatus.btPoweredOn = 0;
+    shimmerStatus.btPowerOn = 0;
     BT_disable();
     BT_rst_MessageProgress();
 
@@ -2887,49 +2905,7 @@ uint8_t Dma0ConversionDone(void)
     {
         battWait = 0;
         ConfigureChannels();
-
-        // was: 0 - 2400 - 2550 - 4096
-        // now: 0 - 2400 - 2600 - 4096
-        if (shimmerStatus.battStat == BATT_MID)
-        {
-            if (*(uint16_t*) shimmerStatus.battVal < 2400)
-            {
-                shimmerStatus.battStat = BATT_LOW;
-            }
-            else if (*(uint16_t*) shimmerStatus.battVal < 2650)
-            {
-                shimmerStatus.battStat = BATT_MID;
-            }
-            else
-                shimmerStatus.battStat = BATT_HIGH;
-        }
-        else if (shimmerStatus.battStat == BATT_LOW)
-        {
-            if (*(uint16_t*) shimmerStatus.battVal < 2450)
-            {
-                shimmerStatus.battStat = BATT_LOW;
-            }
-            else if (*(uint16_t*) shimmerStatus.battVal < 2600)
-            {
-                shimmerStatus.battStat = BATT_MID;
-            }
-            else
-                shimmerStatus.battStat = BATT_HIGH;
-        }
-        else
-        {
-            if (*(uint16_t*) shimmerStatus.battVal < 2400)
-            {
-                shimmerStatus.battStat = BATT_LOW;
-            }
-            else if (*(uint16_t*) shimmerStatus.battVal < 2600)
-            {
-                shimmerStatus.battStat = BATT_MID;
-            }
-            else
-                shimmerStatus.battStat = BATT_HIGH;
-        }
-        shimmerStatus.battVal[2] = P2IN & 0xc0;
+        saveBatteryVoltageAndUpdateStatus();
     }
     else
     {
@@ -4066,7 +4042,7 @@ void SendResponse(void)
             ReadBatt();
             *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
             *(resPacket + packet_length++) = VBATT_RESPONSE;
-            memcpy((resPacket + packet_length), shimmerStatus.battVal, 3);
+            memcpy((resPacket + packet_length), &batteryStatus.battStatusRaw.rawBytes[0], 3);
             packet_length += 3;
             btVbattResponse = 0;
         }
@@ -4394,7 +4370,7 @@ void SendResponse(void)
         else if (blinkLedResponse)
         {
             *(resPacket + packet_length++) = CHARGE_STATUS_LED_RESPONSE;
-            *(resPacket + packet_length++) = shimmerStatus.battStat;
+            *(resPacket + packet_length++) = batteryStatus.battStat;
             blinkLedResponse = 0;
         }
         else if (bufferSizeResponse)
@@ -6914,8 +6890,9 @@ void SetupDock()
     shimmerStatus.configuring = 1;
     if (shimmerStatus.docked)
     {
-        battInterval = BATT_INTERVAL_D;
-        battCriticalCount = 0;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
+        resetBatteryCriticalCount();
+
         shimmerStatus.sdlogCmd = 0;
         shimmerStatus.sdlogReady = 0;
         newDirFlag = 1;
@@ -6931,7 +6908,7 @@ void SetupDock()
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         if (!shimmerStatus.sensing)
         {
             UART_deactivate();
@@ -8057,7 +8034,7 @@ void FindError(uint8_t err, uint8_t *name)
 
 void BattBlinkOn()
 {
-    switch (shimmerStatus.battStat)
+    switch (batteryStatus.battStat)
     {
     case BATT_HIGH:
         Board_ledOn(LED_GREEN0);
@@ -8145,7 +8122,7 @@ void SetBattDma()
     }
 
     // Writes a value to a 20-bit SFR register located at the given16/20-bit address
-    DMA0DA = (__SFR_FARPTR) (unsigned long) shimmerStatus.battVal;
+    DMA0DA = (__SFR_FARPTR) (unsigned long) battVal;
 
     DMA0_transferDoneFunction(&Dma0BatteryRead);
 
@@ -8329,64 +8306,29 @@ void ReadBatt(void)
     __bis_SR_register(LPM3_bits + GIE);            //ACLK remains active
     TaskSet(TASK_CFGCH);
 
-    uint16_t currentBattVal = *((uint16_t*) shimmerStatus.battVal);
-// was: 0 - 2400 - 2600 - 4096
-// now: 0 - 2568 - 2717 - 4096
-    if (shimmerStatus.battStat & BATT_MID)
-    {
-        if (currentBattVal < 2568)
-        {
-            shimmerStatus.battStat = BATT_LOW;
-        }
-        else if (currentBattVal < 2767)
-        {
-            shimmerStatus.battStat = BATT_MID;
-        }
-        else
-            shimmerStatus.battStat = BATT_HIGH;
-    }
-    else if (shimmerStatus.battStat & BATT_LOW)
-    {
-        if (currentBattVal < 2618)
-        {
-            shimmerStatus.battStat = BATT_LOW;
-        }
-        else if (currentBattVal < 2767)
-        {
-            shimmerStatus.battStat = BATT_MID;
-        }
-        else
-            shimmerStatus.battStat = BATT_HIGH;
-    }
-    else
-    {
-        if (currentBattVal < 2568)
-        {
-            shimmerStatus.battStat = BATT_LOW;
-        }
-        else if (currentBattVal < 2717)
-        {
-            shimmerStatus.battStat = BATT_MID;
-        }
-        else
-            shimmerStatus.battStat = BATT_HIGH;
-    }
-
-    shimmerStatus.battVal[2] = P2IN & 0xC0;
+    saveBatteryVoltageAndUpdateStatus();
 
     // 10% Battery cutoff point - v0.9.6 onwards
     if ((storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_BATT_CRITICAL_CUTOFF)
-            && (currentBattVal < BATT_CUTOFF_3_65VOLTS))
+            && (batteryStatus.battStatusRaw.adcBattVal < BATT_CUTOFF_3_65VOLTS))
     {
-        if (battCriticalCount++ > 2)
+        incrementBatteryCriticalCount();
+        if (checkIfBatteryCritical() && shimmerStatus.sensing)
         {
-            battCritical = TRUE;
-            if (shimmerStatus.sensing)
-            {
-                setStopSensing(1U);
-            }
+            setStopSensing(1U);
         }
     }
+}
+
+void saveBatteryVoltageAndUpdateStatus(void)
+{
+    uint16_t currentBattVal = *((uint16_t*) battVal);
+
+    //Multiplied by 2 due to voltage divider
+    uint16_t battValMV = (((uint32_t)currentBattVal * 3000) >> 12) * 2;
+
+    updateBatteryStatus(currentBattVal, battValMV, LM3658SD_STAT1 ? 1 : 0,
+                        LM3658SD_STAT2 ? 1 : 0);
 }
 
 void ReadWriteSDTest(void)

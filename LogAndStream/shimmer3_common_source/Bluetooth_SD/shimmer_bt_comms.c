@@ -18,7 +18,7 @@
 #include "../5xx_HAL/hal_board.h"
 #include "RN4X.h"
 
-#include "../shimmer_externs.h"
+#include "log_and_stream_externs.h"
 
 #if BT_DMA_USED_FOR_RX
 #include "../5xx_HAL/hal_DMA.h"

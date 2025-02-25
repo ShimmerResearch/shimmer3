@@ -478,13 +478,6 @@ typedef uint8_t error_t;
 #define SDBUFF_SIZE_MAX 4096 //4095  255
 #define SDBUFF_SIZE     512 //4095  512
 
-// BATTERY
-#define BATT_HIGH       0
-#define BATT_MID        1
-#define BATT_LOW        2
-#define BATT_INTERVAL   1966080  // 19660800 = 10min interval
-#define BATT_INTERVAL_D 65535
-
 #define MAX_NODES       20
 #define MAX_CHARS       13
 #define UINT32_LEN      11 // 10+1, where the last byte should be 0x00
