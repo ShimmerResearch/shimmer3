@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-/* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
-#define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
 #define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
 
@@ -177,7 +175,7 @@ enum BT_SET_COMMAND_STAGES
     UPDATE_BAUD_RATE_1,
     UPDATE_BAUD_RATE_2,
     UPDATE_BAUD_RATE_3,
-    RN42_REENTER_CMD_MODE,
+    REENTER_CMD_MODE,
     REBOOT,
     RN4678_REENTER_CMD_MODE,
     RN4678_SET_BLE_LOCAL_ADV_NAME,
@@ -331,19 +329,13 @@ void writeCommand(char *cmd, char *response);
 void writeCommandWithCmdLen(char *cmd, uint8_t cmdLen, char *response);
 void runSetCommands(void);
 void runMasterCommands(void);
-void runSetBaudRate(void);
 void sendBaudRateUpdateToBtModule(void);
-uint8_t handlePostBaudRateChange(void);
 
 void writeCommandBufAndExpectAok(void);
 void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen);
 void btCmdModeStartAfterRn4xTempBaudChange(void);
 void btCmdModeStart(void);
 void btCmdModeStop(void);
-
-//set new baud rate. This change is effective immediately.
-//For the RN42, this change is only temporary. Reverts to previously configured rate after reset.
-void BT_changeBaudRateInBtModule(uint8_t baudRate);
 
 void setBtBaudRateToUse(uint8_t baudRate);
 
@@ -482,7 +474,7 @@ void setBtRxFullResponsePtr(char *ptr);
 uint8_t getBtClearTxBufFlag(void);
 void setBtClearTxBufFlag(uint8_t val);
 uint8_t areBtStatusStringsEnabled(void);
-void setCommandModeActive(uint8_t state);
+void setRnCommandModeActive(uint8_t state);
 uint8_t isRnCommandModeActive(void);
 char* getTxCmdBufPtr(void);
 void clearBtCmdBuf(void);
@@ -516,6 +508,8 @@ void string2hexString(char* input, char* output);
 void bt_setMacId(uint8_t *buf);
 uint8_t* getMacIdStrPtr(void);
 uint8_t* getMacIdBytesPtr(void);
+void setBtModuleRunningInSyncMode(uint8_t mode);
+uint8_t isBtModuleRunningInSyncMode(void);
 #if !BT_DMA_USED_FOR_RX
 RingFifoRx_t *getRxFifoPtr(void);
 void readByteFromBtRxBuf(uint8_t *buf);

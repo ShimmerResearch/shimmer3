@@ -92,7 +92,7 @@ rn42TxPowerPostAug2012_et rn42TxPowerPostAug2012;
 uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
-uint8_t bt_setbaudrate_step, bt_setbaudrate_start, useSpecificAdvertisingName;
+uint8_t bt_setbaudrate_step, useSpecificAdvertisingName;
 uint8_t btBaudRateToUse, charsReceived;
 btOperatingMode radioMode;
 
@@ -116,6 +116,8 @@ uint8_t slowRate;
 rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
+
+uint8_t btModuleSyncModeEn;
 
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
@@ -639,11 +641,9 @@ void runSetCommands(void)
             {
                 doesBtConfigNeedUpdating = 0;
                 BT_useSpecificAdvertisingName(0U);
-#if FW_IS_LOGANDSTREAM
+                // LogAndStream used S-, SDLog used SN
                 sprintf(commandbuf, "S-,%s\r", advertisingName);
-#else
-                sprintf(commandbuf, "SN,%s\r", advertisingName);
-#endif
+//                sprintf(commandbuf, "SN,%s\r", advertisingName);
                 writeCommandBufAndExpectAok();
                 return;
             }
@@ -917,17 +917,10 @@ void runSetCommands(void)
                 }
             }
 
-#if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
-            /* Skip to next stage */
-            if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
-            {
-                bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
-            }
-#else
             /* Skipping BLE setup for the moment if sync is enabled to reduce
              * initialisation time while sensing */
             if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-                    || shimmerStatus.sdSyncEnabled)
+                    || isBtModuleRunningInSyncMode())
             {
                 /* Skip to next stage */
                 if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1045,7 +1038,6 @@ void runSetCommands(void)
                     }
                 }
             }
-#endif
         }
 
         /* Get current status string prefix and suffix */
@@ -1141,12 +1133,13 @@ void runSetCommands(void)
         if (bt_setcommands_step == UPDATE_BAUD_RATE_2)
         {
             bt_setcommands_step++;
-            if (updateBaudDuringBoot)
+            if (updateBaudDuringBoot && isBtDeviceRn4678())
             {
-                if (handlePostBaudRateChange())
-                {
-                    return;
-                }
+                /* BT module rebooted here so no need to do it again */
+                setRebootRequired(0);
+                sprintf(commandbuf, "R,1\r");
+                writeCommand(commandbuf, "Rebooting\r\n");
+                return;
             }
         }
 
@@ -1155,9 +1148,25 @@ void runSetCommands(void)
             bt_setcommands_step++;
             if (updateBaudDuringBoot)
             {
+                BT_setUpdateBaudDuringBoot(0U);
+
                 // change MSP430 UART to use new baud rate
                 setupUART(btBaudRateToUse);
-                BT_setUpdateBaudDuringBoot(0U);
+
+                /* RN42 automatically exists command mode after the
+                 * temporary baud rate is updated and we're rebooting RN4678 so
+                 * it CMD mode needs to be entered again. */
+                setRnCommandModeActive(0);
+
+                if (isBtDeviceRn4678())
+                {
+                    /* Set DMA to listen for %REBOOT% after power cycle */
+                    BT_setWaitForInitialBoot(1);
+#if BT_DMA_USED_FOR_RX
+                    setDmaWaitingForResponse(BT_STAT_STR_LEN_RN4678_REBOOT);
+#endif
+                    return;
+                }
             }
         }
 
@@ -1167,10 +1176,10 @@ void runSetCommands(void)
          * required if any set commands have been called up to this point in the
          * boot sequence). Therefore we must reenter command mode for the RN4X
          * here before calling a reboot. */
-        if (bt_setcommands_step == RN42_REENTER_CMD_MODE)
+        if (bt_setcommands_step == REENTER_CMD_MODE)
         {
             bt_setcommands_step++;
-            if (isBtDeviceRn41orRN42() && btRebootRequired && !isRnCommandModeActive())
+            if (!isRnCommandModeActive())
             {
                 /* Experimentally found that a delay is needed after the baud
                  * rate is changed before we can call the start command.
@@ -1205,67 +1214,78 @@ void runSetCommands(void)
                 {
                     writeCommand(commandbuf, "Rebooting\r\n%REBOOT%");
                 }
-                setCommandModeActive(0);
+                setRnCommandModeActive(0);
                 setRebootRequired(0);
                 return;
             }
         }
 
-#if !(FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
-        /* Skip to next stage */
-        if (bt_setcommands_step == REBOOT + 1)
+        if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
+                   || isBtModuleRunningInSyncMode())
         {
-            bt_setcommands_step = CMD_MODE_STOP;
-        }
-#else
-        /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
-        if (btFwVer == RN4678_V1_23_0)
-        {
-            if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
+            /* Skip to next stage */
+            if (bt_setcommands_step == REBOOT + 1)
             {
-                bt_setcommands_step++;
-                if (!isRnCommandModeActive())
+                bt_setcommands_step = CMD_MODE_STOP;
+            }
+        }
+        else
+        {
+            /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
+            if (btFwVer == RN4678_V1_23_0)
+            {
+                if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
                 {
-                    btCmdModeStart();
+                    bt_setcommands_step++;
+                    if (!isRnCommandModeActive())
+                    {
+                        btCmdModeStart();
+                        return;
+                    }
+                }
+
+                if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
+                {
+                    bt_setcommands_step++;
+                    /* Append MAC ID to end of BLE advertising name */
+
+                    /* Note: We were using sprintf with "%02x" to make this a
+                     * one-liner but that requires full print support which
+                     * increases flash requirements by 6KB */
+                    bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
+                    bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
+                    bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
+                    bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
+                    bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
+                    bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
+                    bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
+                    bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
+                    bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
+                    bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
+                    bleCompleteLocalName[20U] = 0;
+
+                    sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
+                    writeCommandBufAndExpectAok();
                     return;
                 }
-            }
 
-            if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
+                /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
+    //            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
+    //            {
+    //                bt_setcommands_step++;
+    //                sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
+    //                writeCommandBufAndExpectAok();
+    //                return;
+    //            }
+            }
+            else
             {
-                bt_setcommands_step++;
-                /* Append MAC ID to end of BLE advertising name */
-
-                /* Note: We were using sprintf with "%02x" to make this a
-                 * one-liner but that requires full print support which
-                 * increases flash requirements by 6KB */
-                bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
-                bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
-                bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
-                bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
-                bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
-                bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
-                bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
-                bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
-                bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
-                bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
-                bleCompleteLocalName[20U] = 0;
-
-                sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
-                writeCommandBufAndExpectAok();
-                return;
+                if (bt_setcommands_step == REBOOT + 1)
+                {
+                    bt_setcommands_step = CMD_MODE_STOP;
+                }
             }
-
-            /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
-//            if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
-//            {
-//                bt_setcommands_step++;
-//                sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
-//                writeCommandBufAndExpectAok();
-//                return;
-//            }
         }
-#endif
 
         if (bt_setcommands_step == CMD_MODE_STOP)
         {
@@ -1283,7 +1303,7 @@ void runSetCommands(void)
         {
             bt_setcommands_step = 0;
             bt_setcommands_start = 0;
-            setCommandModeActive(0);
+            setRnCommandModeActive(0);
 
             if (runSetCommands_cb)
             {
@@ -1369,73 +1389,6 @@ void runMasterCommands(void)
             setDmaWaitingForResponseIfStatusStrEnabled();
 #endif
         }
-    }
-    return;
-}
-
-void runSetBaudRate(void)
-{
-    if (!bt_setbaudrate_start)
-    {
-        BT_rst_MessageProgress();
-        command_received = 1;
-        bt_setbaudrate_start = 1;
-#if BT_DMA_USED_FOR_RX
-        DMA2AndCtsDisable();
-#endif
-    }
-    if (command_received)
-    {
-        command_received = 0;
-        if (bt_setbaudrate_step == 0)
-        {
-            bt_setbaudrate_step++;
-            if (!isRnCommandModeActive())
-            {
-                btCmdModeStart();
-#if BT_CTS_CONTROL_ENABLED
-                setIsBtClearToSend(1);
-#endif
-                return; //wait until response is received
-            }
-        }
-        // Connect
-        if (bt_setbaudrate_step == 1)
-        {
-            bt_setbaudrate_step++;
-            sendBaudRateUpdateToBtModule();
-            return;
-        }
-
-        if ((bt_setbaudrate_step == 2))
-        {
-            bt_setbaudrate_step++;
-            if (handlePostBaudRateChange())
-            {
-                return;
-            }
-        }
-
-        if ((bt_setbaudrate_step == 3))
-        {
-            bt_setbaudrate_step = 0;
-            bt_setbaudrate_start = 0;
-
-            // change MSP430 UART to use new baud rate
-            setupUART(btBaudRateToUse);
-
-            if (baudRateChange_cb)
-            {
-                baudRateChange_cb();
-            }
-        }
-
-#if BT_DMA_USED_FOR_RX
-        /* Charge up the DMA again to be able to read status strings from BT
-         * module. If status strings are disabled, this is done when the
-         * connection status pin interrupt is triggered. */
-        setDmaWaitingForResponseIfStatusStrEnabled();
-#endif
     }
     return;
 }
@@ -1571,35 +1524,6 @@ void sendBaudRateUpdateToBtModule(void)
     }
 }
 
-uint8_t handlePostBaudRateChange(void)
-{
-    uint8_t waitForResponse = 0;
-
-    if (isBtDeviceRn41orRN42())
-    {
-        /* RN42 automatically exists command mode after the temporary
-         * baud rate is updated. */
-        setCommandModeActive(0);
-    }
-    else
-    {
-        // reset RN4678 to activate new baud rate
-        setBtModuleReset(1);
-        _delay_cycles(96000); // 4ms
-        // take RN4678 out of reset
-        BT_setWaitForInitialBoot(1);
-
-#if BT_DMA_USED_FOR_RX
-        setDmaWaitingForResponse(BT_STAT_STR_LEN_RN4678_REBOOT);
-#endif
-
-        setBtModuleReset(0);
-
-        waitForResponse = 1U;
-    }
-    return waitForResponse;
-}
-
 void writeCommandBufAndExpectAok(void)
 {
     writeCommandBufAndExpectAokWithCmdLen(strlen(commandbuf));
@@ -1624,6 +1548,13 @@ void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen)
 void btCmdModeStartAfterRn4xTempBaudChange(void)
 {
     msp430_clock_disable();
+
+    /* DMA was locked onto waiting for 1 byte (as set by default at the end of
+     * Dma2ConversionDone) whereas we need it to be 5 bytes here. Simplest way
+     * that makes it work is to disable the DMA before changing the number of
+     * bytes. */
+    DMA2_disable();
+
     btCmdModeStart();
 }
 
@@ -1643,15 +1574,6 @@ void btCmdModeStop(void)
 #else
     writeCommandNoRsp("---\r");
 #endif
-}
-
-void BT_changeBaudRateInBtModule(uint8_t baudRate)
-{
-    if (baudRate <= BAUD_1000000)
-    {
-        btBaudRateToUse = baudRate;
-        runSetBaudRate();
-    }
 }
 
 void setBtBaudRateToUse(uint8_t baudRate)
@@ -1684,13 +1606,11 @@ void BT_setGoodCommand(void)
         runSetCommands();
     if (bt_runmastercommands_start)
         runMasterCommands();
-    if (bt_setbaudrate_start)
-        runSetBaudRate();
 }
 
 uint8_t areBtSetupCommandsRunning(void)
 {
-    return (bt_setbaudrate_start || bt_setcommands_start || bt_runmastercommands_start);
+    return (bt_setcommands_start || bt_runmastercommands_start);
 }
 
 void sendNextCharIfNotInProgress(void)
@@ -1745,7 +1665,6 @@ void BT_init(void)
     txie_reg = 0;
     command_received = 0;
     bt_setbaudrate_step = 0;
-    bt_setbaudrate_start = 0;
     bt_getmac_step = 0;
     bt_getmac_start = 0;
     bt_setcommands_start = 0;
@@ -1772,7 +1691,7 @@ void BT_init(void)
     BT_rn4xDisableRemoteConfig(0);
     getVersion = 0;
     memset(receiveBuffer, 0, 8);
-    setCommandModeActive(0);
+    setRnCommandModeActive(0);
     // connect/disconnect commands
     deviceConn = 0;
     shimmerStatus.btConnected = 0;
@@ -1811,13 +1730,17 @@ void BT_init(void)
 //  BT_setPagingTime("0080"); // 80ms
     BT_setPagingTime("0100"); // 160ms
 
-#if (FW_IS_LOGANDSTREAM & BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678)
-    /* 0 = Dual mode */
-    BT_setRn4678BtMode("0");
-#else
-    /* 2 = Bluetooth Classic only */
-    BT_setRn4678BtMode("2");
-#endif
+    if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
+            || isBtModuleRunningInSyncMode())
+    {
+        /* 2 = Bluetooth Classic only */
+        BT_setRn4678BtMode("2");
+    }
+    else
+    {
+        /* 0 = Dual mode */
+        BT_setRn4678BtMode("0");
+    }
 
     // Enable fast mode with HW flow control enabled
     BT_setRn4678FastMode("9000");
@@ -2265,7 +2188,6 @@ void BT_rst_MessageProgress(void)
 
     command_received = 0;
     bt_setbaudrate_step = 0;
-    bt_setbaudrate_start = 0;
     bt_setcommands_step = 0;
     bt_setcommands_start = 0;
     bt_runmastercommands_step = 0;
@@ -2465,9 +2387,7 @@ void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled)
     {
         updateBtConnectionStatusInterruptDirection();
         P1IFG &= ~BIT0;     // clear flag
-#if !FW_IS_LOGANDSTREAM
         P1IE |= BIT0;       // enable interrupt
-#endif
     }
     else
     {
@@ -2493,7 +2413,7 @@ void setBtModuleReset(uint8_t isResetHeld)
     if (isResetHeld)
     {
         P4OUT &= ~BIT4;
-        setCommandModeActive(0);
+        setRnCommandModeActive(0);
     }
     else
     {
@@ -2638,7 +2558,7 @@ uint8_t areBtStatusStringsEnabled(void)
     return btStatusStringsAreEnabled;
 }
 
-void setCommandModeActive(uint8_t state)
+void setRnCommandModeActive(uint8_t state)
 {
     command_mode_active = state;
 }
@@ -2734,15 +2654,18 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
 
 uint8_t getDefaultBaudForBtVersion(void)
 {
-#if FW_IS_LOGANDSTREAM
-    return (doesBtDeviceSupport1Mbps() ? BAUD_1000000 : BAUD_460800);
-#else
-    /* SDLog has significant difficulty using higher bauds for RN4678 BT modules
-     * while trying to SD log and sync at the same time due to missing status
-     * string bytes - especially when set to 1000000 baud. Sync seems very
-     * stable at 115200 baud. */
-    return BAUD_115200;
-#endif
+    if (isBtModuleRunningInSyncMode())
+    {
+        /* SDLog sync has significant difficulty using higher bauds for RN4678 BT modules
+         * while trying to SD log and sync at the same time due to missing status
+         * string bytes - especially when set to 1000000 baud. Sync seems very
+         * stable at 115200 baud. */
+        return BAUD_115200;
+    }
+    else
+    {
+        return (doesBtDeviceSupport1Mbps() ? BAUD_1000000 : BAUD_460800);
+    }
 }
 
 void setBleDeviceInformation(char *daughtCardIdStrPtr, uint8_t fwVerMajorNew, uint8_t fwVerMinorNew, uint8_t fwVerRelNew)
@@ -3052,6 +2975,16 @@ uint8_t* getMacIdStrPtr(void)
 uint8_t* getMacIdBytesPtr(void)
 {
     return &macIdBytes[0];
+}
+
+void setBtModuleRunningInSyncMode(uint8_t mode)
+{
+    btModuleSyncModeEn = mode;
+}
+
+uint8_t isBtModuleRunningInSyncMode(void)
+{
+    return btModuleSyncModeEn;
 }
 
 #if !BT_DMA_USED_FOR_RX
