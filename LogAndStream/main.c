@@ -201,7 +201,7 @@ uint8_t fwInfo[7], ackStr[4],
         nbrAdcChans, nbrDigiChans, infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
-uint8_t currentBuffer, sendAck, inquiryResponse,
+uint8_t currentBuffer, sendAck, sendNack, inquiryResponse,
         samplingRateResponse, stopSensing,
         lnAccelCalibrationResponse, gyroCalibrationResponse,
         magCalibrationResponse, wrAccelCalibrationResponse,
@@ -254,7 +254,7 @@ static FRESULT ff_result;
 /*battery evaluation vars*/
 uint8_t battVal[3];
 uint8_t battWait;
-uint32_t battLastTs64, battInterval;
+uint32_t battLastTs64;
 uint8_t setUndock, onUserButton, onSingleTouch, onDefault,
         preSampleBmpPress, bmpPressFreq, bmpPressCount, sampleBmpTemp,
         sampleBmpTempFreq, preSampleMpuMag, mpuMagFreq, mpuMagCount,
@@ -604,8 +604,8 @@ void Init(void)
     // previously configured port settings
 //     PM5CTL0 &= ~LOCKLPM5;
 
-    // Needs to be here before LED functions are called:
-    setBattCritical(0);
+    // Need to reset battery critical alarm before LED functions are called:
+    batteryInit();
 
     Board_init();
 
@@ -696,9 +696,6 @@ void Init(void)
     wr2sd = 0;
     undockEvent = 0;
     time_newUnDockEvent = 0;
-    resetBatteryCriticalCount();
-    /* Reset to battery "charging"/"checking" LED indication on boot */
-    resetBatteryChargingStatus();
 
     /* Variable for SR47-4 (and later) to indicate ADS clock lines are tied */
     adsClockTied = 0;
@@ -786,14 +783,13 @@ void Init(void)
     shimmerStatus.initialising = 0;
     shimmerStatus.configuring = 0;
 
-    checkBtModeConfig();
-
     setBootStage(BOOT_STAGE_END);
 }
 
 void resetBtResponseBools(void)
 {
     sendAck = 0;
+    sendNack = 0;
     inquiryResponse = 0;
     samplingRateResponse = 0;
     lnAccelCalibrationResponse = 0;
@@ -862,7 +858,7 @@ void handleIfDockedStateOnBoot(void)
     if (P2IN & BIT3)
     {
 #endif
-        battInterval = BATT_INTERVAL_D;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
         P2IES |= BIT3;       //look for falling edge
         shimmerStatus.docked = 1;
         shimmerStatus.sdlogReady = 0;
@@ -873,7 +869,7 @@ void handleIfDockedStateOnBoot(void)
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         P2IES &= ~BIT3;      //look for rising edge
         shimmerStatus.docked = 0;
         P6OUT |= BIT0;       //   DETECT_N set to high
@@ -975,25 +971,28 @@ void checkBtModeConfig(void)
     {
         shimmerStatus.btSupportEnabled =
                 (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_BLUETOOTH_DISABLE) ? 0 : 1;
-        // Don't allow sync to be enabled if BT is disabled.
-        if (shimmerStatus.btSupportEnabled)
-        {
-            shimmerStatus.sdSyncEnabled =
-                    (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC) ? 1 : 0;
-        }
-        else
-        {
-            shimmerStatus.sdSyncEnabled = 0;
-        }
 
-        if (shimmerStatus.btSupportEnabled && !shimmerStatus.btPowerOn)
-        {
-//            BtStart();
-            InitialiseBtAfterBoot();
-        }
-        if (!shimmerStatus.btSupportEnabled && shimmerStatus.btPowerOn)
+        // Don't allow sync to be enabled if BT is disabled.
+        shimmerStatus.sdSyncEnabled =
+                (shimmerStatus.btSupportEnabled
+                        && (storedConfig[NV_SD_TRIAL_CONFIG0] & SDH_TIME_SYNC)) ?
+                        1 : 0;
+
+        /* Turn off BT if it has been disabled but it's still powered on. Also
+         * turn off if BT module is not in the right configuration for SD sync.
+         * Leave the SD sync code to turn on/off BT later when required. */
+        if ((!shimmerStatus.btSupportEnabled && shimmerStatus.btPowerOn)
+                || (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode()))
         {
             BtStop(0);
+        }
+
+        /* Turn on BT if normal LogAndStream mode is turned on */
+        if (shimmerStatus.btSupportEnabled
+                && !shimmerStatus.sdSyncEnabled
+                && !shimmerStatus.btPowerOn)
+        {
+            InitialiseBtAfterBoot();
         }
     }
 }
@@ -2069,6 +2068,9 @@ void HandleBtRfCommStateChange(bool isOpen)
         /* Revert to default state if changed */
         useAckPrefixForInstreamResponses = 1U;
 
+        /* Check BT module configuration after disconnection in case
+         * sensor configuration (i.e., BT on vs. BT off vs. SD Sync) was changed
+         *  during the last connection. */
         checkBtModeConfig();
     }
 
@@ -2429,7 +2431,7 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-        if ((batt_td > battInterval))
+        if ((batt_td > getBatteryIntervalTicks()))
         {              //10 mins = 19660800
             if (!shimmerStatus.sensing && TaskSet(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
@@ -2654,24 +2656,35 @@ __interrupt void TIMER0_B1_ISR(void)
                     }
                     else
                     {
-                        /* Flash twice if sync is not successfull */
-                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
-                                && !shimmerStatus.docked
-                                && shimmerStatus.sensing
-                                && shimmerStatus.sdSyncEnabled
-                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+                        /* Flash if BT is on */
+                        if (shimmerStatus.btPowerOn
+                                && (blinkCnt20 == 12 || blinkCnt20 == 14))
                         {
-                            if (getSyncCnt() > 3)
-                            {
-                                Board_ledOn(LED_BLUE);
-                            }
-                            //TODO should there be an else here?
+                            Board_ledOn(LED_BLUE);
                         }
                         else
                         {
                             Board_ledOff(LED_BLUE);
                         }
+
+//                        /* Flash twice if sync is not successfull */
+//                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
+//                                && !shimmerStatus.docked
+//                                && shimmerStatus.sensing
+//                                && shimmerStatus.sdSyncEnabled
+//                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+//                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+//                        {
+//                            if (getSyncCnt() > 3)
+//                            {
+//                                Board_ledOn(LED_BLUE);
+//                            }
+//                            //TODO should there be an else here?
+//                        }
+//                        else
+//                        {
+//                            Board_ledOff(LED_BLUE);
+//                        }
                     }
                 }
             }
@@ -2724,6 +2737,9 @@ void BtStart(void)
 #else
         clearBtRxBuf();
 #endif
+
+        setBtModuleRunningInSyncMode(shimmerStatus.sdSyncEnabled);
+
         BT_start();
     }
 }
@@ -2733,9 +2749,6 @@ void BtStop(uint8_t isCalledFromMain)
     clearBtTxBuf(isCalledFromMain);
 
     TaskClear(TASK_RCNODER10);
-#if USE_OLD_SD_SYNC_APPROACH
-    setRcommVar(0);                   //don't try to get routine comm info
-#endif
 
 #if BT_DMA_USED_FOR_RX
     DMA2_disable();                  //dma2 for bt disabled
@@ -3858,41 +3871,50 @@ void ProcessCommand(void)
         sdHeadText[SDH_RTC_DIFF_1] = *(((uint8_t*) rwcTimeDiffPtr) + 6);
         sdHeadText[SDH_RTC_DIFF_0] = *(((uint8_t*) rwcTimeDiffPtr) + 7);
         break;
-#if USE_OLD_SD_SYNC_APPROACH
-    case ACK_COMMAND_PROCESSED:
-#else
     case SET_SD_SYNC_COMMAND:
-#endif
-        /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
-        fullSyncResp[0] = gAction;
-        memcpy(&fullSyncResp[1], &args[0], SYNC_PACKET_MAX_SIZE-SYNC_PACKET_SIZE_CMD);
-        setSyncResp(&fullSyncResp[0], SYNC_PACKET_MAX_SIZE);
-        TaskSet(TASK_RCNODER10);
-#if !USE_OLD_SD_SYNC_APPROACH
-    case ACK_COMMAND_PROCESSED:
-        /* Slave response received by Master */
-        if (args[0] == SD_SYNC_RESPONSE)
+        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
         {
-            /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
-            setSyncResp(&args[1], 1U);
-            TaskSet(TASK_RCCENTERR1);
+            /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
+            fullSyncResp[0] = gAction;
+            memcpy(&fullSyncResp[1], &args[0], SYNC_PACKET_MAX_SIZE-SYNC_PACKET_SIZE_CMD);
+            setSyncResp(&fullSyncResp[0], SYNC_PACKET_MAX_SIZE);
+            TaskSet(TASK_RCNODER10);
+        }
+        else
+        {
+            sendNack = 1;
         }
         break;
-#endif
+    case ACK_COMMAND_PROCESSED:
+        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
+        {
+            /* Slave response received by Master */
+            if (args[0] == SD_SYNC_RESPONSE)
+            {
+                /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
+                setSyncResp(&args[1], 1U);
+                TaskSet(TASK_RCCENTERR1);
+            }
+        }
+        else
+        {
+            sendNack = 1;
+        }
+        break;
     default:
         ;
     }
 
-	/* Send ACK back for all commands except when FW has received an ACK */
-    if (gAction != ACK_COMMAND_PROCESSED
-#if USE_OLD_SD_SYNC_APPROACH
-            )
-#else
-            /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
-            && gAction != SET_SD_SYNC_COMMAND)
-#endif
+    /* Send Response back for all commands except when FW has received an ACK */
+    /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
+    if (!(gAction == ACK_COMMAND_PROCESSED || gAction == SET_SD_SYNC_COMMAND)
+            || sendNack)
     {
-        sendAck = 1;
+        if (sendNack == 0)
+        {
+            /* Send ACK back for all commands except when FW is sending a NACK */
+            sendAck = 1;
+        }
         TaskSet(TASK_BT_RESPOND);
     }
 
@@ -3948,6 +3970,11 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) = ACK_COMMAND_PROCESSED;
             sendAck = 0;
+        }
+        if (sendNack)
+        {
+            *(resPacket + packet_length++) = NACK_COMMAND_PROCESSED;
+            sendNack = 0;
         }
         if (inquiryResponse)
         {
@@ -4015,7 +4042,7 @@ void SendResponse(void)
             ReadBatt();
             *(resPacket + packet_length++) = INSTREAM_CMD_RESPONSE;
             *(resPacket + packet_length++) = VBATT_RESPONSE;
-            memcpy((resPacket + packet_length), batteryStatus.battStatusRaw.rawBytes[0], 3);
+            memcpy((resPacket + packet_length), &batteryStatus.battStatusRaw.rawBytes[0], 3);
             packet_length += 3;
             btVbattResponse = 0;
         }
@@ -6863,8 +6890,9 @@ void SetupDock()
     shimmerStatus.configuring = 1;
     if (shimmerStatus.docked)
     {
-        battInterval = BATT_INTERVAL_D;
+        setBatteryInterval(BATT_INTERVAL_DOCKED);
         resetBatteryCriticalCount();
+
         shimmerStatus.sdlogCmd = 0;
         shimmerStatus.sdlogReady = 0;
         newDirFlag = 1;
@@ -6880,7 +6908,7 @@ void SetupDock()
     }
     else
     {
-        battInterval = BATT_INTERVAL;
+        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         if (!shimmerStatus.sensing)
         {
             UART_deactivate();
@@ -6941,7 +6969,6 @@ void SdInfoSync()
     ChangeBtBaudRateFunc();
 #endif
     CheckOnDefault();
-    checkBtModeConfig();
 }
 
 #if BT_ENABLE_BAUD_RATE_CHANGE
@@ -6968,7 +6995,7 @@ void ChangeBtBaudRateFunc()
 uint8_t SendStatusByte()
 {
     if (shimmerStatus.btConnected
-            && !shimmerStatus.sdSyncEnabled)
+            && !isBtModuleRunningInSyncMode())
     {
         dockedResponse = 1;
         sendAck = 1;
@@ -6991,6 +7018,11 @@ void ReadSdConfiguration(void)
     newDirFlag = 1;
     SdPowerOn();
     ParseConfig();
+
+    /* Check BT module configuration after sensor configuration read from SD
+     * card to see if it is in the correct state (i.e., BT on vs. BT off vs. SD
+     * Sync) */
+    checkBtModeConfig();
 }
 void SdPowerOff(void)
 {
@@ -7032,7 +7064,11 @@ void IniReadInfoMem()
     }
     Config2SdHead();
     Infomem2Names();
-//return 0;
+
+    /* Check BT module configuration after sensor configuration read from
+     * infomem to see if it is in the correct state (i.e., BT on vs. BT off vs.
+     * SD Sync) */
+    checkBtModeConfig();
 }
 
 void RwcCheck()
