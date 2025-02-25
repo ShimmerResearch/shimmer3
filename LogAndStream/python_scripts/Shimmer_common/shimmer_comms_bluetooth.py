@@ -171,6 +171,19 @@ class BtCmds:
     SD_SYNC_RESPONSE = 0xE1
     ACK_COMMAND_PROCESSED = 0xFF
     SET_FACTORY_TEST = 0xA8
+    SET_ALT_ACCEL_CALIBRATION_COMMAND = 0xA9
+    ALT_ACCEL_CALIBRATION_RESPONSE = 0xAA
+    GET_ALT_ACCEL_CALIBRATION_COMMAND = 0xAB
+    SET_ALT_ACCEL_SAMPLING_RATE_COMMAND = 0XAC
+    ALT_ACCEL_SAMPLING_RATE_RESPONSE = 0xAD
+    GET_ALT_ACCEL_SAMPLING_RATE_COMMAND = 0xAE
+    SET_ALT_MAG_CALIBRATION_COMMAND = 0XAF
+    ALT_MAG_CALIBRATION_RESPONSE = 0XB0
+    GET_ALT_MAG_CALIBRATION_COMMAND = 0xB1
+    SET_ALT_MAG_SAMPLING_RATE_COMMAND = 0xB2
+    ALT_MAG_SAMPLING_RATE_RESPONSE = 0XB3
+    GET_ALT_MAG_SAMPLING_RATE_COMMAND = 0xB4
+
 
 class ShimmerBluetooth:
     serial_port_timeout_ms = 500
@@ -307,7 +320,7 @@ class ShimmerBluetooth:
 
     def wait_for_ack(self, timeout_ms=500):
         response = self.wait_for_response(1, timeout_ms)
-        return True if response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
+        return True if len(response) == 1 and response[0] is BtCmds.ACK_COMMAND_PROCESSED else False
 
     def get_qty_waiting_in_port(self):
         return self.ser.inWaiting()
