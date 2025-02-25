@@ -981,7 +981,7 @@ void checkBtModeConfig(void)
         /* Turn off BT if it has been disabled but it's still powered on. Also
          * turn off if BT module is not in the right configuration for SD sync.
          * Leave the SD sync code to turn on/off BT later when required. */
-        if ((!shimmerStatus.btSupportEnabled && shimmerStatus.btPoweredOn)
+        if ((!shimmerStatus.btSupportEnabled && shimmerStatus.btPowerOn)
                 || (shimmerStatus.sdSyncEnabled != isBtModuleRunningInSyncMode()))
         {
             BtStop(0);
@@ -990,7 +990,7 @@ void checkBtModeConfig(void)
         /* Turn on BT if normal LogAndStream mode is turned on */
         if (shimmerStatus.btSupportEnabled
                 && !shimmerStatus.sdSyncEnabled
-                && !shimmerStatus.btPoweredOn)
+                && !shimmerStatus.btPowerOn)
         {
             InitialiseBtAfterBoot();
         }
@@ -2657,7 +2657,7 @@ __interrupt void TIMER0_B1_ISR(void)
                     else
                     {
                         /* Flash if BT is on */
-                        if (shimmerStatus.btPoweredOn
+                        if (shimmerStatus.btPowerOn
                                 && (blinkCnt20 == 12 || blinkCnt20 == 14))
                         {
                             Board_ledOn(LED_BLUE);
