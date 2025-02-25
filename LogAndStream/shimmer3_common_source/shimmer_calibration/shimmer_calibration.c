@@ -81,7 +81,7 @@ void ShimmerCalib_init(void)
 void ShimmerCalib_ram2File(void)
 {
 
-    char cal_file_name[48]; //buffer[66],
+    char cal_file_name[48] = "";
     DIRS gdc;
     FIL gfc;
     //sc_t sc1;
@@ -136,7 +136,7 @@ void ShimmerCalib_ram2File(void)
  */
 uint8_t ShimmerCalib_file2Ram(void)
 {
-    char cal_file_name[48];
+    char cal_file_name[48] = "";
     DIRS gdc;
     FIL gfc;
     UINT bw;

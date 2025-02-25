@@ -36,9 +36,6 @@ uint64_t myTimeDiffArr[SYNC_TRANS_IN_ONE_COMM];
 uint8_t myTimeDiffFlagArr[SYNC_TRANS_IN_ONE_COMM];
 uint16_t syncCurrNodeExpire, syncNodeWinExpire;
 uint8_t centerName[MAX_CHARS], myTimeDiffLongFlag;
-#if USE_OLD_SD_SYNC_APPROACH
-uint8_t getRcomm;
-#endif
 uint8_t myTimeDiffLongFlagMin;
 uint8_t syncResp[SYNC_PACKET_MAX_SIZE], btSdSyncIsRunning;
 uint8_t myTimeDiff[SYNC_PACKET_PAYLOAD_SIZE];
@@ -63,10 +60,6 @@ void sdSyncInit(void (*btStart_cb)(void),
     taskSetCb = taskSet_cb;
 
     firstOutlier = 1;
-
-#if USE_OLD_SD_SYNC_APPROACH
-    setRcommVar(0);
-#endif
 
     resetSyncVariablesNode();
     resetSyncVariablesCenter();
@@ -97,18 +90,6 @@ uint8_t * getMyTimeDiffPtr(void)
 {
     return &myTimeDiff[0];
 }
-
-#if USE_OLD_SD_SYNC_APPROACH
-void setRcommVar(uint8_t val)
-{
-    getRcomm = val;
-}
-
-uint8_t getRcommVar(void)
-{
-    return getRcomm;
-}
-#endif
 
 void setSyncResp(uint8_t *args, uint8_t count)
 {
@@ -421,13 +402,7 @@ void SyncCenterT10(void)
     uint8_t resPacket[SYNC_PACKET_MAX_SIZE];
     uint16_t packet_length = 0;
 
-#if USE_OLD_SD_SYNC_APPROACH
-    getRcomm = 1;
-
-    *(resPacket + packet_length++) = ACK_COMMAND_PROCESSED;
-#else
     *(resPacket + packet_length++) = SET_SD_SYNC_COMMAND;
-#endif
     *(resPacket + packet_length++) = shimmerStatus.sensing;
     myLocalTimeLong = getRwcTime();
     *(uint64_t*) (resPacket + packet_length) = myLocalTimeLong;
@@ -494,11 +469,7 @@ void SyncNodeR10(void)
     uint8_t nodeResponse;
 
     // only nodes do this
-#if USE_OLD_SD_SYNC_APPROACH
-    if (syncResp[SYNC_PACKET_IDX_ACK] == ACK_COMMAND_PROCESSED)
-#else
     if(!BT_SD_SYNC_CRC_MODE || checkCrc(BT_SD_SYNC_CRC_MODE, &syncResp[0], SYNC_PACKET_SIZE_CMD+SYNC_PACKET_PAYLOAD_SIZE))
-#endif
     { //if received the correct 6 bytes:
         uint8_t sd_tolog;
         sd_tolog = syncResp[SYNC_PACKET_FLG_IDX];
@@ -543,12 +514,10 @@ void SyncNodeR10(void)
 
         }
     }
-#if !USE_OLD_SD_SYNC_APPROACH
     else
     {
         nodeResponse = SYNC_PACKET_RESEND;
     }
-#endif
 
 //#if BT_DMA_USED_FOR_RX
 //    if(nodeResponse == SYNC_PACKET_RESEND)
@@ -563,9 +532,7 @@ void SyncNodeR10(void)
 //    }
 //#endif
 
-#if !USE_OLD_SD_SYNC_APPROACH
     memset(syncResp, 0, sizeof(syncResp));
-#endif
     SyncNodeT1(nodeResponse);
 }
 
@@ -574,13 +541,8 @@ void SyncNodeR10(void)
  * ACK_COMMAND_PROCESSED is passed in if 50 packets have been received */
 void SyncNodeT1(uint8_t val)
 {
-#if USE_OLD_SD_SYNC_APPROACH
-    uint8_t tosend = val;
-    BT_write(&tosend, 1U, SHIMMER_CMD);
-#else
     uint8_t syncResponse[] = {ACK_COMMAND_PROCESSED, SD_SYNC_RESPONSE, val};
     BT_write(&syncResponse[0], 3U, SHIMMER_CMD);
-#endif
     if (syncNodeWinExpire < (syncCnt + SYNC_EXTEND * SYNC_FACTOR))
     {
         syncNodeWinExpire++;
