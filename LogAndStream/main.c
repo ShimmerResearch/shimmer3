@@ -161,12 +161,10 @@ void IniReadInfoMem(void);
 void RwcCheck();
 void Infomem2Names();
 uint8_t CheckOnDefault();
-void HandleBtRfCommStateChange(bool isOpen);
 #if BT_ENABLE_BAUD_RATE_CHANGE
 void BtBaudRateChangeDone(void);
 void SetBtBaudRate(uint8_t rate);
 #endif
-void BtsdSelfcmd();
 void SdInfoSync();
 #if BT_ENABLE_BAUD_RATE_CHANGE
 void ChangeBtBaudRateFunc();
@@ -186,6 +184,7 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW);
 
 uint8_t setTaskNewBtCmdToProcess(void);
+uint8_t ShimRam_sdHeadTextGetByte(uint16_t offset);
 
 uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn,
         sdErrorFlash;
@@ -222,7 +221,7 @@ uint8_t currentBuffer, sendAck, sendNack, inquiryResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
-        useAckPrefixForInstreamResponses, btDataRateTestResponse,
+        btDataRateTestResponse,
         bmpGenericCalibrationCoefficientsResponse;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
@@ -321,10 +320,6 @@ bool isIcm20948GyroEn = FALSE;
 // bluetooth variables
 uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
 
-#if !BT_DMA_USED_FOR_RX
-bool areNewBytesInBtRxBuf = FALSE;
-#endif
-
 boot_stage_t bootStage;
 
 void main(void)
@@ -343,32 +338,8 @@ void main(void)
 
     while (1)
     {
-#if BT_DMA_USED_FOR_RX
         if (!taskList)
             __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
-#else
-        /* Check BT RX bytes to see if there's something new that we need to try and parse */
-        areNewBytesInBtRxBuf = areUnprocessedBytesInBtRxBuff();
-
-        if (!taskList && !(areNewBytesInBtRxBuf || hasBtRxTimeoutOccurred()))
-        {
-            __bis_SR_register(LPM3_bits + GIE);   //ACLK remains active
-
-            /* need to check again after the MSP has woken up */
-            areNewBytesInBtRxBuf = areUnprocessedBytesInBtRxBuff();
-        }
-
-        if(areNewBytesInBtRxBuf)
-        {
-//            setIsBtClearToSend(0);
-            processBtUartBuf();
-//            setIsBtClearToSend(1);
-        }
-        else if(hasBtRxTimeoutOccurred())
-        {
-            handleBtRxTimeout();
-        }
-#endif
 
         if (taskList & TASK_SETUP_DOCK)
         {
@@ -839,7 +810,7 @@ void resetBtResponseBools(void)
     btDataRateTestResponse = 0;
     bmpGenericCalibrationCoefficientsResponse = 0;
 
-    useAckPrefixForInstreamResponses = 1U;
+    setUseAckPrefixForInstreamResponses(1U);
 
     changeBtBaudRate = BAUD_NO_CHANGE_NEEDED;   //indicates doesn't need changing
 
@@ -1071,7 +1042,7 @@ void InitialiseBt(void)
         setRn4678OperationalMode(RN4678_OP_MODE_NOT_USED);
     }
 
-    btCommsProtocolInit(setTaskNewBtCmdToProcess, HandleBtRfCommStateChange, setMacId, &gAction, &args[0]);
+    btCommsProtocolInit(setTaskNewBtCmdToProcess, setMacId, &gAction, &args[0]);
     sdSyncInit(InitialiseBtAfterBoot, BtStop, TaskSet);
     BT_init();
     BT_rn4xDisableRemoteConfig(1);
@@ -1118,11 +1089,7 @@ void InitialiseBt(void)
         }
     }
 
-#if BT_DMA_USED_FOR_RX
     uint8_t reset_cnt = 50U; // 50 * 100ms = 5s per baud rate attempt
-#else
-    uint16_t reset_cnt = 500U; // 500 * 10ms = 5s per baud rate attempt
-#endif
     uint8_t failCount = 0U;
     uint8_t baudIndex = 0;
     uint8_t baudsTried[BAUD_1000000+1U] = {0};
@@ -1136,19 +1103,7 @@ void InitialiseBt(void)
      * 115200, 1000000 or 460800 and then all other bauds. If they all fail, soft-reset */
     while (!shimmerStatus.btPowerOn)
     {
-#if BT_DMA_USED_FOR_RX
         _delay_cycles(2400000); // 100ms
-#else
-        _delay_cycles(240000); // 10ms
-
-        areNewBytesInBtRxBuf = areUnprocessedBytesInBtRxBuff();
-        if(areNewBytesInBtRxBuf)
-        {
-//            setIsBtClearToSend(0);
-            processBtUartBuf();
-//            setIsBtClearToSend(1);
-        }
-#endif
 
         if (!(reset_cnt--))
         {
@@ -1726,39 +1681,6 @@ inline void StopSensing(void)
     shimmerStatus.configuring = 0;
 }
 
-void BtsdSelfcmd()
-{
-    if (shimmerStatus.btConnected)
-    {
-        uint8_t i = 0;
-        uint8_t selfcmd[6]; /* max is 6 bytes */
-
-        if (useAckPrefixForInstreamResponses)
-        {
-            selfcmd[i++] = ACK_COMMAND_PROCESSED;
-        }
-        selfcmd[i++] = INSTREAM_CMD_RESPONSE;
-        selfcmd[i++] = STATUS_RESPONSE;
-        selfcmd[i++] = ((shimmerStatus.toggleLedRedCmd & 0x01) << 7)
-                + ((shimmerStatus.sdBadFile & 0x01) << 6)
-                + ((shimmerStatus.sdInserted & 0x01) << 5)
-                + ((shimmerStatus.btStreaming & 0x01) << 4)
-                + ((shimmerStatus.sdLogging & 0x01) << 3)
-                + (isRwcTimeSet() << 2)
-                + ((shimmerStatus.sensing & 0x01) << 1)
-                + (shimmerStatus.docked & 0x01);
-
-        uint8_t crcMode = getBtCrcMode();
-        if (crcMode != CRC_OFF)
-        {
-            calculateCrcAndInsert(crcMode, &selfcmd[0], i);
-            i += crcMode;  // Ordinal of enum is how many bytes are used
-        }
-
-        BT_write(selfcmd, i, SHIMMER_CMD);
-    }
-}
-
 void ConfigureChannels(void)
 {
     uint8_t *channel_contents_ptr = channelContents;
@@ -2004,79 +1926,6 @@ uint8_t CheckOnDefault()
         return 1;
     }
     return 0;
-}
-
-void HandleBtRfCommStateChange(bool isOpen)
-{
-    shimmerStatus.btConnected = isOpen;
-    BT_rst_MessageProgress();
-
-    updateBtConnectionStatusInterruptDirection();
-
-    if (isOpen)
-    { //BT is connected
-#if BT_DMA_USED_FOR_RX
-        resetBtRxVariablesOnConnect();
-#endif
-
-        if (shimmerStatus.sdSyncEnabled)
-        {
-            shimmerStatus.btstreamReady = 0;
-        }
-        else
-        {
-            shimmerStatus.btstreamReady = 1;
-
-#if BT_DMA_USED_FOR_RX
-            setDmaWaitingForResponseIfStatusStrDisabled();
-#endif
-        }
-
-        if (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER)
-        {
-            // center sends sync packet and is waiting for response
-            if (isBtSdSyncRunning())
-            {
-#if BT_DMA_USED_FOR_RX
-                /* Only need to charge up the DMA if status strings aren't enabled. Otherwise this is handled within the setup/DMA code. */
-                setDmaWaitingForResponseIfStatusStrDisabled();
-#endif
-                SyncCenterT10();
-            }
-        }
-        else
-        {
-            resetSyncRcNodeR10Cnt();
-            // node is waiting for 1 byte ROUTINE_COMMUNICATION(0xE0)
-#if BT_DMA_USED_FOR_RX
-            /* Only need to charge up the DMA if status strings aren't enabled. Otherwise this is handled within the setup/DMA code. */
-            setDmaWaitingForResponseIfStatusStrDisabled();
-#endif
-        }
-    }
-    else
-    { //BT is disconnected
-        shimmerStatus.btstreamReady = 0;
-        shimmerStatus.btstreamCmd = 0;
-
-        setBtDataRateTestState(0);
-
-        clearBtTxBuf(0);
-
-        setBtCrcMode(CRC_OFF);
-        /* Revert to default state if changed */
-        useAckPrefixForInstreamResponses = 1U;
-
-        /* Check BT module configuration after disconnection in case
-         * sensor configuration (i.e., BT on vs. BT off vs. SD Sync) was changed
-         *  during the last connection. */
-        checkBtModeConfig();
-    }
-
-    if (!shimmerStatus.sensing)
-    {
-        TaskSet(TASK_SDLOG_CFG_UPDATE);
-    }
 }
 
 // Switch SW1, BT_RTS and BT connect/disconnect
@@ -2731,11 +2580,7 @@ void BtStart(void)
         {
             shimmerStatus.configuring = 1;
         }
-#if BT_DMA_USED_FOR_RX
         resetBtRxBuff();
-#else
-        clearBtRxBuf();
-#endif
 
         setBtModuleRunningInSyncMode(shimmerStatus.sdSyncEnabled);
 
@@ -2749,9 +2594,7 @@ void BtStop(uint8_t isCalledFromMain)
 
     TaskClear(TASK_RCNODER10);
 
-#if BT_DMA_USED_FOR_RX
     DMA2_disable();                  //dma2 for bt disabled
-#endif
 
     updateBtConnectionStatusInterruptDirection();
     shimmerStatus.btConnected = 0;
@@ -3001,7 +2844,7 @@ void ProcessCommand(void)
         break;
 
     case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
-        useAckPrefixForInstreamResponses = args[0];
+        setUseAckPrefixForInstreamResponses(args[0]);
         break;
 
     case STOP_STREAMING_COMMAND:
@@ -8468,6 +8311,15 @@ void updateBtDetailsInEeprom(void)
 uint8_t setTaskNewBtCmdToProcess(void)
 {
     return TaskSet(TASK_BT_PROCESS_CMD);
+}
+
+uint8_t ShimRam_sdHeadTextGetByte(uint16_t offset)
+{
+  if (offset > SDHEAD_LEN - 1)
+  {
+    return 0;
+  }
+  return sdHeadText[offset];
 }
 
 /*

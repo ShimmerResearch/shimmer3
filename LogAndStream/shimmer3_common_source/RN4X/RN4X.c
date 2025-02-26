@@ -100,9 +100,7 @@ uint8_t discoverable, authenticate, encrypt,
         resetDefaultsRequest, setSvcClassRequest, setDevClassRequest,
         setSvcNameRequest, getMacAddress, getVersion;
 volatile uint8_t waitForInitialBoot, updateBaudDuringBoot;
-#if BT_DMA_USED_FOR_RX
 volatile uint8_t waitForReturnNewLine, waitForMacAddress, waitForBtFwVersion, waitForStartCmd;
-#endif
 
 //master mode stuff
 uint8_t deviceConn;
@@ -128,22 +126,13 @@ uint8_t btModuleSyncModeEn;
 #define RINGFIFO_COUNT(ringFifo, mask)          (mask & (ringFifo.wrIdx - ringFifo.rdIdx))
 
 volatile RingFifoTx_t gBtTxFifo;
-#if !BT_DMA_USED_FOR_RX
-volatile RingFifoRx_t gBtRxFifo;
-#endif
 
 volatile uint8_t btClearTxBuf;
-#if BT_DMA_USED_FOR_RX
 char *btRxFullResponse;
-#endif
 
 // global bluetooth variables
 volatile enum BT_FIRMWARE_VERSION btFwVer;
 volatile uint8_t command_mode_active;
-
-#if !BT_DMA_USED_FOR_RX
-uint8_t btIsStarting;
-#endif
 
 volatile uint8_t rn4678ClassicBtSampleSetBufferSize;
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
@@ -360,11 +349,7 @@ void setupUART(uint8_t baudRate)
 
     UCA1CTL1 &= ~UCSWRST;                    //**Initialize USCI state machine**
     UCA1IFG = 0;                              // reset interrupts
-#if BT_DMA_USED_FOR_RX
     UCA1IE |= UCTXIE;                      // Enable USCI_A1 TX interrupt
-#else
-    UCA1IE |= UCTXIE | UCRXIE;             // Enable USCI_A1 TX and RX interrupt
-#endif
 
     if (baudRate==BAUD_1200 || baudRate==BAUD_2400)
     {
@@ -388,9 +373,7 @@ void disableRN(void)
     disableUART();
     setBtRtsInterruptState(0);
     setBtConnectionStatusInterruptIsEnabled(0);
-#if BT_DMA_USED_FOR_RX
     DMA2AndCtsDisable();
-#endif
 }
 
 void writeCommandNoRsp(char *cmd)
@@ -416,9 +399,7 @@ void writeCommand(char *cmd, char *response)
 void writeCommandWithCmdLen(char *cmd, uint8_t cmdLen, char *response)
 {
     strcpy(expectedCommandResponse, response);
-#if BT_DMA_USED_FOR_RX
     setDmaWaitingForResponse(strlen(expectedCommandResponse));
-#endif
 
     writeCommandNoRspWithCmdLen(cmd, cmdLen);
 }
@@ -445,10 +426,8 @@ void runSetCommands(void)
         BT_rst_MessageProgress();
         command_received = 1;
         bt_setcommands_start = 1;
-#if BT_DMA_USED_FOR_RX
         DMA2AndCtsDisable();
         setRebootRequired(0);
-#endif
     }
     if (command_received)
     {
@@ -494,10 +473,8 @@ void runSetCommands(void)
             if (getVersion)
             {
                 BT_setGetVersion(0);
-#if BT_DMA_USED_FOR_RX
                 BT_setWaitForVersion(1U);
                 setDmaWaitingForResponse(BT_VER_RESPONSE_SMALLEST);
-#endif
                 writeCommandNoRsp("V\r");
                 return;
             }
@@ -520,9 +497,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_OPERATING_MODE)
        {
            bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
            setDmaWaitForReturnNewLine();
-#endif
            writeCommandNoRsp("GM\r");
            return;
        }
@@ -530,9 +505,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == SET_OPERATING_MODE)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("M", btRxFullResponse);
-#endif
             if (doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
@@ -548,7 +521,6 @@ void runSetCommands(void)
             if (getMacAddress)
             {
                 BT_setGetMacAddress(0);
-#if BT_DMA_USED_FOR_RX
                 BT_setWaitForMacAddress(1U);
                 uint8_t expRespLen = 14U;
                 if (isBtDeviceRn4678())
@@ -557,7 +529,6 @@ void runSetCommands(void)
                     expRespLen += RN4X_CMD_LEN;
                 }
                 setDmaWaitingForResponse(expRespLen);
-#endif
 
                 sprintf(commandbuf, "GB\r");
                 writeCommandNoRsp(commandbuf);
@@ -581,9 +552,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_AUTHENTICATION)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             writeCommandNoRsp("GA\r");
             return;
         }
@@ -591,9 +560,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == SET_AUTHENTICATION)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("A", btRxFullResponse);
-#endif
             if(doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
@@ -624,9 +591,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_ADVERTISING_NAME)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             writeCommandNoRsp("GN\r");
             return;
         }
@@ -634,9 +599,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == SET_ADVERTISING_NAME)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("N", btRxFullResponse);
-#endif
             if (doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
@@ -652,9 +615,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_PIN)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             writeCommandNoRsp("GP\r");
             return;
         }
@@ -666,9 +627,7 @@ void runSetCommands(void)
             if (doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
-#if BT_DMA_USED_FOR_RX
                 parseRnGetResponse("P", btRxFullResponse);
-#endif
                 sprintf(commandbuf, "SP,%s\r", pinCode);
                 writeCommandBufAndExpectAok();
                 return;
@@ -715,9 +674,7 @@ void runSetCommands(void)
             bt_setcommands_step++;
             if (isBtDeviceRn41orRN42())
             {
-#if BT_DMA_USED_FOR_RX
                 setDmaWaitForReturnNewLine();
-#endif
                 writeCommandNoRsp("GT\r");
                 return;
             }
@@ -728,9 +685,7 @@ void runSetCommands(void)
             bt_setcommands_step++;
             if (isBtDeviceRn41orRN42())
             {
-#if BT_DMA_USED_FOR_RX
                 parseRnGetResponse("T", btRxFullResponse);
-#endif
                 // RN4678 has a very different configuration purpose here, for BLE only
                 // RN42 uses this command to configure "remote configuration timer".
 
@@ -749,9 +704,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_INQUIRY_SCAN_WINDOW)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             writeCommandNoRsp("GI\r");
             return;
         }
@@ -759,9 +712,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == SET_INQUIRY_SCAN_WINDOW)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("I", btRxFullResponse);
-#endif
             if (doesBtConfigNeedUpdating)
             {
                 sprintf(commandbuf, "SI,%s\r", inquiryScanWindow);
@@ -773,9 +724,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_PAGING_TIME)
         {
            bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
            setDmaWaitForReturnNewLine();
-#endif
            writeCommandNoRsp("GJ\r");
            return;
         }
@@ -783,9 +732,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == SET_PAGING_TIME)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("J", btRxFullResponse);
-#endif
             if (doesBtConfigNeedUpdating)
             {
                 doesBtConfigNeedUpdating = 0;
@@ -798,9 +745,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == GET_BT_POWER_LEVEL)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             /* GY seems to be working in RN42 v4.77 but broken in RN42 v6.15.
              * This could also be the case with other versions. Therefore we
              * must fetch the TX Power from the "Other Settings" using 'O' */
@@ -817,7 +762,6 @@ void runSetCommands(void)
 
         if (bt_setcommands_step == SET_BT_POWER_LEVEL)
         {
-#if BT_DMA_USED_FOR_RX
             /* For the RN42 v6.15, we need to parse through each line of the
              * "other settings" until we get to TX Power. Note, after factory
              * reset, tx power always reports 0 until it is changed. */
@@ -845,9 +789,6 @@ void runSetCommands(void)
                 bt_setcommands_step++;
                 parseRnGetResponse("Y", btRxFullResponse);
             }
-#else
-            bt_setcommands_step++;
-#endif
 
             if (doesBtConfigNeedUpdating)
             {
@@ -871,9 +812,7 @@ void runSetCommands(void)
             if (bt_setcommands_step == RN4678_GET_BT_MODE)
             {
                 bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                 setDmaWaitForReturnNewLine();
-#endif
                 writeCommandNoRsp("GG\r");
                 return;
             }
@@ -881,9 +820,7 @@ void runSetCommands(void)
             if (bt_setcommands_step == RN4678_SET_BT_MODE)
             {
                 bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                 parseRnGetResponse("G", btRxFullResponse);
-#endif
                 if (doesBtConfigNeedUpdating)
                 {
                     doesBtConfigNeedUpdating = 0;
@@ -896,9 +833,7 @@ void runSetCommands(void)
             if (bt_setcommands_step == RN4678_GET_FAST_MODE)
             {
                 bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                 setDmaWaitForReturnNewLine();
-#endif
                 writeCommandNoRsp("GQ\r");
                 return;
             }
@@ -906,9 +841,7 @@ void runSetCommands(void)
             if (bt_setcommands_step == RN4678_SET_FAST_MODE)
             {
                 bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                 parseRnGetResponse("Q", btRxFullResponse);
-#endif
                 if (doesBtConfigNeedUpdating)
                 {
                     sprintf(commandbuf, "SQ,%s\r", rn4678FastMode);
@@ -936,9 +869,7 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-#endif
                     writeCommandNoRsp("GDM\r");
                     return;
                 }
@@ -946,9 +877,7 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_MODEL_STRING)
                 {
                     bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DM", btRxFullResponse);
-#endif
                     // Sets the model string in BLE Device Information Service.
                     if(doesBtConfigNeedUpdating)
                     {
@@ -963,9 +892,7 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-#endif
                     writeCommandNoRsp("GDN\r");
                     return;
                 }
@@ -973,9 +900,7 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
                 {
                     bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DN", btRxFullResponse);
-#endif
                     //Sets the manufacturer string in BLE Device Information service
                     if(doesBtConfigNeedUpdating)
                     {
@@ -990,9 +915,7 @@ void runSetCommands(void)
                 {
                     bt_setcommands_step++;
 
-#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-#endif
                     writeCommandNoRsp("GDR\r");
                     return;
                 }
@@ -1000,9 +923,7 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
                 {
                     bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("DR", btRxFullResponse);
-#endif
                     if (doesBtConfigNeedUpdating)
                     {
                         // Sets the software revision of the firmware. This can accept a maximum of 4 characters
@@ -1016,9 +937,7 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
                 {
                     bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                     setDmaWaitForReturnNewLine();
-#endif
                     writeCommandNoRsp("GT\r");
                     return;
                 }
@@ -1026,9 +945,7 @@ void runSetCommands(void)
                 if (bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
                 {
                     bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
                     parseRnGetResponse("T", btRxFullResponse);
-#endif
                     if (doesBtConfigNeedUpdating)
                     {
                         doesBtConfigNeedUpdating = 0;
@@ -1050,9 +967,7 @@ void runSetCommands(void)
             btStatusStringsAreEnabled = isBtDeviceRn4678();
 #endif
 
-#if BT_DMA_USED_FOR_RX
             setDmaWaitForReturnNewLine();
-#endif
             writeCommandNoRsp("GO\r");
             return;
         }
@@ -1061,9 +976,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == UPDATE_STAT_STR_PREFIX_AND_SUFFIX)
         {
             bt_setcommands_step++;
-#if BT_DMA_USED_FOR_RX
             parseRnGetResponse("O", btRxFullResponse);
-#endif
 
             if (doesBtConfigNeedUpdating)
             {
@@ -1162,9 +1075,7 @@ void runSetCommands(void)
                 {
                     /* Set DMA to listen for %REBOOT% after power cycle */
                     BT_setWaitForInitialBoot(1);
-#if BT_DMA_USED_FOR_RX
                     setDmaWaitingForResponse(BT_STAT_STR_LEN_RN4678_REBOOT);
-#endif
                     return;
                 }
             }
@@ -1307,18 +1218,13 @@ void runSetCommands(void)
 
             if (runSetCommands_cb)
             {
-#if !BT_DMA_USED_FOR_RX
-                btIsStarting = 0U;
-#endif
                 runSetCommands_cb();
             }
 
-#if BT_DMA_USED_FOR_RX
             /* Charge up the DMA again to be able to read status strings from BT
              * module. If status strings are disabled, this is done when the
              * connection status pin interrupt is triggered. */
             setDmaWaitingForResponseIfStatusStrEnabled();
-#endif
         }
     }
 }
@@ -1330,9 +1236,7 @@ void runMasterCommands(void)
         BT_rst_MessageProgress();
         command_received = 1;
         bt_runmastercommands_start = 1;
-#if BT_DMA_USED_FOR_RX
         DMA2AndCtsDisable();
-#endif
     }
     if (command_received)
     {
@@ -1382,12 +1286,10 @@ void runMasterCommands(void)
             bt_runmastercommands_step = 0;
             bt_runmastercommands_start = 0;
 
-#if BT_DMA_USED_FOR_RX
             /* Charge up the DMA again to be able to read status strings from BT
              * module. If status strings are disabled, this is done when the
              * connection status pin interrupt is triggered. */
             setDmaWaitingForResponseIfStatusStrEnabled();
-#endif
         }
     }
     return;
@@ -1503,12 +1405,9 @@ void sendBaudRateUpdateToBtModule(void)
     {
         //UCA1IE &= ~UCRXIE;                  //Disable USCI_A1 RX interrupt
         writeCommandNoRsp(commandbuf);
-#if BT_DMA_USED_FOR_RX
         DMA2AndCtsDisable();
-#endif
         _delay_cycles(4800000);
 
-#if BT_DMA_USED_FOR_RX
         uint8_t expRespLen = 1U;
         if (isBtDeviceRn4678())
         {
@@ -1516,7 +1415,6 @@ void sendBaudRateUpdateToBtModule(void)
             expRespLen += RN4X_CMD_LEN;
         }
         setDmaWaitingForResponse(expRespLen);
-#endif
     }
     else
     {
@@ -1531,7 +1429,6 @@ void writeCommandBufAndExpectAok(void)
 
 void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen)
 {
-#if BT_DMA_USED_FOR_RX
     if (isBtDeviceRn41orRN42())
     {
         writeCommandWithCmdLen(commandbuf, cmdBufLen, RN4X_AOK_RESPONSE);
@@ -1540,9 +1437,6 @@ void writeCommandBufAndExpectAokWithCmdLen(uint8_t cmdBufLen)
     {
         writeCommandWithCmdLen(commandbuf, cmdBufLen, RN4678_AOK_CMD_RESPONSE);
     }
-#else
-    writeCommandNoRspWithCmdLen(commandbuf, cmdBufLen);
-#endif
 }
 
 void btCmdModeStartAfterRn4xTempBaudChange(void)
@@ -1560,20 +1454,14 @@ void btCmdModeStartAfterRn4xTempBaudChange(void)
 
 void btCmdModeStart(void)
 {
-#if BT_DMA_USED_FOR_RX
     BT_setWaitForStartCmd(1U);
     setDmaWaitingForResponse(RN4X_CMD_LEN);
-#endif
     writeCommandNoRsp("$$$");
 }
 
 void btCmdModeStop(void)
 {
-#if BT_DMA_USED_FOR_RX
     writeCommand("---\r", "END\r\n");
-#else
-    writeCommandNoRsp("---\r");
-#endif
 }
 
 void setBtBaudRateToUse(uint8_t baudRate)
@@ -1672,12 +1560,10 @@ void BT_init(void)
     bt_runmastercommands_step = 0;
     bt_runmastercommands_start = 0;
     BT_setWaitForInitialBoot(0);
-#if BT_DMA_USED_FOR_RX
     BT_setWaitForReturnNewLine(0);
     BT_setWaitForVersion(0);
     BT_setWaitForMacAddress(0);
     BT_setWaitForStartCmd(0);
-#endif
     BT_setUpdateBaudDuringBoot(0);
     getMacAddress = 0;
     BT_setRadioMode(SLAVE_MODE);
@@ -1705,11 +1591,6 @@ void BT_init(void)
 
     RINGFIFO_RESET(gBtTxFifo);
     memset(gBtTxFifo.data, 0x00, sizeof(gBtTxFifo.data) / sizeof(gBtTxFifo.data[0]));
-
-#if !BT_DMA_USED_FOR_RX
-    RINGFIFO_RESET(gBtRxFifo);
-    memset(gBtRxFifo.data, 0x00, sizeof(gBtRxFifo.data) / sizeof(gBtRxFifo.data[0]));
-#endif
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
     rn4678RtsLockDetected = 0U;
@@ -1765,10 +1646,6 @@ void BT_init(void)
 
 void BT_start(void)
 {
-#if !BT_DMA_USED_FOR_RX
-    btIsStarting = 1U;
-#endif
-
     starting = 1;
     initRN1();
 
@@ -1808,9 +1685,7 @@ void BT_disable(void)
     //Turn off power (SW_BT P4.3 on SR30 and newer)
     setBtModulePower(0);
     starting = 0;
-#if BT_DMA_USED_FOR_RX
     DMA2AndCtsDisable();
-#endif
 
     /* When RN42 is turned off it reverts to 115200 baud on next boot */
     if (isBtDeviceRn41orRN42())
@@ -1932,7 +1807,6 @@ void BT_setWaitForInitialBoot(uint8_t val)
     waitForInitialBoot = val;
 }
 
-#if BT_DMA_USED_FOR_RX
 void BT_setWaitForReturnNewLine(uint8_t val)
 {
     waitForReturnNewLine = val;
@@ -1941,7 +1815,6 @@ void BT_setWaitForReturnNewLine(uint8_t val)
         memset(btRxFullResponse, 0, strlen((char*) btRxFullResponse));
     }
 }
-#endif
 
 void BT_setRadioMode(btOperatingMode mode)
 {
@@ -2204,7 +2077,6 @@ uint8_t BT_getWaitForInitialBoot(void)
     return waitForInitialBoot;
 }
 
-#if BT_DMA_USED_FOR_RX
 void BT_setWaitForStartCmd(uint8_t val)
 {
     waitForStartCmd = val;
@@ -2239,7 +2111,6 @@ uint8_t BT_getWaitForReturnNewLine(void)
 {
     return waitForReturnNewLine;
 }
-#endif
 
 void clearBtTxBuf(uint8_t isCalledFromMain)
 {
@@ -2311,7 +2182,6 @@ uint16_t getSpaceInBtTxBuf(void)
     return BT_TX_BUF_SIZE - 1 - getUsedSpaceInBtTxBuf();
 }
 
-#if BT_DMA_USED_FOR_RX
 void setDmaWaitingForResponseIfStatusStrEnabled(void)
 {
     if (areBtStatusStringsEnabled())
@@ -2350,7 +2220,6 @@ void DMA2AndCtsDisable(void)
 #endif
     DMA2_disable();
 }
-#endif
 
 // RADIO_CTS
 void setIsBtClearToSend(uint8_t isBtClearToSend)
@@ -2536,12 +2405,10 @@ uint8_t getCurrentBtBaudRate(void)
     return btBaudRateToUse;
 }
 
-#if BT_DMA_USED_FOR_RX
 void setBtRxFullResponsePtr(char *ptr)
 {
     btRxFullResponse = ptr;
 }
-#endif
 
 uint8_t getBtClearTxBufFlag(void)
 {
@@ -2987,53 +2854,6 @@ uint8_t isBtModuleRunningInSyncMode(void)
     return btModuleSyncModeEn;
 }
 
-#if !BT_DMA_USED_FOR_RX
-RingFifoRx_t *getRxFifoPtr(void)
-{
-    return &gBtRxFifo;
-}
-
-void readByteFromBtRxBuf(uint8_t *buf)
-{
-    RINGFIFO_RD(gBtRxFifo, *buf, BT_RX_BUF_MASK);
-
-#if BT_CLEAR_RX_BUF_DURING_READ
-    /* Just here to help debugging */
-    gBtRxFifo.data[BT_RX_BUF_MASK & (gBtRxFifo.rdIdx-1)] = 0x00;
-#endif
-}
-
-uint16_t getNumBytesInBtRxBuf(void)
-{
-    return RINGFIFO_COUNT(gBtRxFifo, BT_RX_BUF_MASK);
-}
-
-void pushByteToBtRxBufIfNotFull(uint8_t c)
-{
-    if(RINGFIFO_FULL(gBtRxFifo, BT_RX_BUF_MASK))
-    {
-    //TODO
-//#if BT_CTS_CONTROL_ENABLED
-//    setIsBtClearToSend(0);
-//#endif
-    }
-    else
-    {
-        RINGFIFO_WR(gBtRxFifo, c, BT_RX_BUF_MASK);
-    }
-}
-
-void clearBtRxBuf(void)
-{
-    RINGFIFO_RESET(gBtRxFifo);
-}
-
-uint8_t isBtStarting(void)
-{
-    return btIsStarting!=0;
-}
-#endif
-
 #pragma vector=USCI_A1_VECTOR
 __interrupt void USCI_A1_ISR(void)
 {
@@ -3042,12 +2862,6 @@ __interrupt void USCI_A1_ISR(void)
     case 0:
         break;                                // Vector 0 - no interrupt
     case 2:                                   // Vector 2 - RXIFG
-#if !BT_DMA_USED_FOR_RX
-        pushByteToBtRxBufIfNotFull(UCA1RXBUF);
-
-        /* If there are bytes to process bring out of LPM mode */
-        __bic_SR_register_on_exit(LPM3_bits);
-#endif
         break;
     case 4:                                   // Vector 4 - TXIFG
         sendNextChar();

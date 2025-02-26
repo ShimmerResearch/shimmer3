@@ -261,10 +261,6 @@ enum BT_SET_COMMAND_STAGES
 
 #define BT_TX_BUF_SIZE                  256U              /* serial buffer in bytes (power 2)  */
 #define BT_TX_BUF_MASK                  (BT_TX_BUF_SIZE-1UL)
-#if !BT_DMA_USED_FOR_RX
-#define BT_RX_BUF_SIZE                  (256UL)              /* serial buffer in bytes (power 2)   */
-#define BT_RX_BUF_MASK                  (BT_RX_BUF_SIZE-1UL)  /* buffer size mask                   */
-#endif
 #define BLE_MTU_SIZE                    157U
 
 #define INSTREAM_STATUS_RESPONSE_LEN    4U
@@ -280,17 +276,6 @@ typedef struct{
     // head points to the index of the next empty byte in the buffer
     uint16_t wrIdx;
 } RingFifoTx_t;
-
-#if !BT_DMA_USED_FOR_RX
-typedef struct{
-    uint8_t data[BT_RX_BUF_SIZE];
-    // tail points to the buffer index for the oldest byte that was added to it
-    uint16_t rdIdx;
-    // head points to the index of the next empty byte in the buffer
-    uint16_t wrIdx;
-    uint8_t appendingToBuffer;
-} RingFifoRx_t;
-#endif
 
 typedef enum
 {
@@ -380,9 +365,7 @@ void BT_disconnect(void);
 void BT_setGetMacAddress(uint8_t val);
 void BT_setGetVersion(uint8_t val);
 void BT_setWaitForInitialBoot(uint8_t val);
-#if BT_DMA_USED_FOR_RX
 void BT_setWaitForReturnNewLine(uint8_t val);
-#endif
 
 void BT_setRadioMode(btOperatingMode mode);
 void BT_setAutoMaster(char *master);
@@ -431,7 +414,6 @@ void BT_rst_MessageProgress(void); // reset messageInProgress to 0 as in the ini
 // pass the expected response to the main function for user customized use (e.g.DMA).
 uint8_t* BT_getExpResp(void);
 uint8_t BT_getWaitForInitialBoot(void);
-#if BT_DMA_USED_FOR_RX
 void BT_setWaitForStartCmd(uint8_t val);
 uint8_t BT_getWaitForStartCmd(void);
 void BT_setWaitForMacAddress(uint8_t val);
@@ -439,20 +421,17 @@ uint8_t BT_getWaitForMacAddress(void);
 void BT_setWaitForVersion(uint8_t val);
 uint8_t BT_getWaitForVersion(void);
 uint8_t BT_getWaitForReturnNewLine(void);
-#endif
 
 void clearBtTxBuf(uint8_t isCalledFromMain);
 void pushByteToBtTxBuf(uint8_t b);
 void pushBytesToBtTxBuf(uint8_t *buf, uint8_t len);
 uint16_t getUsedSpaceInBtTxBuf(void);
 uint16_t getSpaceInBtTxBuf(void);
-#if BT_DMA_USED_FOR_RX
 void setDmaWaitingForResponseIfStatusStrEnabled(void);
 void setDmaWaitingForResponseIfStatusStrDisabled(void);
 void setDmaWaitingForResponse(uint16_t numChars);
 void setDmaWaitForReturnNewLine(void);
 void DMA2AndCtsDisable(void);
-#endif
 void setIsBtClearToSend(uint8_t isBtClearToSend);
 void setBtRtsInterruptState(uint8_t isEnabled);
 void setBtConnectionStatusInterruptIsEnabled(uint8_t isEnabled);
@@ -510,13 +489,5 @@ uint8_t* getMacIdStrPtr(void);
 uint8_t* getMacIdBytesPtr(void);
 void setBtModuleRunningInSyncMode(uint8_t mode);
 uint8_t isBtModuleRunningInSyncMode(void);
-#if !BT_DMA_USED_FOR_RX
-RingFifoRx_t *getRxFifoPtr(void);
-void readByteFromBtRxBuf(uint8_t *buf);
-uint16_t getNumBytesInBtRxBuf(void);
-void pushByteToBtRxBufIfNotFull(uint8_t c);
-void clearBtRxBuf(void);
-uint8_t isBtStarting(void);
-#endif
 
 #endif //RN4X_H
