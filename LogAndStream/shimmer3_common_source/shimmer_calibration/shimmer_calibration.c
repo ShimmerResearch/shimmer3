@@ -22,7 +22,7 @@
 #include "../LSM303DLHC/lsm303dlhc.h"
 #include "../LSM303AHTR/lsm303ahtr.h"
 #include "../BMPX80/bmpX80.h"
-#include "../Bluetooth_SD/RN4X.h"
+#include "../RN4X/RN4X.h"
 #include "../shimmer_boards/shimmer_boards.h"
 
 uint8_t shimmerCalib_ram[SHIMMER_CALIB_RAM_MAX], shimmerCalib_macId[5],

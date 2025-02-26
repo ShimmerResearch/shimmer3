@@ -68,7 +68,6 @@
 #include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
 #include "log_and_stream_globals.h"
-#include "battery.h"
 
 void Init(void);
 void resetBtResponseBools(void);

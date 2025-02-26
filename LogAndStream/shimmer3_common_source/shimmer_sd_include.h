@@ -15,7 +15,6 @@
 #include "5xx_HAL/hal_pmm.h"
 #include "5xx_HAL/hal_SDCard.h"
 #include "5xx_HAL/hal_UCS.h"
-#include "Bluetooth_SD/RN4X.h"
 #include "BMPX80/bmpX80.h"
 #include "CAT24C16/cat24c16.h"
 #include "EXG/exg.h"
@@ -28,9 +27,8 @@
 #include "ICM20948/ICM20948.h"
 #include "msp430_clock/msp430_clock.h"
 #include "shimmer_calibration/shimmer_calibration.h"
-#include "Bluetooth_SD/shimmer_bt_comms.h"
-#include "Bluetooth_SD/sd_sync.h"
 #include "shimmer_boards/shimmer_boards.h"
-#include "dock_comms/shimmer_dock_comms.h"
+#include "log_and_stream_includes.h"
+#include "RN4X/RN4X.h"
 
 #endif

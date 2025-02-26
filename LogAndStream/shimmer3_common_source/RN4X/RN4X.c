@@ -52,7 +52,7 @@
  * @date December, 2021
  */
 
-#include "RN4X.h"
+#include "../RN4X/RN4X.h"
 
 #include <string.h>
 #include <ctype.h>
