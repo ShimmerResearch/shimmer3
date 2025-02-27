@@ -131,11 +131,6 @@ void Config2SdHead(void);
 void SetDefaultConfiguration(void);
 void ChargeStatusTimerStart(void);
 void ChargeStatusTimerStop(void);
-void ShimmerCalibSyncFromDumpRamAll(void);
-void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor);
-void ShimmerCalibInitFromInfoAll(void);
-void ShimmerCalibUpdateFromInfoAll(void);
-void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time);
 void CalibFromFileRead(uint8_t sensor);
 void CalibDefault(uint8_t sensor);
 void CalibAllAsDefault(void);
@@ -144,7 +139,6 @@ void CalibFromFile();
 void CalibFromInfo(uint8_t sensor);
 void CalibFromInfoAll();
 void CalibAll();
-void CalibSaveFromInfoMemToCalibDump(uint8_t id);
 uint8_t GetSdCfgFlag();
 void SetSdCfgFlag(uint8_t flag);
 uint8_t GetCalibFlag();
@@ -3363,11 +3357,11 @@ void ProcessCommand(void)
         //update_sdconfig_manual = 1;
         break;
     case SET_LN_ACCEL_CALIBRATION_COMMAND:
-        memcpy(&storedConfig[NV_A_ACCEL_CALIBRATION], args, 21);
-        InfoMem_write((void*) NV_A_ACCEL_CALIBRATION,
-                      &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-        memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION],
-               &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
+        memcpy(&storedConfig[NV_LN_ACCEL_CALIBRATION], args, 21);
+        InfoMem_write((void*) NV_LN_ACCEL_CALIBRATION,
+                      &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_LN_ACCEL_CALIBRATION],
+               &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
 
         CalibSaveFromInfoMemToCalibDump(SC_SENSOR_ANALOG_ACCEL);
 
@@ -3379,13 +3373,13 @@ void ProcessCommand(void)
         lnAccelCalibrationResponse = 1;
         break;
     case SET_GYRO_CALIBRATION_COMMAND:
-        memcpy(&storedConfig[NV_MPU9150_GYRO_CALIBRATION], args, 21);
-        InfoMem_write((void*) NV_MPU9150_GYRO_CALIBRATION,
-                      &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-        memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION],
-               &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
+        memcpy(&storedConfig[NV_GYRO_CALIBRATION], args, 21);
+        InfoMem_write((void*) NV_GYRO_CALIBRATION,
+                      &storedConfig[NV_GYRO_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_GYRO_CALIBRATION],
+               &storedConfig[NV_GYRO_CALIBRATION], 21);
 
-        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_MPU9150_GYRO);
+        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_MPU9X50_ICM20948_GYRO);
 
         update_calib_dump_file = 1;
         //      update_calib = 1;
@@ -3396,13 +3390,13 @@ void ProcessCommand(void)
         gyroCalibrationResponse = 1;
         break;
     case SET_MAG_CALIBRATION_COMMAND:
-        memcpy(&storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], args, 21);
-        InfoMem_write((void*) NV_LSM303DLHC_MAG_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-        memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION],
-               &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
+        memcpy(&storedConfig[NV_MAG_CALIBRATION], args, 21);
+        InfoMem_write((void*) NV_MAG_CALIBRATION,
+                      &storedConfig[NV_MAG_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_MAG_CALIBRATION],
+               &storedConfig[NV_MAG_CALIBRATION], 21);
 
-        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303DLHC_MAG);
+        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303_MAG);
 
         update_calib_dump_file = 1;
         //      update_calib = 1;
@@ -3413,13 +3407,13 @@ void ProcessCommand(void)
         magCalibrationResponse = 1;
         break;
     case SET_WR_ACCEL_CALIBRATION_COMMAND:
-        memcpy(&storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], args, 21);
-        InfoMem_write((void*) NV_LSM303DLHC_ACCEL_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-        memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION],
-               &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+        memcpy(&storedConfig[NV_WR_ACCEL_CALIBRATION], args, 21);
+        InfoMem_write((void*) NV_WR_ACCEL_CALIBRATION,
+                      &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_WR_ACCEL_CALIBRATION],
+               &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
 
-        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303DLHC_ACCEL);
+        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303_ACCEL);
 
         update_calib_dump_file = 1;
         //      update_calib = 1;
@@ -3674,13 +3668,13 @@ void ProcessCommand(void)
             Infomem2Names();
             TaskSet(TASK_CFGCH);
             update_sdconfig = 1;
-            if (((infomemOffset >= NV_A_ACCEL_CALIBRATION)
+            if (((infomemOffset >= NV_LN_ACCEL_CALIBRATION)
                     && (infomemOffset <= NV_CALIBRATION_END))
                     || (((infomemLength + infomemOffset)
-                            >= NV_A_ACCEL_CALIBRATION)
+                            >= NV_LN_ACCEL_CALIBRATION)
                             && ((infomemLength + infomemOffset)
                                     <= NV_CALIBRATION_END))
-                    || ((infomemOffset <= NV_A_ACCEL_CALIBRATION)
+                    || ((infomemOffset <= NV_LN_ACCEL_CALIBRATION)
                             && ((infomemLength + infomemOffset)
                                     >= NV_CALIBRATION_END)))
             {
@@ -4094,9 +4088,9 @@ void SendResponse(void)
         else if (gyroCalibrationResponse)
         {
             *(resPacket + packet_length++) = GYRO_CALIBRATION_RESPONSE;
-            sc1.id = SC_SENSOR_MPU9150_GYRO;
+            sc1.id = SC_SENSOR_MPU9X50_ICM20948_GYRO;
             sc1.range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-            sc1.data_len = SC_DATA_LEN_MPU9250_GYRO;
+            sc1.data_len = SC_DATA_LEN_MPU9X50_ICM20948_GYRO;
             ShimmerCalib_singleSensorRead(&sc1);
             memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
             packet_length += sc1.data_len;
@@ -4106,9 +4100,9 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) =
             MAG_CALIBRATION_RESPONSE;
-            sc1.id = SC_SENSOR_LSM303DLHC_MAG;
+            sc1.id = SC_SENSOR_LSM303_MAG;
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
-            sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
+            sc1.data_len = SC_DATA_LEN_LSM303_MAG;
             ShimmerCalib_singleSensorRead(&sc1);
             memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
             packet_length += sc1.data_len;
@@ -4118,9 +4112,9 @@ void SendResponse(void)
         {
             *(resPacket + packet_length++) =
             WR_ACCEL_CALIBRATION_RESPONSE;
-            sc1.id = SC_SENSOR_LSM303DLHC_ACCEL;
+            sc1.id = SC_SENSOR_LSM303_ACCEL;
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03;
-            sc1.data_len = SC_DATA_LEN_LSM303DLHC_ACCEL;
+            sc1.data_len = SC_DATA_LEN_LSM303_ACCEL;
             ShimmerCalib_singleSensorRead(&sc1);
             memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
             packet_length += sc1.data_len;
@@ -4149,23 +4143,23 @@ void SendResponse(void)
                 }
                 else if (i == 1)
                 {
-                    sc1.id = SC_SENSOR_MPU9150_GYRO;
+                    sc1.id = SC_SENSOR_MPU9X50_ICM20948_GYRO;
                     sc1.range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-                    sc1.data_len = SC_DATA_LEN_MPU9250_GYRO;
+                    sc1.data_len = SC_DATA_LEN_MPU9X50_ICM20948_GYRO;
                 }
                 else if (i == 2)
                 {
-                    sc1.id = SC_SENSOR_LSM303DLHC_MAG;
+                    sc1.id = SC_SENSOR_LSM303_MAG;
                     sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5)
                             & 0x07;
-                    sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
+                    sc1.data_len = SC_DATA_LEN_LSM303_MAG;
                 }
                 else if (i == 3)
                 {
-                    sc1.id = SC_SENSOR_LSM303DLHC_ACCEL;
+                    sc1.id = SC_SENSOR_LSM303_ACCEL;
                     sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2)
                             & 0x03;
-                    sc1.data_len = SC_DATA_LEN_LSM303DLHC_ACCEL;
+                    sc1.data_len = SC_DATA_LEN_LSM303_ACCEL;
                 }
                 ShimmerCalib_singleSensorRead(&sc1);
                 memcpy((resPacket + packet_length), sc1.data.raw, sc1.data_len);
@@ -4524,8 +4518,8 @@ void ParseConfig(void)
 
         broadcast_interval = SYNC_INT_C;
 
-        memset((uint8_t*) (stored_config_temp), 0, NV_A_ACCEL_CALIBRATION); //0
-        memset((uint8_t*) (stored_config_temp + NV_A_ACCEL_CALIBRATION), 0xff, 84);
+        memset((uint8_t*) (stored_config_temp), 0, NV_LN_ACCEL_CALIBRATION); //0
+        memset((uint8_t*) (stored_config_temp + NV_LN_ACCEL_CALIBRATION), 0xff, 84);
         memset((uint8_t*) (stored_config_temp + NV_DERIVED_CHANNELS_3), 0, 5); //0
         memset((uint8_t*) (stored_config_temp + NV_SENSORS3), 0, 5); //0
         memset((uint8_t*) (stored_config_temp + NV_MPL_ACCEL_CALIBRATION), 0xff, 82);
@@ -5104,8 +5098,8 @@ void Config2SdHead(void)
 
 void SetDefaultConfiguration(void)
 {
-    memset((uint8_t*) (storedConfig), 0, NV_A_ACCEL_CALIBRATION); //0
-    memset((uint8_t*) (storedConfig + NV_A_ACCEL_CALIBRATION), 0xff, 84);
+    memset((uint8_t*) (storedConfig), 0, NV_LN_ACCEL_CALIBRATION); //0
+    memset((uint8_t*) (storedConfig + NV_LN_ACCEL_CALIBRATION), 0xff, 84);
     memset((uint8_t*) (storedConfig + NV_DERIVED_CHANNELS_3), 0, 5); //0
     memset((uint8_t*) (storedConfig + NV_SENSORS3), 0, 5); //0
     memset((uint8_t*) (storedConfig + NV_SD_SHIMMER_NAME), 0, 37); //0
@@ -5377,155 +5371,167 @@ error_t MakeBasedir()
     return SUCCESS;
 }
 
-void ShimmerCalibInitFromInfoAll(void)
-{
-    ShimmerCalibFromInfo(SC_SENSOR_ANALOG_ACCEL, 0);
-    ShimmerCalibFromInfo(SC_SENSOR_MPU9150_GYRO, 0);
-    ShimmerCalibFromInfo(SC_SENSOR_LSM303DLHC_ACCEL, 0);
-    ShimmerCalibFromInfo(SC_SENSOR_LSM303DLHC_MAG, 0);
-}
-void ShimmerCalibUpdateFromInfoAll(void)
-{
-    ShimmerCalibFromInfo(SC_SENSOR_ANALOG_ACCEL, 1);
-    ShimmerCalibFromInfo(SC_SENSOR_MPU9150_GYRO, 1);
-    ShimmerCalibFromInfo(SC_SENSOR_LSM303DLHC_ACCEL, 1);
-    ShimmerCalibFromInfo(SC_SENSOR_LSM303DLHC_MAG, 1);
-}
+//void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time)
+//{
+//    uint8_t info_config, info_valid = 0;
+//    uint16_t offset;
+//    int byte_cnt = 0;
+//    sc_t sc1;
+//
+//    sc1.id = sensor;
+//    if (use_sys_time)
+//    {
+//        memset(sc1.ts, 0, 8);
+//    }
+//    else
+//    {
+//        *(uint64_t*) (sc1.ts) = getRwcTime();
+//    }
+//
+//    if (sc1.id == SC_SENSOR_ANALOG_ACCEL)
+//    {
+//        offset = NV_LN_ACCEL_CALIBRATION;
+//        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
+//        sc1.data_len = SC_DATA_LEN_ANALOG_ACCEL;
+//    }
+//    else if (sc1.id == SC_SENSOR_MPU9X50_ICM20948_GYRO)
+//    {
+//        offset = NV_GYRO_CALIBRATION;
+//        sc1.data_len = SC_DATA_LEN_MPU9X50_ICM20948_GYRO;
+//        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
+//        sc1.range = info_config & 0x03;
+//    }
+//    else if (sc1.id == SC_SENSOR_LSM303_ACCEL)
+//    {
+//        offset = NV_WR_ACCEL_CALIBRATION;
+//        sc1.data_len = SC_DATA_LEN_LSM303_ACCEL;
+//        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE0, &info_config, 1);
+//        sc1.range = (info_config & 0x0c) >> 2;
+//    }
+//    else if (sc1.id == SC_SENSOR_LSM303_MAG)
+//    {
+//        offset = NV_MAG_CALIBRATION;
+//        sc1.data_len = SC_DATA_LEN_LSM303_MAG;
+//        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
+//        sc1.range = (info_config & 0xe0) >> 5;
+//        if (isWrAccelInUseLsm303dlhc())
+//        {
+//            sc1.range = (info_config & 0xe0) >> 5;
+//        }
+//        else
+//        {
+//            sc1.range = 0;
+//        }
+//    }
+//    else
+//    {
+//        return;
+//    }
+//
+//    InfoMem_read((uint8_t*) offset, storedConfig + offset, 21);
+//    for (byte_cnt = 21; byte_cnt > 0; byte_cnt--)
+//    {
+//        if (storedConfig[offset + byte_cnt] != 0xff)
+//        {
+//            info_valid = 1;
+//            break;
+//        }
+//    }
+//
+//    if (info_valid)
+//    {
+//        /* if not all 0xff in infomem */
+//        memcpy(sc1.data.raw, storedConfig + offset, sc1.data_len);
+//        ShimmerCalib_singleSensorWrite(&sc1);
+//    }
+//}
+//
+//void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor)
+//{
+//    sc_t sc1;
+//    uint16_t scs_infomem_offset, scs_sdhead_offset, scs_sdhead_ts;
+//    sc1.id = sensor;
+//    sc1.data_len = ShimmerCalib_findLength(&sc1);
+//    switch (sensor)
+//    {
+//    case SC_SENSOR_ANALOG_ACCEL:
+//        scs_infomem_offset = NV_LN_ACCEL_CALIBRATION;
+//        scs_sdhead_offset = SDH_LN_ACCEL_CALIBRATION;
+//        scs_sdhead_ts = SDH_LN_ACCEL_CALIB_TS;
+//        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
+//        break;
+//    case SC_SENSOR_MPU9X50_ICM20948_GYRO:
+//        scs_infomem_offset = NV_GYRO_CALIBRATION;
+//        scs_sdhead_offset = SDH_GYRO_CALIBRATION;
+//        scs_sdhead_ts = SDH_GYRO_CALIB_TS;
+//        sc1.range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
+//        break;
+//    case SC_SENSOR_LSM303_MAG:
+//        scs_infomem_offset = NV_MAG_CALIBRATION;
+//        scs_sdhead_offset = SDH_MAG_CALIBRATION;
+//        scs_sdhead_ts = SDH_MAG_CALIB_TS;
+//        if (isWrAccelInUseLsm303dlhc())
+//        {
+//            sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
+//        }
+//        else
+//        {
+//            sc1.range = 0;
+//        }
+//        break;
+//    case SC_SENSOR_LSM303_ACCEL:
+//        scs_infomem_offset = NV_WR_ACCEL_CALIBRATION;
+//        scs_sdhead_offset = SDH_WR_ACCEL_CALIBRATION;
+//        scs_sdhead_ts = SDH_WR_ACCEL_CALIB_TS;
+//        sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03;
+//        break;
+//    default:
+//        scs_infomem_offset = NV_LN_ACCEL_CALIBRATION;
+//        scs_sdhead_offset = SDH_LN_ACCEL_CALIBRATION;
+//        scs_sdhead_ts = SDH_LN_ACCEL_CALIB_TS;
+//        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
+//        break;
+//    }
+//
+//    ShimmerCalib_singleSensorRead(&sc1);
+//    memcpy(storedConfig + scs_infomem_offset, sc1.data.raw, sc1.data_len);
+//    InfoMem_write((uint8_t*) scs_infomem_offset, sc1.data.raw, sc1.data_len);
+//    memcpy(sdHeadText + scs_sdhead_offset, sc1.data.raw, sc1.data_len);
+//    memcpy(sdHeadText + scs_sdhead_ts, sc1.ts, 8);
+//}
 
-void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time)
-{
-    uint8_t info_config, info_valid = 0;
-    uint16_t offset;
-    int byte_cnt = 0;
-    sc_t sc1;
+//void CalibSaveFromInfoMemToCalibDump(uint8_t id)
+//{
+//    if (id==0xFF || id==SC_SENSOR_ANALOG_ACCEL)
+//    {
+//        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_ANALOG_ACCEL,
+//                                                  SC_SENSOR_RANGE_ANALOG_ACCEL,
+//                                                  SC_DATA_LEN_ANALOG_ACCEL,
+//                                                  &storedConfig[NV_LN_ACCEL_CALIBRATION]);
+//    }
+//    if (id==0xFF || id==SC_SENSOR_MPU9X50_ICM20948_GYRO)
+//    {
+//        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_MPU9X50_ICM20948_GYRO,
+//                                                  storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03,
+//                                                  SC_DATA_LEN_MPU9X50_ICM20948_GYRO,
+//                                                  &storedConfig[NV_GYRO_CALIBRATION]);
+//    }
+//    if (id==0xFF || id==SC_SENSOR_LSM303_MAG)
+//    {
+//        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_LSM303_MAG,
+//                                                  (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07,
+//                                                  SC_DATA_LEN_LSM303_MAG,
+//                                                  &storedConfig[NV_MAG_CALIBRATION]);
+//    }
+//    if (id==0xFF || id==SC_SENSOR_LSM303_ACCEL)
+//    {
+//        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_LSM303_ACCEL,
+//                                                  (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03,
+//                                                  SC_DATA_LEN_LSM303_ACCEL,
+//                                                  &storedConfig[NV_WR_ACCEL_CALIBRATION]);
+//    }
+//}
 
-    sc1.id = sensor;
-    if (use_sys_time)
-    {
-        memset(sc1.ts, 0, 8);
-    }
-    else
-    {
-        *(uint64_t*) (sc1.ts) = getRwcTime();
-    }
-
-    if (sc1.id == SC_SENSOR_ANALOG_ACCEL)
-    {
-        offset = NV_A_ACCEL_CALIBRATION;
-        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
-        sc1.data_len = SC_DATA_LEN_ANALOG_ACCEL;
-    }
-    else if (sc1.id == SC_SENSOR_MPU9150_GYRO)
-    {
-        offset = NV_MPU9150_GYRO_CALIBRATION;
-        sc1.data_len = SC_DATA_LEN_MPU9250_GYRO;
-        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-        sc1.range = info_config & 0x03;
-    }
-    else if (sc1.id == SC_SENSOR_LSM303DLHC_ACCEL)
-    {
-        offset = NV_LSM303DLHC_ACCEL_CALIBRATION;
-        sc1.data_len = SC_DATA_LEN_LSM303DLHC_ACCEL;
-        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE0, &info_config, 1);
-        sc1.range = (info_config & 0x0c) >> 2;
-    }
-    else if (sc1.id == SC_SENSOR_LSM303DLHC_MAG)
-    {
-        offset = NV_LSM303DLHC_MAG_CALIBRATION;
-        sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
-        InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
-        sc1.range = (info_config & 0xe0) >> 5;
-        if (isWrAccelInUseLsm303dlhc())
-        {
-            sc1.range = (info_config & 0xe0) >> 5;
-        }
-        else
-        {
-            sc1.range = 0;
-        }
-    }
-    else
-    {
-        return;
-    }
-
-    InfoMem_read((uint8_t*) offset, storedConfig + offset, 21);
-    for (byte_cnt = 21; byte_cnt > 0; byte_cnt--)
-    {
-        if (storedConfig[offset + byte_cnt] != 0xff)
-        {
-            info_valid = 1;
-            break;
-        }
-    }
-
-    if (info_valid)
-    {
-        /* if not all 0xff in infomem */
-        memcpy(sc1.data.raw, storedConfig + offset, sc1.data_len);
-        ShimmerCalib_singleSensorWrite(&sc1);
-    }
-}
-void ShimmerCalibSyncFromDumpRamAll(void)
-{
-    ShimmerCalibSyncFromDumpRamSingleSensor(SC_SENSOR_ANALOG_ACCEL);
-    ShimmerCalibSyncFromDumpRamSingleSensor(SC_SENSOR_MPU9150_GYRO);
-    ShimmerCalibSyncFromDumpRamSingleSensor(SC_SENSOR_LSM303DLHC_MAG);
-    ShimmerCalibSyncFromDumpRamSingleSensor(SC_SENSOR_LSM303DLHC_ACCEL);
-}
-void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor)
-{
-    sc_t sc1;
-    uint16_t scs_infomem_offset, scs_sdhead_offset, scs_sdhead_ts;
-    sc1.id = sensor;
-    sc1.data_len = ShimmerCalib_findLength(&sc1);
-    switch (sensor)
-    {
-    case SC_SENSOR_ANALOG_ACCEL:
-        scs_infomem_offset = NV_A_ACCEL_CALIBRATION;
-        scs_sdhead_offset = SDH_A_ACCEL_CALIBRATION;
-        scs_sdhead_ts = SDH_A_ACCEL_CALIB_TS;
-        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
-        break;
-    case SC_SENSOR_MPU9150_GYRO:
-        scs_infomem_offset = NV_MPU9150_GYRO_CALIBRATION;
-        scs_sdhead_offset = SDH_MPU9150_GYRO_CALIBRATION;
-        scs_sdhead_ts = SDH_MPU9150_GYRO_CALIB_TS;
-        sc1.range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
-        break;
-    case SC_SENSOR_LSM303DLHC_MAG:
-        scs_infomem_offset = NV_LSM303DLHC_MAG_CALIBRATION;
-        scs_sdhead_offset = SDH_LSM303DLHC_MAG_CALIBRATION;
-        scs_sdhead_ts = SDH_LSM303DLHC_MAG_CALIB_TS;
-        if (isWrAccelInUseLsm303dlhc())
-        {
-            sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
-        }
-        else
-        {
-            sc1.range = 0;
-        }
-        break;
-    case SC_SENSOR_LSM303DLHC_ACCEL:
-        scs_infomem_offset = NV_LSM303DLHC_ACCEL_CALIBRATION;
-        scs_sdhead_offset = SDH_LSM303DLHC_ACCEL_CALIBRATION;
-        scs_sdhead_ts = SDH_LSM303DLHC_ACCEL_CALIB_TS;
-        sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03;
-        break;
-    default:
-        scs_infomem_offset = NV_A_ACCEL_CALIBRATION;
-        scs_sdhead_offset = SDH_A_ACCEL_CALIBRATION;
-        scs_sdhead_ts = SDH_A_ACCEL_CALIB_TS;
-        sc1.range = SC_SENSOR_RANGE_ANALOG_ACCEL;
-        break;
-    }
-
-    ShimmerCalib_singleSensorRead(&sc1);
-    memcpy(storedConfig + scs_infomem_offset, sc1.data.raw, sc1.data_len);
-    InfoMem_write((uint8_t*) scs_infomem_offset, sc1.data.raw, sc1.data_len);
-    memcpy(sdHeadText + scs_sdhead_offset, sc1.data.raw, sc1.data_len);
-    memcpy(sdHeadText + scs_sdhead_ts, sc1.ts, 8);
-}
 
 void CalibFromFile()
 {
@@ -5533,34 +5539,34 @@ void CalibFromFile()
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
     {
         CalibFromFileRead(S_ACCEL_D);
-        memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION],
-               &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-        InfoMem_write((uint8_t*) NV_LSM303DLHC_ACCEL_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_WR_ACCEL_CALIBRATION],
+               &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_WR_ACCEL_CALIBRATION,
+                      &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
     }
     if (storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
     {
         CalibFromFileRead(S_GYRO);
-        memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION],
-               &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-        InfoMem_write((uint8_t*) NV_MPU9150_GYRO_CALIBRATION,
-                      &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_GYRO_CALIBRATION],
+               &storedConfig[NV_GYRO_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_GYRO_CALIBRATION,
+                      &storedConfig[NV_GYRO_CALIBRATION], 21);
     }
     if (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
     {
         CalibFromFileRead(S_MAG);
-        memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION],
-               &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-        InfoMem_write((uint8_t*) NV_LSM303DLHC_MAG_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_MAG_CALIBRATION],
+               &storedConfig[NV_MAG_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_MAG_CALIBRATION,
+                      &storedConfig[NV_MAG_CALIBRATION], 21);
     }
     if (storedConfig[NV_SENSORS0] & SENSOR_A_ACCEL)
     {
         CalibFromFileRead(S_ACCEL_A);
-        memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION],
-               &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-        InfoMem_write((uint8_t*) NV_A_ACCEL_CALIBRATION,
-                      &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
+        memcpy(&sdHeadText[SDH_LN_ACCEL_CALIBRATION],
+               &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_LN_ACCEL_CALIBRATION,
+                      &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
     }
     if (storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE)
     {
@@ -5615,7 +5621,7 @@ void CalibFromFileRead(uint8_t sensor)
             strcat(cal_indiv_file, "2000");
         }
         strcat(cal_indiv_file, "dps.ini");
-        address = NV_MPU9150_GYRO_CALIBRATION;
+        address = NV_GYRO_CALIBRATION;
     }
     else if (sensor == S_MAG)
     {
@@ -5656,7 +5662,7 @@ void CalibFromFileRead(uint8_t sensor)
             strcat(cal_indiv_file, "81");
         }
         strcat(cal_indiv_file, "ga.ini");
-        address = NV_LSM303DLHC_MAG_CALIBRATION;
+        address = NV_MAG_CALIBRATION;
     }
     else if (sensor == S_ACCEL_D)
     {
@@ -5682,13 +5688,13 @@ void CalibFromFileRead(uint8_t sensor)
             strcat(cal_indiv_file, "16");
         }
         strcat(cal_indiv_file, "g.ini");
-        address = NV_LSM303DLHC_ACCEL_CALIBRATION;
+        address = NV_WR_ACCEL_CALIBRATION;
     }
     else if (sensor == S_ACCEL_A)
     {
         strcpy(keyword, "Accel_A");
         strcpy(cal_indiv_file, "/calib_accel_ln_2g.ini");
-        address = NV_A_ACCEL_CALIBRATION;
+        address = NV_LN_ACCEL_CALIBRATION;
     }
     else
     {
@@ -5784,11 +5790,11 @@ uint8_t CalibCheckInfoValid(uint8_t sensor)
 
     if (sensor == S_ACCEL_A)
     {
-        address = NV_A_ACCEL_CALIBRATION;
+        address = NV_LN_ACCEL_CALIBRATION;
     }
     else if (sensor == S_GYRO)
     {
-        address = NV_MPU9150_GYRO_CALIBRATION;
+        address = NV_GYRO_CALIBRATION;
         InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
         info_range = info_config & 0x03;
         ram_range = storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03;
@@ -5798,7 +5804,7 @@ uint8_t CalibCheckInfoValid(uint8_t sensor)
     }
     else if (sensor == S_MAG)
     {
-        address = NV_LSM303DLHC_MAG_CALIBRATION;
+        address = NV_MAG_CALIBRATION;
         InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
         info_range = (info_config & 0xe0) >> 5;
         ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xe0) >> 5;
@@ -5807,7 +5813,7 @@ uint8_t CalibCheckInfoValid(uint8_t sensor)
     }
     else if (sensor == S_ACCEL_D)
     {
-        address = NV_LSM303DLHC_ACCEL_CALIBRATION;
+        address = NV_WR_ACCEL_CALIBRATION;
         InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE0, &info_config, 1);
         info_range = (info_config & 0x0c) >> 2;
         ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0c) >> 2;
@@ -5869,35 +5875,35 @@ void CalibAll()
     if (!cal_aaccel_done)
     {
         CalibFromFileRead(S_ACCEL_A);
-        InfoMem_write((uint8_t*) NV_A_ACCEL_CALIBRATION,
-                      &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_LN_ACCEL_CALIBRATION,
+                      &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
     }
-    memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION],
-           &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_LN_ACCEL_CALIBRATION],
+           &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
     if (!cal_gyro_done)
     {
         CalibFromFileRead(S_GYRO);
-        InfoMem_write((uint8_t*) NV_MPU9150_GYRO_CALIBRATION,
-                      &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_GYRO_CALIBRATION,
+                      &storedConfig[NV_GYRO_CALIBRATION], 21);
     }
-    memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION],
-           &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_GYRO_CALIBRATION],
+           &storedConfig[NV_GYRO_CALIBRATION], 21);
     if (!cal_mag_done)
     {
         CalibFromFileRead(S_MAG);
-        InfoMem_write((uint8_t*) NV_LSM303DLHC_MAG_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_MAG_CALIBRATION,
+                      &storedConfig[NV_MAG_CALIBRATION], 21);
     }
-    memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION],
-           &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_MAG_CALIBRATION],
+           &storedConfig[NV_MAG_CALIBRATION], 21);
     if (!cal_daccel_done)
     {
         CalibFromFileRead(S_ACCEL_D);
-        InfoMem_write((uint8_t*) NV_LSM303DLHC_ACCEL_CALIBRATION,
-                      &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+        InfoMem_write((uint8_t*) NV_WR_ACCEL_CALIBRATION,
+                      &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
     }
-    memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION],
-           &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_WR_ACCEL_CALIBRATION],
+           &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
 
     if (storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE)
     {
@@ -5914,23 +5920,23 @@ void CalibFromInfoAll()
     CalibFromInfo(S_MAG);
     CalibFromInfo(S_ACCEL_A);
 
-    memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION],
-           &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-    memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION],
-           &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-    memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION],
-           &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-    memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION],
-           &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_LN_ACCEL_CALIBRATION],
+           &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_GYRO_CALIBRATION],
+           &storedConfig[NV_GYRO_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_MAG_CALIBRATION],
+           &storedConfig[NV_MAG_CALIBRATION], 21);
+    memcpy(&sdHeadText[SDH_WR_ACCEL_CALIBRATION],
+           &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
 
-    InfoMem_write((uint8_t*) NV_A_ACCEL_CALIBRATION,
-                  &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-    InfoMem_write((uint8_t*) NV_MPU9150_GYRO_CALIBRATION,
-                  &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-    InfoMem_write((uint8_t*) NV_LSM303DLHC_MAG_CALIBRATION,
-                  &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-    InfoMem_write((uint8_t*) NV_LSM303DLHC_ACCEL_CALIBRATION,
-                  &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
+    InfoMem_write((uint8_t*) NV_LN_ACCEL_CALIBRATION,
+                  &storedConfig[NV_LN_ACCEL_CALIBRATION], 21);
+    InfoMem_write((uint8_t*) NV_GYRO_CALIBRATION,
+                  &storedConfig[NV_GYRO_CALIBRATION], 21);
+    InfoMem_write((uint8_t*) NV_MAG_CALIBRATION,
+                  &storedConfig[NV_MAG_CALIBRATION], 21);
+    InfoMem_write((uint8_t*) NV_WR_ACCEL_CALIBRATION,
+                  &storedConfig[NV_WR_ACCEL_CALIBRATION], 21);
 
     if (storedConfig[NV_SENSORS2] & SENSOR_BMPX80_PRESSURE)
     {
@@ -5948,12 +5954,12 @@ void CalibFromInfo(uint8_t sensor)
 
     if (sensor == S_ACCEL_A)
     {
-        InfoMem_read((uint8_t*) NV_A_ACCEL_CALIBRATION,
-                     storedConfig + NV_A_ACCEL_CALIBRATION, 21);
+        InfoMem_read((uint8_t*) NV_LN_ACCEL_CALIBRATION,
+                     storedConfig + NV_LN_ACCEL_CALIBRATION, 21);
         byte_cnt = 0;
         while (byte_cnt < 21)
         {
-            if (storedConfig[NV_A_ACCEL_CALIBRATION + byte_cnt] != 0xff)
+            if (storedConfig[NV_LN_ACCEL_CALIBRATION + byte_cnt] != 0xff)
             {
                 info_valid = 1;
                 break;
@@ -5969,12 +5975,12 @@ void CalibFromInfo(uint8_t sensor)
         // must have info_range == ram_range or there is a mismatch between RAM and infomem
         if (info_range == ram_range)
         {
-            InfoMem_read((uint8_t*) NV_MPU9150_GYRO_CALIBRATION,
-                         storedConfig + NV_MPU9150_GYRO_CALIBRATION, 21);
+            InfoMem_read((uint8_t*) NV_GYRO_CALIBRATION,
+                         storedConfig + NV_GYRO_CALIBRATION, 21);
             byte_cnt = 0;
             while (byte_cnt < 21)
             {
-                if (storedConfig[NV_MPU9150_GYRO_CALIBRATION + byte_cnt]
+                if (storedConfig[NV_GYRO_CALIBRATION + byte_cnt]
                         != 0xff)
                 {
                     info_valid = 1;
@@ -5991,12 +5997,12 @@ void CalibFromInfo(uint8_t sensor)
         ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xe0) >> 5;
         if (info_range == ram_range)
         {
-            InfoMem_read((uint8_t*) NV_LSM303DLHC_MAG_CALIBRATION,
-                         storedConfig + NV_LSM303DLHC_MAG_CALIBRATION, 21);
+            InfoMem_read((uint8_t*) NV_MAG_CALIBRATION,
+                         storedConfig + NV_MAG_CALIBRATION, 21);
             byte_cnt = 0;
             while (byte_cnt < 21)
             {
-                if (storedConfig[NV_LSM303DLHC_MAG_CALIBRATION + byte_cnt]
+                if (storedConfig[NV_MAG_CALIBRATION + byte_cnt]
                         != 0xff)
                 {
                     info_valid = 1;
@@ -6013,12 +6019,12 @@ void CalibFromInfo(uint8_t sensor)
         ram_range = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0c) >> 2;
         if (info_range == ram_range)
         {
-            InfoMem_read((uint8_t*) NV_LSM303DLHC_ACCEL_CALIBRATION,
-                         storedConfig + NV_LSM303DLHC_ACCEL_CALIBRATION, 21);
+            InfoMem_read((uint8_t*) NV_WR_ACCEL_CALIBRATION,
+                         storedConfig + NV_WR_ACCEL_CALIBRATION, 21);
             byte_cnt = 0;
             while (byte_cnt < 21)
             {
-                if (storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION + byte_cnt]
+                if (storedConfig[NV_WR_ACCEL_CALIBRATION + byte_cnt]
                         != 0xff)
                 {
                     info_valid = 1;
@@ -6086,7 +6092,7 @@ void CalibDefault(uint8_t sensor)
         number_axes = 3;
         bias = 0;
         align = TRUE;
-        address = NV_LSM303DLHC_ACCEL_CALIBRATION;
+        address = NV_WR_ACCEL_CALIBRATION;
         if (lsm303_accel_range == RANGE_2G)
         {
             sensitivity = isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
@@ -6146,7 +6152,7 @@ void CalibDefault(uint8_t sensor)
         align_zx = 0;
         align_zy = 0;
         align_zz = -100;
-        address = NV_MPU9150_GYRO_CALIBRATION;
+        address = NV_GYRO_CALIBRATION;
     }
     else if (sensor == S_MAG)
     {
@@ -6217,7 +6223,7 @@ void CalibDefault(uint8_t sensor)
         align_zy = 0;
         align_zz = -100;
 
-        address = NV_LSM303DLHC_MAG_CALIBRATION;
+        address = NV_MAG_CALIBRATION;
     }
     else if (sensor == S_ACCEL_A)
     {
@@ -6240,7 +6246,7 @@ void CalibDefault(uint8_t sensor)
         align_zx = 0;
         align_zy = 0;
         align_zz = -100;
-        address = NV_A_ACCEL_CALIBRATION;
+        address = NV_LN_ACCEL_CALIBRATION;
     }
     else
     {
@@ -6329,7 +6335,7 @@ void CalibNewFile(uint8_t sensor, uint8_t range)
         if (sensor == S_ACCEL_D)
         {
             strcat((char*) cal_file_name, "/calib_accel_wr_"); //calib_accel_d_2g.ini
-            address = NV_LSM303DLHC_ACCEL_CALIBRATION;
+            address = NV_WR_ACCEL_CALIBRATION;
             strcpy((char*) sensor_str, "Accel ");
             if (range == RANGE_2G)
             {
@@ -6358,7 +6364,7 @@ void CalibNewFile(uint8_t sensor, uint8_t range)
         else if (sensor == S_GYRO)
         {
             strcat((char*) cal_file_name, "/calib_gyro_"); //calib_gyro_250dps.ini
-            address = NV_MPU9150_GYRO_CALIBRATION;
+            address = NV_GYRO_CALIBRATION;
             strcpy((char*) sensor_str, "Gyro ");
             if (range == MPU9150_GYRO_250DPS)
             {
@@ -6387,7 +6393,7 @@ void CalibNewFile(uint8_t sensor, uint8_t range)
         else if (sensor == S_MAG)
         {
             strcat((char*) cal_file_name, "/calib_mag_"); //calib_mag_13ga.ini
-            address = NV_LSM303DLHC_MAG_CALIBRATION;
+            address = NV_MAG_CALIBRATION;
             strcpy((char*) sensor_str, "Mag ");
             if (range == LSM303_MAG_13GA)
             {
@@ -6431,7 +6437,7 @@ void CalibNewFile(uint8_t sensor, uint8_t range)
         else if (sensor == S_ACCEL_A)
         {
             strcat((char*) cal_file_name, "/calib_accel_ln_2g.ini");
-            address = NV_A_ACCEL_CALIBRATION;
+            address = NV_LN_ACCEL_CALIBRATION;
             strcpy((char*) sensor_str, "Accel_A ");
             strcpy((char*) range_str, "2.0g");
         }
@@ -6558,38 +6564,6 @@ void CalibNewFile(uint8_t sensor, uint8_t range)
         }
         if (!sd_power_state)
             SdPowerOff();
-    }
-}
-
-void CalibSaveFromInfoMemToCalibDump(uint8_t id)
-{
-    if (id==0xFF || id==SC_SENSOR_ANALOG_ACCEL)
-    {
-        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_ANALOG_ACCEL,
-                                                  SC_SENSOR_RANGE_ANALOG_ACCEL,
-                                                  SC_DATA_LEN_ANALOG_ACCEL,
-                                                  &storedConfig[NV_A_ACCEL_CALIBRATION]);
-    }
-    if (id==0xFF || id==SC_SENSOR_MPU9150_GYRO)
-    {
-        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_MPU9150_GYRO,
-                                                  storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03,
-                                                  SC_DATA_LEN_MPU9250_GYRO,
-                                                  &storedConfig[NV_MPU9150_GYRO_CALIBRATION]);
-    }
-    if (id==0xFF || id==SC_SENSOR_LSM303DLHC_MAG)
-    {
-        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_LSM303DLHC_MAG,
-                                                  (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07,
-                                                  SC_DATA_LEN_LSM303DLHC_MAG,
-                                                  &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION]);
-    }
-    if (id==0xFF || id==SC_SENSOR_LSM303DLHC_ACCEL)
-    {
-        ShimmerCalib_singleSensorWriteFromInfoMem(SC_SENSOR_LSM303DLHC_ACCEL,
-                                                  (storedConfig[NV_CONFIG_SETUP_BYTE0] >> 2) & 0x03,
-                                                  SC_DATA_LEN_LSM303DLHC_ACCEL,
-                                                  &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION]);
     }
 }
 

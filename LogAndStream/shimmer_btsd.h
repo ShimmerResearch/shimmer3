@@ -187,10 +187,10 @@ typedef uint8_t error_t;
 #define NV_DERIVED_CHANNELS_0             31
 #define NV_DERIVED_CHANNELS_1             32
 #define NV_DERIVED_CHANNELS_2             33
-#define NV_A_ACCEL_CALIBRATION            34
-#define NV_MPU9150_GYRO_CALIBRATION       55
-#define NV_LSM303DLHC_MAG_CALIBRATION     76
-#define NV_LSM303DLHC_ACCEL_CALIBRATION   97       //97->117
+#define NV_LN_ACCEL_CALIBRATION           34
+#define NV_GYRO_CALIBRATION               55
+#define NV_MAG_CALIBRATION                76
+#define NV_WR_ACCEL_CALIBRATION           97       //97->117
 #define NV_CALIBRATION_END                117
 #define NV_DERIVED_CHANNELS_3             118
 #define NV_DERIVED_CHANNELS_4             119
@@ -404,15 +404,15 @@ typedef uint8_t error_t;
 #define SDH_EXG_ADS1292R_2_LOFF_STAT      (73)
 #define SDH_EXG_ADS1292R_2_RESP1          (74)
 #define SDH_EXG_ADS1292R_2_RESP2          (75)
-#define SDH_LSM303DLHC_ACCEL_CALIBRATION  (76)//0x4c
-#define SDH_MPU9150_GYRO_CALIBRATION      (97) //0x61
-#define SDH_LSM303DLHC_MAG_CALIBRATION    (118)//0x76
-#define SDH_A_ACCEL_CALIBRATION           (139)//0x8b
+#define SDH_WR_ACCEL_CALIBRATION  (76)//0x4c
+#define SDH_GYRO_CALIBRATION      (97) //0x61
+#define SDH_MAG_CALIBRATION    (118)//0x76
+#define SDH_LN_ACCEL_CALIBRATION           (139)//0x8b
 #define SDH_TEMP_PRES_CALIBRATION         (160)
-#define SDH_LSM303DLHC_ACCEL_CALIB_TS     (182)//+8
-#define SDH_MPU9150_GYRO_CALIB_TS         (190) //+8
-#define SDH_LSM303DLHC_MAG_CALIB_TS       (198) //+8
-#define SDH_A_ACCEL_CALIB_TS              (206) //+8
+#define SDH_WR_ACCEL_CALIB_TS     (182)//+8
+#define SDH_GYRO_CALIB_TS         (190) //+8
+#define SDH_MAG_CALIB_TS       (198) //+8
+#define SDH_LN_ACCEL_CALIB_TS              (206) //+8
 #define SDH_DAUGHTER_CARD_ID_BYTE0        (214) //+3
 #define SDH_DERIVED_CHANNELS_3            (217)
 #define SDH_DERIVED_CHANNELS_4            (218)
