@@ -71,7 +71,7 @@
 
 void Init(void);
 void handleIfDockedStateOnBoot(void);
-void sleepNoTask(void);
+void sleepWhenNoTask(void);
 void checkSetupDock(void);
 void BMPX80_startMeasurement(void);
 void checkStreamData(void);
@@ -484,7 +484,7 @@ void handleIfDockedStateOnBoot(void)
     }
 }
 
-void sleepNoTask(void)
+void sleepWhenNoTask(void)
 {
   __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
 }
@@ -788,7 +788,7 @@ void InitialiseBt(void)
         setRn4678OperationalMode(RN4678_OP_MODE_NOT_USED);
     }
 
-    btCommsProtocolInit(setTaskNewBtCmdToProcess, setMacId, getBtActionPtr(), getBtArgsPtr());
+    btCommsProtocolInit(ShimTask_setNewBtCmdToProcess, setMacId, getBtActionPtr(), getBtArgsPtr());
     sdSyncInit(InitialiseBtAfterBoot, BtStop, ShimTask_set);
     BT_init();
     BT_rn4xDisableRemoteConfig(1);
@@ -1639,7 +1639,7 @@ uint8_t CheckOnDefault()
     if (onDefault && shimmerStatus.sdlogReady && !shimmerStatus.sensing && (shimmerStatus.sdBadFile == FALSE))
     {   //state == BTSD_IDLESD
         //startSensing = 1;
-        setStartSensing();
+        ShimTask_setStartSensing();
         //        enableSdlog = (shimmerStatus.badFile) ? 0 : 1;
         shimmerStatus.sdlogCmd = 1;
         shimmerStatus.sensing = 1;
@@ -1760,7 +1760,7 @@ __interrupt void Port1_ISR(void)
                         if (shimmerStatus.sdlogReady && (!shimmerStatus.sdBadFile))
                         {
                             //startSensing = 1;
-                            setStartSensing();
+                            ShimTask_setStartSensing();
                             shimmerStatus.sdlogCmd = 1;
                         }
 
