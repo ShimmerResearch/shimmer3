@@ -42,7 +42,7 @@
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_ERRATA.CPU23.713276541" name="Workaround specified silicon errata (--silicon_errata) [CPU23]" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_ERRATA.CPU23" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_ERRATA.CPU40.2095000192" name="Workaround specified silicon errata (--silicon_errata) [CPU40]" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_ERRATA.CPU40" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_VERSION.1103670114" name="Silicon version (--silicon_version, -v)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_VERSION" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.SILICON_VERSION.mspx" valueType="enumerated"/>
-								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT.1911237307" name="Level of printf/scanf support required (--printf_support)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT" useByScannerDiscovery="false" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT.minimal" valueType="enumerated"/>
+								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT.1911237307" name="Level of printf/scanf support required (--printf_support)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT" useByScannerDiscovery="false" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.PRINTF_SUPPORT.full" valueType="enumerated"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.ABI.1169983467" name="Application binary interface (--abi) [deprecated]" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.ABI" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.ABI.eabi" valueType="enumerated"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.CODE_MODEL.906702993" name="Specify the code memory model (--code_model)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.CODE_MODEL" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.CODE_MODEL.large" valueType="enumerated"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.NEAR_DATA.395048598" name="Indicates what data must be near (--near_data)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.NEAR_DATA" value="com.ti.ccstudio.buildDefinitions.MSP430_21.6.compilerID.NEAR_DATA.globals" valueType="enumerated"/>
@@ -249,10 +249,10 @@
 		</project-mappings>
 	</storageModule>
 	<storageModule moduleId="refreshScope" versionNumber="2">
-		<configuration configurationName="Release">
+		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/LogAndStream"/>
 		</configuration>
-		<configuration configurationName="Debug">
+		<configuration configurationName="Release">
 			<resource resourceType="PROJECT" workspacePath="/LogAndStream"/>
 		</configuration>
 	</storageModule>
