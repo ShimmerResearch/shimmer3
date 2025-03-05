@@ -63,10 +63,10 @@
 #define INFOMEM_SEG_D_ADDR 0x1800
 
 //returns 1 if successful, 0 if failure
-extern uint8_t InfoMem_write(uint8_t *addr, uint8_t *buf, uint16_t size);
+extern uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size);
 
 //returns 1 if successful, 0 if failure
-extern uint8_t InfoMem_read(uint8_t *addr, uint8_t *buf, uint16_t size);
+extern uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size);
 
 extern void InfoMem_erase(uint8_t segments);
 

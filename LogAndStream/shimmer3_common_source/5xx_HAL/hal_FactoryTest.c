@@ -72,8 +72,8 @@ void print_shimmer_model(void)
         send_test_report(buffer);
         shimmer_expansion_brd *daughterCardId = getDaughtCardId();
         sprintf(buffer, " (SR%d-%d-%d)\r\n", daughterCardId->exp_brd_id,
-                daughterCardId->exp_brd_rev,
-                daughterCardId->exp_brd_special_rev);
+                daughterCardId->exp_brd_major,
+                daughterCardId->exp_brd_minor);
         send_test_report(buffer);
     }
     else

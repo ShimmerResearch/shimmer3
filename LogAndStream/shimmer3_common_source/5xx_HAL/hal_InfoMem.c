@@ -49,11 +49,11 @@
 
 
 //returns 1 if successful, 0 if failure
-uint8_t InfoMem_write(uint8_t *addr, uint8_t *buf, uint16_t size) {
+uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size) {
    uint8_t ie, i, tempsize=0, segoffset, tempbuf[INFOMEM_SEG_SIZE];
    uint16_t written = 0;
 
-   uint8_t *infomemaddr = addr + INFOMEM_OFFSET;
+   uint8_t *infomemaddr = (uint8_t *)(addr + INFOMEM_OFFSET);
    if((infomemaddr+size) > (uint8_t *)(INFOMEM_OFFSET+INFOMEM_SIZE))
       return 0;
 
@@ -155,7 +155,7 @@ uint8_t InfoMem_write(uint8_t *addr, uint8_t *buf, uint16_t size) {
 
 
 //returns 1 if successful, 0 if failure
-uint8_t InfoMem_read(uint8_t *addr, uint8_t *buf, uint16_t size) {
+uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size) {
    addr += INFOMEM_OFFSET;
    if((addr+size) > (uint8_t *)(INFOMEM_OFFSET+INFOMEM_SIZE))
       return 0;

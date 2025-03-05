@@ -26,7 +26,6 @@
 #include "MPU9150/mpu9150.h"
 #include "ICM20948/ICM20948.h"
 #include "msp430_clock/msp430_clock.h"
-#include "shimmer_boards/shimmer_boards.h"
 #include "log_and_stream_includes.h"
 #include "RN4X/RN4X.h"
 

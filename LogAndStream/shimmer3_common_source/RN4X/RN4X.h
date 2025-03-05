@@ -15,8 +15,6 @@
 #define BT_DMA_USED_FOR_RX 1
 /* useful just for debugging but not needed in run-time */
 #define BT_CLEAR_RX_BUF_DURING_READ 0
-/* Controls whether the baud rate can be changed by the sensor configuration */
-#define BT_ENABLE_BAUD_RATE_CHANGE 0
 /* Experimental feature to try and reawaken the RN4678 if an RTS lock is detected */
 #define BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED 0
 /********** Defines created when testing Bluetooth driver - End ***********/
