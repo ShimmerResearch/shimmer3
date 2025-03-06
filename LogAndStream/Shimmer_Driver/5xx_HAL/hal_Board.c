@@ -38,6 +38,8 @@
 #include "msp430.h"
 #include "hal_Board.h"
 
+#include "log_and_stream_externs.h"
+
 #define XT1_PORT_DIR             P7DIR
 #define XT1_PORT_OUT             P7OUT
 #define XT1_PORT_SEL             P7SEL
@@ -140,7 +142,7 @@ void Board_init(void) {
    P5OUT &= ~BIT5;            //set low
    P5DIR |= BIT5;             //set as output
    //Flash power (SW_FLASH)
-   P4OUT &= ~BIT2;            //set low
+   Board_setSdPower(0);
    P4DIR |= BIT2;             //set as output
    //SD card detect (SD_DETECT_N)
    P4DIR &= ~BIT1;            //set as input
@@ -278,4 +280,27 @@ void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAn
         P8OUT &= ~BIT5;           //set low
         P8DIR |= BIT5;            //set as output
     }
+}
+
+void SdPowerOff(void)
+{
+    Board_setSdPower(0);
+} //   SD power off
+
+void SdPowerOn(void)
+{
+    Board_setSdPower(1);
+} //   SD power on
+
+void Board_setSdPower(uint8_t state)
+{
+    if (state)
+    {
+        P4OUT |= BIT2;
+    }
+    else
+    {
+        P4OUT &= ~BIT2;
+    }
+    shimmerStatus.sdPowerOn = state;
 }

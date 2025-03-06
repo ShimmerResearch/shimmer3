@@ -22,7 +22,6 @@ char buffer[100];
 
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
-extern void ReadWriteSDTest(void);
 
 void run_factory_test(void)
 {
@@ -37,17 +36,6 @@ void run_factory_test(void)
     }
 
     if (factoryTestToRun == FACTORY_TEST_MAIN
-            || factoryTestToRun == FACTORY_TEST_LEDS)
-    {
-        led_test();
-
-        if (factoryTestToRun == FACTORY_TEST_MAIN)
-        {
-            send_test_report("\r\n");
-        }
-    }
-
-    if (factoryTestToRun == FACTORY_TEST_MAIN
             || factoryTestToRun == FACTORY_TEST_ICS)
     {
         sd_card_test();
@@ -57,6 +45,17 @@ void run_factory_test(void)
         send_test_report("\r\n");
 
         I2C_test();
+
+        if (factoryTestToRun == FACTORY_TEST_MAIN)
+        {
+            send_test_report("\r\n");
+        }
+    }
+
+    if (factoryTestToRun == FACTORY_TEST_MAIN
+            || factoryTestToRun == FACTORY_TEST_LEDS)
+    {
+        led_test();
     }
 
     send_test_report("//***************************** TEST END "
@@ -135,6 +134,8 @@ void led_test(void)
 
 void sd_card_test(void)
 {
+    uint8_t sdWasOff = 0;
+
     send_test_report("SD Card:\r\n");
     if (P4IN & BIT1)
     {
@@ -151,7 +152,23 @@ void sd_card_test(void)
         }
         else
         {
-            ReadWriteSDTest();
+//            ReadWriteSDTest();
+
+            if (!shimmerStatus.sdBadFile)
+            {
+                if (!shimmerStatus.sdPowerOn)
+                {
+                    sdWasOff = 1;
+                    SdPowerOn();
+                }
+
+                SD_test1();
+
+                if(sdWasOff)
+                {
+                    SdPowerOff();
+                }
+            }
             sprintf(buffer, " - %s: SD card read/write test\r\n",
                     shimmerStatus.sdBadFile ? "FAIL" : "PASS");
             send_test_report(buffer);
@@ -170,7 +187,7 @@ void bt_module_test(void)
         sprintf(&buffer[12], "\r\n");
         send_test_report(buffer);
 
-        sprintf(buffer, " - %s\r\n", getBtVerStrPtr());
+        sprintf(buffer, " - %s", getBtVerStrPtr());
         send_test_report(buffer);
 
         if(strstr(buffer, "RN4678") != NULL && strstr(buffer, "V1.23") == NULL)

@@ -59,4 +59,8 @@ extern void Board_ledOff(uint8_t ledMask);
 extern void Board_ledToggle(uint8_t ledMask);
 void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAndCmdModeSupport);
 
+void SdPowerOff(void);
+void SdPowerOn(void);
+void Board_setSdPower(uint8_t state);
+
 #endif /* HAL_BOARD_H */

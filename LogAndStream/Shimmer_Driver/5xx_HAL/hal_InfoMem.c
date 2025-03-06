@@ -53,8 +53,8 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
     uint8_t ie, i, tempsize = 0, segoffset, tempbuf[INFOMEM_SEG_SIZE];
     uint16_t written = 0;
 
-    uint32_t infomemaddr = addr + INFOMEM_OFFSET;
-    if ((infomemaddr + size) > (INFOMEM_OFFSET + INFOMEM_SIZE))
+    uint32_t infomemaddr = addr + INFOMEM_OFFSET_MSP430;
+    if ((infomemaddr + size) > (INFOMEM_OFFSET_MSP430 + INFOMEM_SIZE))
         return 0;
 
     //Disable interrupts while erasing
@@ -65,28 +65,28 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
         __disable_interrupt();
 
     FCTL3 = FWKEY;                         //Clear Lock bit
-    if (infomemaddr < INFOMEM_SEG_C_ADDR)
+    if (infomemaddr < INFOMEM_SEG_C_ADDR_MSP430)
     {
         //need to modify segment D
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_D_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg D
-        if ((tempsize = (INFOMEM_SEG_C_ADDR - infomemaddr)) > size)
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_D_ADDR_MSP430, INFOMEM_SEG_SIZE); //temporarily copy contents of seg D
+        if ((tempsize = (INFOMEM_SEG_C_ADDR_MSP430 - infomemaddr)) > size)
             tempsize = size;
         memcpy(tempbuf + addr, buf, tempsize); //modify with values to be written
         FCTL1 = FWKEY + ERASE;                                  //Set Erase bit
-        *(uint8_t*) INFOMEM_SEG_D_ADDR = 0;         //Dummy write to erase seg D
+        *(uint8_t*) INFOMEM_SEG_D_ADDR_MSP430 = 0;         //Dummy write to erase seg D
         FCTL1 = FWKEY + BLKWRT; //Enable long-word write (4x faster than byte or word mode)
 
         for (i = 0; i < INFOMEM_SEG_SIZE; i += 4)   //write values back to seg D
-            *((uint32_t*) (INFOMEM_SEG_D_ADDR + i)) =
+            *((uint32_t*) (INFOMEM_SEG_D_ADDR_MSP430 + i)) =
                     *((uint32_t*) (tempbuf + i));
     }
 
-    if (((infomemaddr >= INFOMEM_SEG_C_ADDR)
-            && (infomemaddr < INFOMEM_SEG_B_ADDR))
+    if (((infomemaddr >= INFOMEM_SEG_C_ADDR_MSP430)
+            && (infomemaddr < INFOMEM_SEG_B_ADDR_MSP430))
             || (tempsize && (tempsize < size)))
     {
         //need to modify segment C
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_C_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg C
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_C_ADDR_MSP430, INFOMEM_SEG_SIZE); //temporarily copy contents of seg C
         if (written = tempsize)
         {                                //the write started in previous seg
             segoffset = 0;
@@ -95,27 +95,27 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
         else
         {
             segoffset = addr - INFOMEM_SEG_SIZE;
-            if ((tempsize = (INFOMEM_SEG_B_ADDR - infomemaddr))
+            if ((tempsize = (INFOMEM_SEG_B_ADDR_MSP430 - infomemaddr))
                     > size)
                 tempsize = size;
         }
         memcpy(tempbuf + segoffset, buf + written, tempsize); //modify with values to be written
         FCTL1 = FWKEY + ERASE;                                  //Set Erase bit
-        *(uint8_t*) INFOMEM_SEG_C_ADDR = 0;         //Dummy write to erase seg C
+        *(uint8_t*) INFOMEM_SEG_C_ADDR_MSP430 = 0;         //Dummy write to erase seg C
         FCTL1 = FWKEY + BLKWRT; //Enable long-word write (4x faster than byte or word mode)
 
         for (i = 0; i < INFOMEM_SEG_SIZE; i += 4)   //write values back to seg C
-            *((uint32_t*) (INFOMEM_SEG_C_ADDR + i)) =
+            *((uint32_t*) (INFOMEM_SEG_C_ADDR_MSP430 + i)) =
                     *((uint32_t*) (tempbuf + i));
         written += tempsize;
     }
 
-    if (((infomemaddr >= INFOMEM_SEG_B_ADDR)
-            && (infomemaddr < INFOMEM_SEG_A_ADDR))
+    if (((infomemaddr >= INFOMEM_SEG_B_ADDR_MSP430)
+            && (infomemaddr < INFOMEM_SEG_A_ADDR_MSP430))
             || (written && (written < size)))
     {
         //need to modify segment B
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_B_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg B
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_B_ADDR_MSP430, INFOMEM_SEG_SIZE); //temporarily copy contents of seg B
         if (written)
         {                                  //the write started in a previous seg
             segoffset = 0;
@@ -124,26 +124,26 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
         else
         {
             segoffset = addr - 256;
-            if ((tempsize = (INFOMEM_SEG_A_ADDR - infomemaddr))
+            if ((tempsize = (INFOMEM_SEG_A_ADDR_MSP430 - infomemaddr))
                     > size)
                 tempsize = size;
         }
         memcpy(tempbuf + segoffset, buf + written, tempsize); //modify with values to be written
         FCTL1 = FWKEY + ERASE;                                  //Set Erase bit
-        *(uint8_t*) INFOMEM_SEG_B_ADDR = 0;         //Dummy write to erase seg B
+        *(uint8_t*) INFOMEM_SEG_B_ADDR_MSP430 = 0;         //Dummy write to erase seg B
         FCTL1 = FWKEY + BLKWRT; //Enable long-word write (4x faster than byte or word mode)
 
         for (i = 0; i < INFOMEM_SEG_SIZE; i += 4)   //write values back to seg B
-            *((uint32_t*) (INFOMEM_SEG_B_ADDR + i)) =
+            *((uint32_t*) (INFOMEM_SEG_B_ADDR_MSP430 + i)) =
                     *((uint32_t*) (tempbuf + i));
         written += tempsize;
     }
 
-    if ((infomemaddr >= INFOMEM_SEG_A_ADDR)
+    if ((infomemaddr >= INFOMEM_SEG_A_ADDR_MSP430)
             || (written && (written < size)))
     {
         //need to modify segment A
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_A_ADDR, 128); //temporarily copy contents of seg B
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_A_ADDR_MSP430, 128); //temporarily copy contents of seg B
         if (written)
         {                                  //the write started in a previous seg
             segoffset = 0;
@@ -158,11 +158,11 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
         if (FCTL3 & LOCKA)
             FCTL3 = FWKEY + LOCKA;                     //clear the lock on seg A
         FCTL1 = FWKEY + ERASE;                                  //Set Erase bit
-        *(uint8_t*) INFOMEM_SEG_A_ADDR = 0;         //Dummy write to erase seg A
+        *(uint8_t*) INFOMEM_SEG_A_ADDR_MSP430 = 0;         //Dummy write to erase seg A
         FCTL1 = FWKEY + BLKWRT; //Enable long-word write (4x faster than byte or word mode)
 
         for (i = 0; i < INFOMEM_SEG_SIZE; i += 4)   //write values back to seg A
-            *((uint32_t*) (INFOMEM_SEG_A_ADDR + i)) =
+            *((uint32_t*) (INFOMEM_SEG_A_ADDR_MSP430 + i)) =
                     *((uint32_t*) (tempbuf + i));
     }
 
@@ -181,8 +181,8 @@ uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
 //returns 1 if successful, 0 if failure
 uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size)
 {
-    uint32_t infomemaddr = addr + INFOMEM_OFFSET;
-    if ((infomemaddr + size) > (INFOMEM_OFFSET + INFOMEM_SIZE))
+    uint32_t infomemaddr = addr + INFOMEM_OFFSET_MSP430;
+    if ((infomemaddr + size) > (INFOMEM_OFFSET_MSP430 + INFOMEM_SIZE))
     {
         return 0;
     }
@@ -198,24 +198,24 @@ void InfoMem_erase(uint8_t segments)
     if (segments & INFOMEM_SEG_D)
     {
         FCTL1 = FWKEY + ERASE;                //Set Erase bit
-        *(uint8_t*) INFOMEM_SEG_D_ADDR = 0; //Dummy write to erase Flash seg D
+        *(uint8_t*) INFOMEM_SEG_D_ADDR_MSP430 = 0; //Dummy write to erase Flash seg D
     }
     if (segments & INFOMEM_SEG_C)
     {
         FCTL1 = FWKEY + ERASE;
-        *(uint8_t*) INFOMEM_SEG_C_ADDR = 0; //Dummy write to erase Flash seg C
+        *(uint8_t*) INFOMEM_SEG_C_ADDR_MSP430 = 0; //Dummy write to erase Flash seg C
     }
     if (segments & INFOMEM_SEG_B)
     {
         FCTL1 = FWKEY + ERASE;
-        *(uint8_t*) INFOMEM_SEG_B_ADDR = 0; //Dummy write to erase Flash seg B
+        *(uint8_t*) INFOMEM_SEG_B_ADDR_MSP430 = 0; //Dummy write to erase Flash seg B
     }
     if (segments & INFOMEM_SEG_A)
     {
         if (FCTL3 & LOCKA)
             FCTL3 = FWKEY + LOCKA;             //clear the lock on seg A
         FCTL1 = FWKEY + ERASE;
-        *(uint8_t*) INFOMEM_SEG_A_ADDR = 0; //Dummy write to erase Flash seg A
+        *(uint8_t*) INFOMEM_SEG_A_ADDR_MSP430 = 0; //Dummy write to erase Flash seg A
     }
 
     FCTL1 = FWKEY;                         //Clear Erase bit
