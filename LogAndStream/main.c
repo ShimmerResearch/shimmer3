@@ -127,6 +127,8 @@ void setSamplingClkSource(float samplingClock);
 uint16_t getBmpX80SamplingTimeInTicks(void);
 uint16_t getBmpX80SamplingTimeDiffFrom9msInTicks(void);
 void updateBtDetailsInEeprom(void);
+void triggerShimmerErrorState(void);
+
 void eepromRead(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
@@ -263,12 +265,12 @@ void Init(void)
 //     PM5CTL0 &= ~LOCKLPM5;
 
     // Need to reset battery critical alarm before LED functions are called:
-    batteryInit();
+    ShimBatt_init();
 
     Board_init();
 
     setBootStage(BOOT_STAGE_START);
-    setHwId(DEVICE_VER);
+    ShimBrd_setHwId(DEVICE_VER);
 
     // Set Vcore to accommodate for max. allowed system speed
     SetVCore(PMMCOREV_3);
@@ -329,7 +331,7 @@ void Init(void)
     setGsrRangePinsAreReversed(0);
 
     ShimConfig_reset();
-    SD_init();
+    ShimSd_init();
 
     ShimSens_init();
     preSampleMpuMag = 0;
@@ -337,9 +339,9 @@ void Init(void)
     sampleBmpTemp = 0;
 
     setBmpInUse(BMP180_IN_USE);
-    setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
-    setGyroInUse(GYRO_NONE_IN_USE);
-    setEepromIsPresent(0);
+    ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+    ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
+    ShimBrd_setEepromIsPresent(0);
 
     /* variables used for delayed undock-start */
     undockEvent = 0;
@@ -356,9 +358,9 @@ void Init(void)
 
     BlinkTimerStart();
 
-    DockUart_resetVariables();
+    ShimDock_resetVariables();
     UCA0_isrInit();
-    UART_init(DockUart_rxCallback);
+    UART_init(ShimDock_rxCallback);
 
     /* exp power */
     P3OUT &= ~BIT3;      //set low
@@ -385,19 +387,19 @@ void Init(void)
     setBootStage(BOOT_STAGE_I2C);
     detectI2cSlaves();
     loadBmpCalibration();
-    saveBmpCalibrationToSdHeader();
+    ShimSdHead_saveBmpCalibrationToSdHeader();
 
-    resetDaughterCardId();
-    eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, getDaughtCardIdPtr());
+    ShimBrd_resetDaughterCardId();
+    eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, ShimBrd_getDaughtCardIdPtr());
 
     ProcessHwRevision();
-    shimmer_expansion_brd *expBrd = getDaughtCardId();
-    Board_init_for_revision(isAds1292Present(), isRn4678PresentAndCmdModeSupport());
+    shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
+    Board_init_for_revision(ShimBrd_isAds1292Present(), ShimBrd_isRn4678PresentAndCmdModeSupport());
 
     /* Used to flash green LED on boot but no longer serves that purpose */
     shimmerStatus.configuring = 1;
 
-    CheckOnDefault();
+    ShimSens_checkOnDefault();
 
     txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
 
@@ -430,7 +432,7 @@ void handleIfDockedStateOnBoot(void)
     if (P2IN & BIT3)
     {
 #endif
-        setBatteryInterval(BATT_INTERVAL_DOCKED);
+        ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
         P2IES |= BIT3;       //look for falling edge
         shimmerStatus.docked = 1;
         shimmerStatus.sdlogReady = 0;
@@ -441,7 +443,7 @@ void handleIfDockedStateOnBoot(void)
     }
     else
     {
-        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
+        ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         P2IES &= ~BIT3;      //look for rising edge
         shimmerStatus.docked = 0;
         P6OUT |= BIT0;       //   DETECT_N set to high
@@ -518,7 +520,7 @@ void checkStreamData(void)
         }
         if (!sensing.isFileCreated && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
         {
-            SD_fileInit();
+            ShimSd_fileInit();
             //               Timestamp0ToFirstFile();
         }
         StreamData();
@@ -533,7 +535,7 @@ void checkStreamData(void)
         }
         if (btsdSelfCmd)
         {
-            BtsdSelfcmd();
+            ShimBt_btsdSelfcmd();
             btsdSelfCmd = 0;
         }
     }
@@ -550,7 +552,7 @@ void checkStartSensing(void)
 
         if (!sensing.isFileCreated && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
         {
-            SD_fileInit();
+            ShimSd_fileInit();
             //shimmerStatus.isLogging = 1;
         }
         if ((shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
@@ -560,7 +562,7 @@ void checkStartSensing(void)
             if (shimmerStatus.sdSyncEnabled)
             {
                 ShimConfig_experimentLengthCntReset();
-                BtSdSyncStart();
+                ShimSdSync_start();
             }
         }
         streamDataInProc = 0;
@@ -598,37 +600,37 @@ void detectI2cSlaves(void)
 
     if(i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303AHTR_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303AHTR_IN_USE);
     }
     else if(i2cSlavePresent(LSM303DHLC_ACCEL_ADDR))
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303DLHC_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303DLHC_IN_USE);
     }
     else
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
     }
 
-    setEepromIsPresent(i2cSlavePresent(CAT24C16_ADDR));
+    ShimBrd_setEepromIsPresent(i2cSlavePresent(CAT24C16_ADDR));
 
     if (i2cSlavePresent(ICM20948_ADDR))
     {
-        setGyroInUse(GYRO_ICM20948_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_ICM20948_IN_USE);
     }
     else if (i2cSlavePresent(MPU9150_ADDR))
     {
-        setGyroInUse(GYRO_MPU9X50_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_MPU9X50_IN_USE);
     }
     else
     {
-        setGyroInUse(GYRO_NONE_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
     }
 }
 
 void loadSensorConfigurationAndCalibration(void)
 {
-    ShimmerCalib_init();
-    ShimmerCalibInitFromInfoAll();
+    ShimCalib_init();
+    ShimCalib_initFromInfoAll();
 
     if (!shimmerStatus.docked && CheckSdInslot())
     {  //sd card ready to access
@@ -637,11 +639,11 @@ void loadSensorConfigurationAndCalibration(void)
             // Hits here when undocked
             SdPowerOn();
         }
-        if (GetSdCfgFlag())
+        if (ShimConfig_getSdCfgFlag())
         { // info > sdcard
             ShimConfig_readRam();
-            UpdateSdConfig();
-            SetSdCfgFlag(0);
+            ShimSd_updateSdConfig();
+            ShimConfig_setSdCfgFlag(0);
             if (ff_result != FR_OK)
             {
                 shimmerStatus.sdlogReady = 0;
@@ -654,10 +656,10 @@ void loadSensorConfigurationAndCalibration(void)
             ReadSdConfiguration();
         }
 
-        if (ShimmerCalib_file2Ram())
+        if (ShimCalib_file2Ram())
         {
             //fail, i.e. no such file. use current DumpRam to generate a file
-            ShimmerCalib_ram2File();
+            ShimCalib_ram2File();
             ShimConfig_readRam();
         }
     }
@@ -666,35 +668,35 @@ void loadSensorConfigurationAndCalibration(void)
         ShimConfig_readRam();
     }
 
-    ShimmerCalibSyncFromDumpRamAll();
+    ShimCalib_syncFromDumpRamAll();
 }
 
 void ProcessHwRevision(void)
 {
-    shimmer_expansion_brd *expBrd = getDaughtCardId();
+    shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
 
-    parseDaughterCardId();
+    ShimBrd_parseDaughterCardId();
 
-    if (isEepromIsPresent())
+    if (ShimBrd_isEepromIsPresent())
     {
         // Some board batches don't have the LSM303AHTR placed, in these
         // cases, the ICM-20948's channels are used instead
-        if (isSubstitutionNeededForWrAccel())
+        if (ShimBrd_isSubstitutionNeededForWrAccel())
         {
-            setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
+            ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
         }
         else
         {
             // If the hardware is any board other then the above, overwrite the
             // special rev with 171 (used as a failsafe) to let Consensys know
             // what sensors are on-board
-            if (are2ndGenSensorsPresentAndUnknownBoard())
+            if (ShimBrd_are2ndGenSensorsPresentAndUnknownBoard())
             {
                 expBrd->exp_brd_minor = 171;
             }
         }
 
-        if(areGsrControlsPinsReversed())
+        if(ShimBrd_areGsrControlsPinsReversed())
         {
             setGsrRangePinsAreReversed(1);
         }
@@ -703,7 +705,7 @@ void ProcessHwRevision(void)
     {
         // The EEPROM is not present on the SR31-6-0 so the firmware needs mock
         // the version number so that Consensys knows which sensors are on-board
-        if (are2ndGenImuSensorsPresent())
+        if (ShimBrd_are2ndGenImuSensorsPresent())
         {
             expBrd->exp_brd_id = SHIMMER3_IMU;
             expBrd->exp_brd_major = 6;
@@ -717,7 +719,7 @@ void InitialiseBt(void)
     // This is the start of all BT initialisation
     /* The RN4678 operational mode need to be set before BT_init() is called so
      * that the pins are set correctly prior to communication with the module */
-    if (isRn4678PresentAndCmdModeSupport())
+    if (ShimBrd_isRn4678PresentAndCmdModeSupport())
     {
         setRn4678OperationalMode(RN4678_OP_MODE_APPLICATION);
     }
@@ -726,8 +728,8 @@ void InitialiseBt(void)
         setRn4678OperationalMode(RN4678_OP_MODE_NOT_USED);
     }
 
-    btCommsProtocolInit(ShimTask_setNewBtCmdToProcess, setMacId, getBtActionPtr(), getBtArgsPtr());
-    sdSyncInit(InitialiseBtAfterBoot, BtStop, ShimTask_set);
+    ShimBt_btCommsProtocolInit(ShimTask_setNewBtCmdToProcess, setMacId, ShimBt_getBtActionPtr(), ShimBt_getBtArgsPtr());
+    ShimSdSync_init(InitialiseBtAfterBoot, BtStop, ShimTask_set);
     BT_init();
     BT_rn4xDisableRemoteConfig(1);
     BT_setRadioMode(SLAVE_MODE);  // slave mode for center&node
@@ -739,7 +741,7 @@ void InitialiseBt(void)
      * always used for Classic Bluetooth so we're just disabling the passkey
      * altogether here */
     BT_setAuthentication(2U);
-    setBleDeviceInformation(getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+    setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 #endif
 
     BT_setUpdateBaudDuringBoot(1);
@@ -748,7 +750,7 @@ void InitialiseBt(void)
     /* Read previous baud rate from the EEPROM if it is present */
     uint8_t initialBaudRate = BAUD_115200;
     memset(rnx_radio_eeprom, 0xFF, sizeof(rnx_radio_eeprom) / sizeof(rnx_radio_eeprom[0]));
-    if (isEepromIsPresent())
+    if (ShimBrd_isEepromIsPresent())
     {
         // Read Bluetooth configuration parameters from EEPROM
         /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
@@ -828,7 +830,7 @@ void InitialiseBt(void)
         }
     }
 
-    if (isEepromIsPresent()
+    if (ShimBrd_isEepromIsPresent()
             && (rnx_radio_eeprom[RNX_RADIO_TYPE_IDX] != getBtHwVersion()
             || rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] == 0xFF
             || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != getCurrentBtBaudRate())
@@ -910,18 +912,18 @@ void StartStreaming(void)
 
         if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
                 || storedConfigPtr->chEnAltMag
-                || (isWrAccelInUseIcm20948()
+                || (ShimBrd_isWrAccelInUseIcm20948()
                         && (storedConfigPtr->chEnWrAccel
                                 || storedConfigPtr->chEnMag)))
         {
-            if (isGyroInUseIcm20948())
+            if (ShimBrd_isGyroInUseIcm20948())
             {
                 ICM20948_init();
                 ICM20948_wake(1);
                 volatile uint8_t icm_id = ICM20948_getId();    // should be 0xEA
                 volatile uint8_t mag_id = ICM20948_getMagId(); // should be 0x09
             }
-            else if (isGyroInUseMpu9x50())
+            else if (ShimBrd_isGyroInUseMpu9x50())
             {
                 MPU9150_init();
                 MPU9150_wake(1);
@@ -929,38 +931,38 @@ void StartStreaming(void)
             }
             i2cEn = 1;
             if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
-                    || (isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
+                    || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
             {
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICMsampleRateDiv = ICM20948_convertSampleRateDivFromMPU9X50(
                             storedConfigPtr->gyroRate, 0);
 
                     ICM20948_setGyroSamplingRate(ICMsampleRateDiv);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     MPU9150_setSamplingRate(storedConfigPtr->gyroRate);
                 }
                 if (storedConfigPtr->chEnGyro)
                 {
-                    if (isGyroInUseIcm20948())
+                    if (ShimBrd_isGyroInUseIcm20948())
                     {
                         ICM20948_setGyroSensitivity(ShimConfig_gyroRangeGet());
                     }
-                    else if (isGyroInUseMpu9x50())
+                    else if (ShimBrd_isGyroInUseMpu9x50())
                     {
                         MPU9150_setGyroSensitivity(
                                 ShimConfig_gyroRangeGet()); //This needs to go after the wake?
                     }
                 }
                 if (storedConfigPtr->chEnAltAccel
-                        || (isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
+                        || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
                 {
                     uint8_t wrAccelRange = storedConfigPtr->altAccelRange;
-                    if (isGyroInUseIcm20948())
+                    if (ShimBrd_isGyroInUseIcm20948())
                     {
-                        if (isWrAccelInUseIcm20948())
+                        if (ShimBrd_isWrAccelInUseIcm20948())
                         {
                             // Use setting design for WR accel - re-map to suit the ICM-20948
                             wrAccelRange = storedConfigPtr->wrAccelRange;
@@ -981,7 +983,7 @@ void StartStreaming(void)
                         }
                         ICM20948_setAccelRange(wrAccelRange);
                     }
-                    else if (isGyroInUseMpu9x50())
+                    else if (ShimBrd_isGyroInUseMpu9x50())
                     {
                         MPU9150_setAccelRange(wrAccelRange);
                     }
@@ -994,23 +996,23 @@ void StartStreaming(void)
                 //No idea why
                 //timing delays or other I2C commands to gyro/accel core do not seem to have the same effect?!?
                 //Only relevant first time mag is accessed after powering up MPU9150
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICM20948_wake(0);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     MPU9150_wake(0);
                 }
             }
             if (storedConfigPtr->chEnAltMag
-                || (isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
+                || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
             {
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICM20948_setMagSamplingRateFromShimmerRate(storedConfigPtr->samplingRateTicks);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     if (storedConfigPtr->samplingRateTicks >= clk_120)
                     {
@@ -1031,14 +1033,14 @@ void StartStreaming(void)
             }
         }
 
-        if (!isWrAccelInUseIcm20948()
+        if (!ShimBrd_isWrAccelInUseIcm20948()
                 && (storedConfigPtr->chEnMag
                 || storedConfigPtr->chEnWrAccel))
         {
             if (!i2cEn)
             {
                 //Initialise I2C
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_init();
                 }
@@ -1050,7 +1052,7 @@ void StartStreaming(void)
             }
             if (storedConfigPtr->chEnWrAccel)
             {
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_accelInit(
                             storedConfigPtr->wrAccelRate, //sampling rate
@@ -1069,7 +1071,7 @@ void StartStreaming(void)
             }
             if (storedConfigPtr->chEnMag)
             {
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_magInit(
                             storedConfigPtr->magRateLsb, //sampling rate
@@ -1119,7 +1121,7 @@ void StartStreaming(void)
             }
             else
             {
-                sampleBmpTemp = sampleBmpTempFreq = (uint8_t) ((FreqDiv(
+                sampleBmpTemp = sampleBmpTempFreq = (uint8_t) ((ShimConfig_freqDiv(
                         storedConfigPtr->samplingRateTicks) - 1)
                         / bmpPressFreq);
             }
@@ -1190,7 +1192,7 @@ void StartStreaming(void)
                 EXG_start(1);
             }
 
-            if (areADS1292RClockLinesTied())
+            if (ShimBrd_areADS1292RClockLinesTied())
             {
                 /* Check if unit is SR47-4 or greater.
                  * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
@@ -1252,26 +1254,26 @@ inline void StopSensing(void)
     if (storedConfigPtr->chEnGyro
             || storedConfigPtr->chEnAltAccel
             || storedConfigPtr->chEnAltMag
-            || (isWrAccelInUseIcm20948()
+            || (ShimBrd_isWrAccelInUseIcm20948()
                     && (storedConfigPtr->chEnWrAccel
                         || storedConfigPtr->chEnMag)))
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             ICM20948_setMagMode(AK09916_PWR_DOWN);
             ICM20948_wake(0);
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_wake(0);
         }
     }
 
-    if (!isWrAccelInUseIcm20948()
+    if (!ShimBrd_isWrAccelInUseIcm20948()
             && (storedConfigPtr->chEnMag
             || storedConfigPtr->chEnWrAccel))
     {
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             LSM303DLHC_sleep();
         }
@@ -1316,9 +1318,9 @@ inline void StopSensing(void)
 #endif
     ShimTask_clear(TASK_SAMPLE_BMPX80_PRESS);
     ShimTask_clear(TASK_SAMPLE_MPU9150_MAG);
-    if (isSdInfoSyncDelayed())
+    if (ShimSd_isSdInfoSyncDelayed())
     {
-        SdInfoSync();
+        ShimSd_sdInfoSync();
     }
     _NOP();
     shimmerStatus.configuring = 0;
@@ -1479,7 +1481,7 @@ void I2C_configureChannels(void)
     {
         *channel_contents_ptr++ = X_LSM303DLHC_MAG;
 
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
             *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
@@ -1525,12 +1527,12 @@ void I2C_configureChannels(void)
 
     isIcm20948AccelEn = FALSE;
     isIcm20948GyroEn = FALSE;
-    if(isGyroInUseIcm20948() && storedConfigPtr->chEnGyro)
+    if(ShimBrd_isGyroInUseIcm20948() && storedConfigPtr->chEnGyro)
     {
         isIcm20948GyroEn = TRUE;
     }
     if(storedConfigPtr->chEnAltAccel
-            || (isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
+            || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
     {
         isIcm20948AccelEn = TRUE;
     }
@@ -1613,7 +1615,7 @@ __interrupt void Port1_ISR(void)
             /* BLE relies on this pin to know when the UART service is open/not */
             if(!areBtStatusStringsEnabled() || isRn4678ConnectionBle())
             {
-                HandleBtRfCommStateChange(TRUE);
+                ShimBt_handleBtRfCommStateChange(TRUE);
             }
         }
         else
@@ -1621,7 +1623,7 @@ __interrupt void Port1_ISR(void)
             if(!areBtStatusStringsEnabled() || shimmerStatus.btConnected)
             {
                 /* Fail-safe incase the FW has missed the BT DISCONNECT/RFCOM_CLOSE status strings */
-                HandleBtRfCommStateChange(FALSE);
+                ShimBt_handleBtRfCommStateChange(FALSE);
             }
         }
         __bic_SR_register_on_exit(LPM3_bits);
@@ -1701,7 +1703,7 @@ __interrupt void Port1_ISR(void)
                         }
 
                         shimmerStatus.sensing = 1;
-                        BtsdSelfcmd(); //only send cmd, not starting yet till START_BTSD_CMD received
+                        ShimBt_btsdSelfcmd(); //only send cmd, not starting yet till START_BTSD_CMD received
                         shimmerStatus.sensing = 0;
                         __bic_SR_register_on_exit(LPM3_bits);
                     }
@@ -1755,13 +1757,13 @@ __interrupt void Port2_ISR(void)
     case P2IV_P2IFG3:
         ShimTask_set(TASK_SETUP_DOCK);
         /* Reset to battery "charging"/"checking" LED indication on docking change */
-        resetBatteryChargingStatus();
+        ShimBatt_resetBatteryChargingStatus();
         if (!undockEvent)
         {
             if (!(P2IN & BIT3)) // undocked
             {
                 undockEvent = 1;
-                setBattCritical(0);
+                ShimBatt_setBattCritical(0);
                 time_newUnDockEvent = RTC_get64();
             }
             //see slaa513 for example using multiple time bases on a single timer module
@@ -1931,7 +1933,7 @@ __interrupt void TIMER0_B1_ISR(void)
         batt_my_local_time_64 = RTC_get64();
         batt_td = batt_my_local_time_64 - battLastTs64;
 
-        if ((batt_td > getBatteryIntervalTicks()))
+        if ((batt_td > ShimBatt_getBatteryIntervalTicks()))
         {              //10 mins = 19660800
             if (!shimmerStatus.sensing && ShimTask_set(TASK_BATT_READ))
                 __bic_SR_register_on_exit(LPM3_bits);
@@ -2149,10 +2151,10 @@ __interrupt void TIMER0_B1_ISR(void)
                         Board_ledToggle(LED_BLUE);
                     }
                     /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
-                    else if (!getRcFirstOffsetRxed()
+                    else if (!ShimSdSync_rcFirstOffsetRxedGet()
                             && shimmerStatus.sensing
                             && shimmerStatus.sdSyncEnabled
-                            && !(S4Ram_sdHeadTextGetByte(SDH_TRIAL_CONFIG0) & SDH_IAMMASTER))
+                            && !(ShimSdHead_sdHeadTextGetByte(SDH_TRIAL_CONFIG0) & SDH_IAMMASTER))
                     {
                         Board_ledOn(LED_BLUE);
                     }
@@ -2234,7 +2236,7 @@ void BtStart(void)
         {
             shimmerStatus.configuring = 1;
         }
-        resetBtRxBuff();
+        ShimBt_resetBtRxBuff();
 
         shimmerStatus.btInSyncMode = shimmerStatus.sdSyncEnabled;
 
@@ -2547,7 +2549,7 @@ void Timestamp0ToFirstFile()
 //   rwc_curr_time_64 = RTC_get64();
     my_local_time_long = firstTs & 0xffffffff;
 
-    uint8_t *sdHeadTextPtr = S4Ram_getSdHeadText();
+    uint8_t *sdHeadTextPtr = ShimSdHead_getSdHeadText();
 
     sdHeadTextPtr[SDH_MY_LOCALTIME_5TH] = (firstTs >> 32) & 0xff;
 
@@ -2585,11 +2587,11 @@ FRESULT WriteFile(uint8_t *text, WORD size)
         fileNum++;
 
         //avoid using printf()
-        getFileNamePtr()[dirLen + 3] = (char) (((int) '0') + fileNum % 10);
-        getFileNamePtr()[dirLen + 2] = (char) (((int) '0') + (fileNum / 10) % 10);
-        getFileNamePtr()[dirLen + 1] = (char) (((int) '0') + (fileNum / 100) % 10);
+        ShimSd_fileNamePtrGet()[dirLen + 3] = (char) (((int) '0') + fileNum % 10);
+        ShimSd_fileNamePtrGet()[dirLen + 2] = (char) (((int) '0') + (fileNum / 10) % 10);
+        ShimSd_fileNamePtrGet()[dirLen + 1] = (char) (((int) '0') + (fileNum / 100) % 10);
 
-        f_open(&dataFile, (char*) getFileNamePtr(), FA_WRITE | FA_CREATE_NEW);
+        f_open(&dataFile, (char*) ShimSd_fileNamePtrGet(), FA_WRITE | FA_CREATE_NEW);
 
         //      my_local_time_long32 = local_time_40 & 0xffffffff;
         //      sdHeadText[SDH_MY_LOCALTIME_5TH] = (local_time_40>>32) & 0xff;
@@ -2618,9 +2620,9 @@ FRESULT WriteFile(uint8_t *text, WORD size)
 
 void PrepareSDBuffHead(void)
 {
-    memcpy(sdBuff + sdBuffLen, getMyTimeDiffPtr(), SYNC_PACKET_PAYLOAD_SIZE);
+    memcpy(sdBuff + sdBuffLen, ShimSdSync_myTimeDiffPtrGet(), SYNC_PACKET_PAYLOAD_SIZE);
     sdBuffLen += SYNC_PACKET_PAYLOAD_SIZE;
-    resetMyTimeDiff();
+    ShimSdSync_resetMyTimeDiff();
 }
 
 // GSR
@@ -2708,8 +2710,8 @@ void SetupDock()
     shimmerStatus.configuring = 1;
     if (shimmerStatus.docked)
     {
-        setBatteryInterval(BATT_INTERVAL_DOCKED);
-        resetBatteryCriticalCount();
+        ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
+        ShimBatt_resetBatteryCriticalCount();
 
         shimmerStatus.sdlogCmd = 0;
         shimmerStatus.sdlogReady = 0;
@@ -2722,27 +2724,27 @@ void SetupDock()
         {
             UART_activate();
         }
-        BtsdSelfcmd();
+        ShimBt_btsdSelfcmd();
     }
     else
     {
-        setBatteryInterval(BATT_INTERVAL_UNDOCKED);
+        ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         if (!shimmerStatus.sensing)
         {
             UART_deactivate();
         }
         P6OUT |= BIT0;
-        BtsdSelfcmd();
+        ShimBt_btsdSelfcmd();
         SdPowerOff();
         if (CheckSdInslot() && !shimmerStatus.sensing && !shimmerStatus.sdBadFile)
         {
             _delay_cycles(2880000);
             SdPowerOn();
-            SdInfoSync();
+            ShimSd_sdInfoSync();
         }
         else
         {
-            setSdInfoSyncDelayed(1);
+            ShimSd_setSdInfoSyncDelayed(1);
         }
     }
     shimmerStatus.configuring = 0;
@@ -2753,19 +2755,19 @@ void ReadSdConfiguration(void)
     ShimTask_clear(TASK_STREAMDATA); // this will skip one sample
     sensing.isFileCreated = 0;
     SdPowerOn();
-    ParseConfig();
+    ShimSd_parseConfig();
 
     /* Check BT module configuration after sensor configuration read from SD
      * card to see if it is in the correct state (i.e., BT on vs. BT off vs. SD
      * Sync) */
-    checkBtModeConfig();
+    ShimConfig_checkBtModeFromConfig();
 }
 
 uint8_t CheckSdInslot(void)
 {
     // Check if card is inserted and enable interrupt for SD_DETECT_N
     shimmerStatus.sdInserted = (P4IN & BIT1) ? 0 : 1;
-    ff_result = SD_mount(shimmerStatus.sdInserted);
+    ff_result = ShimSd_mount(shimmerStatus.sdInserted);
     return shimmerStatus.sdInserted;
 }
 
@@ -2808,7 +2810,7 @@ void StreamData()
 
     if (storedConfigPtr->chEnGyro)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U + 6U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U + 6U];
@@ -2817,7 +2819,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U + 6U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U + 6U];
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_getGyro(current_buffer_ptr + digi_offset);
         }
@@ -2827,7 +2829,7 @@ void StreamData()
     uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = {0};
     uint8_t icm20948MagRdy = 0;
     if (storedConfigPtr->chEnAltMag
-            || (isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
+            || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
     {
         if (ICM20948_isMagSampleSkipEnabled())
         {
@@ -2854,7 +2856,7 @@ void StreamData()
 
     if (storedConfigPtr->chEnWrAccel)
     {
-        if(isWrAccelInUseIcm20948())
+        if(ShimBrd_isWrAccelInUseIcm20948())
         {
             // Swap byte order to immitate LSM303 chip
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[1U];
@@ -2870,7 +2872,7 @@ void StreamData()
         }
         else
         {
-            if (isWrAccelInUseLsm303dlhc())
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getAccel(current_buffer_ptr + digi_offset);
             }
@@ -2884,7 +2886,7 @@ void StreamData()
 
     if (storedConfigPtr->chEnMag)
     {
-        if(isWrAccelInUseIcm20948())
+        if(ShimBrd_isWrAccelInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -2907,7 +2909,7 @@ void StreamData()
         }
         else
         {
-            if (isWrAccelInUseLsm303dlhc())
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getMag(current_buffer_ptr + digi_offset);
             }
@@ -2920,7 +2922,7 @@ void StreamData()
     }
     if (storedConfigPtr->chEnAltAccel)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U];
@@ -2929,7 +2931,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U];
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_getAccel(current_buffer_ptr + digi_offset);
         }
@@ -2937,7 +2939,7 @@ void StreamData()
     }
     if (storedConfigPtr->chEnAltMag)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -2954,7 +2956,7 @@ void StreamData()
                 memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             if (preSampleMpuMag)
             {
@@ -3147,7 +3149,7 @@ void StreamData()
 
         if (shimmerStatus.sdSyncEnabled)
         {
-            BtSdSyncStop();
+            ShimSdSync_stop();
         }
     }
     else
@@ -3175,7 +3177,7 @@ void StreamData()
                 && shimmerStatus.btConnected
                 && !shimmerStatus.sdSyncEnabled)
         {
-            uint8_t crcMode = getBtCrcMode();
+            uint8_t crcMode = ShimBt_getCrcMode();
             if (crcMode != CRC_OFF)
             {
                 calculateCrcAndInsert(crcMode, current_buffer_ptr, digi_offset);
@@ -3457,8 +3459,8 @@ void manageReadBatt(uint8_t isBlockingRead)
     if (ShimConfig_getStoredConfig()->lowBatteryAutoStop
             && (batteryStatus.battStatusRaw.adcBattVal < BATT_CUTOFF_3_65VOLTS))
     {
-        incrementBatteryCriticalCount();
-        if (checkIfBatteryCritical() && shimmerStatus.sensing)
+        ShimBatt_incrementBatteryCriticalCount();
+        if (ShimBatt_checkIfBatteryCritical() && shimmerStatus.sensing)
         {
             setStopSensingFlag(1U);
         }
@@ -3472,13 +3474,13 @@ void saveBatteryVoltageAndUpdateStatus(void)
     //Multiplied by 2 due to voltage divider
     uint16_t battValMV = (((uint32_t)currentBattVal * 3000) >> 12) * 2;
 
-    updateBatteryStatus(currentBattVal, battValMV, LM3658SD_STAT1 ? 1 : 0,
+    ShimBatt_updateStatus(currentBattVal, battValMV, LM3658SD_STAT1 ? 1 : 0,
                         LM3658SD_STAT2 ? 1 : 0);
 }
 
 void StartLogging(void)
 {
-    SD_fileInit();
+    ShimSd_fileInit();
     sdBuffLen = 0;
     firstTsFlag = 1;
     fileLastHour = fileLastMin = RTC_get64();
@@ -3568,6 +3570,23 @@ void updateBtDetailsInEeprom(void)
         btFwVerAndBaudRate[1] = getCurrentBtBaudRate();
     }
     eepromWrite(RNX_TYPE_EEPROM_ADDRESS + RNX_RADIO_TYPE_IDX, 2U, &btFwVerAndBaudRate[0]);
+}
+
+void triggerShimmerErrorState(void)
+{
+  while (1)
+  {
+    Board_ledOff(LED_ALL);
+    _delay_cycles(24000000);
+    Board_ledOn(LED_YELLOW);
+    _delay_cycles(12000000);
+    Board_ledOn(LED_RED);
+    _delay_cycles(12000000);
+    Board_ledOn(LED_BLUE);
+    _delay_cycles(12000000);
+    Board_ledOn(LED_GREEN1);
+    _delay_cycles(12000000);
+  }
 }
 
 /*

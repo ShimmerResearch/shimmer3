@@ -65,11 +65,11 @@ void run_factory_test(void)
 void print_shimmer_model(void)
 {
     send_test_report("Shimmer model:\r\n");
-    if (isDaughterCardIdSet())
+    if (ShimBrd_isDaughterCardIdSet())
     {
-        sprintf(buffer, " - PASS: %s", getDaughtCardIdStrPtr());
+        sprintf(buffer, " - PASS: %s", ShimBrd_getDaughtCardIdStrPtr());
         send_test_report(buffer);
-        shimmer_expansion_brd *daughterCardId = getDaughtCardId();
+        shimmer_expansion_brd *daughterCardId = ShimBrd_getDaughtCardId();
         sprintf(buffer, " (SR%d-%d-%d)\r\n", daughterCardId->exp_brd_id,
                 daughterCardId->exp_brd_major,
                 daughterCardId->exp_brd_minor);
@@ -162,7 +162,7 @@ void sd_card_test(void)
                     SdPowerOn();
                 }
 
-                SD_test1();
+                ShimSd_test1();
 
                 if(sdWasOff)
                 {
@@ -183,11 +183,11 @@ void bt_module_test(void)
         send_test_report("BT Module:\r\n");
 
         send_test_report(" - MAC ID: ");
-        BT_getMacAddressAscii(buffer);
+        ShimBt_getMacAddressAscii(buffer);
         sprintf(&buffer[12], "\r\n");
         send_test_report(buffer);
 
-        sprintf(buffer, " - %s", getBtVerStrPtr());
+        sprintf(buffer, " - %s", ShimBt_getBtVerStrPtr());
         send_test_report(buffer);
 
         if(strstr(buffer, "RN4678") != NULL && strstr(buffer, "V1.23") == NULL)
