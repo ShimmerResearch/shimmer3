@@ -48,13 +48,13 @@
 #include "hal_InfoMem.h"
 
 //returns 1 if successful, 0 if failure
-uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
+uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size)
 {
     uint8_t ie, i, tempsize = 0, segoffset, tempbuf[INFOMEM_SEG_SIZE];
     uint16_t written = 0;
 
-    uint8_t *infomemaddr = (uint8_t*) (addr + INFOMEM_OFFSET);
-    if ((infomemaddr + size) > (uint8_t*) (INFOMEM_OFFSET + INFOMEM_SIZE))
+    uint32_t infomemaddr = addr + INFOMEM_OFFSET;
+    if ((infomemaddr + size) > (INFOMEM_OFFSET + INFOMEM_SIZE))
         return 0;
 
     //Disable interrupts while erasing
@@ -65,13 +65,13 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
         __disable_interrupt();
 
     FCTL3 = FWKEY;                         //Clear Lock bit
-    if ((uint32_t) infomemaddr < INFOMEM_SEG_C_ADDR)
+    if (infomemaddr < INFOMEM_SEG_C_ADDR)
     {
         //need to modify segment D
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_D_ADDR, 128); //temporarily copy contents of seg D
-        if ((tempsize = (INFOMEM_SEG_C_ADDR - (uint32_t) infomemaddr)) > size)
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_D_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg D
+        if ((tempsize = (INFOMEM_SEG_C_ADDR - infomemaddr)) > size)
             tempsize = size;
-        memcpy(tempbuf + (uint32_t) addr, buf, tempsize); //modify with values to be written
+        memcpy(tempbuf + addr, buf, tempsize); //modify with values to be written
         FCTL1 = FWKEY + ERASE;                                  //Set Erase bit
         *(uint8_t*) INFOMEM_SEG_D_ADDR = 0;         //Dummy write to erase seg D
         FCTL1 = FWKEY + BLKWRT; //Enable long-word write (4x faster than byte or word mode)
@@ -81,21 +81,21 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
                     *((uint32_t*) (tempbuf + i));
     }
 
-    if ((((uint32_t) infomemaddr >= INFOMEM_SEG_C_ADDR)
-            && ((uint32_t) infomemaddr < INFOMEM_SEG_B_ADDR))
+    if (((infomemaddr >= INFOMEM_SEG_C_ADDR)
+            && (infomemaddr < INFOMEM_SEG_B_ADDR))
             || (tempsize && (tempsize < size)))
     {
         //need to modify segment C
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_C_ADDR, 128); //temporarily copy contents of seg C
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_C_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg C
         if (written = tempsize)
         {                                //the write started in previous seg
             segoffset = 0;
-            tempsize = ((size - written) > 128) ? 128 : (size - written);
+            tempsize = ((size - written) > INFOMEM_SEG_SIZE) ? INFOMEM_SEG_SIZE : (size - written);
         }
         else
         {
-            segoffset = (uint32_t) addr - 128;
-            if ((tempsize = (INFOMEM_SEG_B_ADDR - (uint32_t) infomemaddr))
+            segoffset = addr - INFOMEM_SEG_SIZE;
+            if ((tempsize = (INFOMEM_SEG_B_ADDR - infomemaddr))
                     > size)
                 tempsize = size;
         }
@@ -110,21 +110,21 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
         written += tempsize;
     }
 
-    if ((((uint32_t) infomemaddr >= INFOMEM_SEG_B_ADDR)
-            && ((uint32_t) infomemaddr < INFOMEM_SEG_A_ADDR))
+    if (((infomemaddr >= INFOMEM_SEG_B_ADDR)
+            && (infomemaddr < INFOMEM_SEG_A_ADDR))
             || (written && (written < size)))
     {
         //need to modify segment B
-        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_B_ADDR, 128); //temporarily copy contents of seg B
+        memcpy(tempbuf, (uint8_t*) INFOMEM_SEG_B_ADDR, INFOMEM_SEG_SIZE); //temporarily copy contents of seg B
         if (written)
         {                                  //the write started in a previous seg
             segoffset = 0;
-            tempsize = ((size - written) > 128) ? 128 : (size - written);
+            tempsize = ((size - written) > INFOMEM_SEG_SIZE) ? INFOMEM_SEG_SIZE : (size - written);
         }
         else
         {
-            segoffset = (uint32_t) addr - 256;
-            if ((tempsize = (INFOMEM_SEG_A_ADDR - (uint32_t) infomemaddr))
+            segoffset = addr - 256;
+            if ((tempsize = (INFOMEM_SEG_A_ADDR - infomemaddr))
                     > size)
                 tempsize = size;
         }
@@ -139,7 +139,7 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
         written += tempsize;
     }
 
-    if (((uint32_t) infomemaddr >= INFOMEM_SEG_A_ADDR)
+    if ((infomemaddr >= INFOMEM_SEG_A_ADDR)
             || (written && (written < size)))
     {
         //need to modify segment A
@@ -151,7 +151,7 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
         }
         else
         {
-            segoffset = (uint32_t) addr - 384;
+            segoffset = addr - 384;
             tempsize = size;
         }
         memcpy(tempbuf + segoffset, buf + written, tempsize); //modify with values to be written
@@ -179,15 +179,15 @@ uint8_t InfoMem_write(uint8_t addr, uint8_t *buf, uint16_t size)
 }
 
 //returns 1 if successful, 0 if failure
-uint8_t InfoMem_read(uint8_t addr, uint8_t *buf, uint16_t size)
+uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size)
 {
-    addr += INFOMEM_OFFSET;
-    if ((addr + size) > (INFOMEM_OFFSET + INFOMEM_SIZE))
+    uint32_t infomemaddr = addr + INFOMEM_OFFSET;
+    if ((infomemaddr + size) > (INFOMEM_OFFSET + INFOMEM_SIZE))
     {
         return 0;
     }
 
-    memcpy(buf, (uint8_t*) addr, size);
+    memcpy(buf, (uint8_t*) infomemaddr, size);
     return 1;
 }
 
