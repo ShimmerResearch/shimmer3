@@ -64,10 +64,10 @@
 #include <ctype.h>
 #include <math.h>
 #include "msp430.h"
-#include "shimmer3_common_source/shimmer_sd_include.h"
-#include "shimmer3_common_source/5xx_HAL/hal_FactoryTest.h"
 #include "shimmer_btsd.h"
 #include "log_and_stream_globals.h"
+#include "Shimmer_Driver/5xx_HAL/hal_FactoryTest.h"
+#include "Shimmer_Driver/shimmer_sd_include.h"
 
 void Init(void);
 void handleIfDockedStateOnBoot(void);
@@ -136,8 +136,7 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW);
 
-uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash, rwcErrorEn,
-        sdErrorFlash;
+uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash;
 uint32_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
@@ -300,9 +299,7 @@ void Init(void)
     firstTsFlag = 0;
     skip65ms = 0;
     buttonLastReleaseTs64 = 0;
-    rwcErrorEn = 0;
     rwcErrorFlash = 0;
-    sdErrorFlash = 0;
 
     undockSimulate = 1;
     lastLedGroup2 = 0;
@@ -430,7 +427,6 @@ void Init(void)
     UART_setState(shimmerStatus.docked);
 
     RwcCheck();
-    sdErrorFlash = ShimConfig_getStoredConfig()->sdErrorEnable;
 
     shimmerStatus.initialising = 0;
     shimmerStatus.configuring = 0;
@@ -503,7 +499,6 @@ void checkSetupDock(void)
     }
 
     RwcCheck();
-    sdErrorFlash = ShimConfig_getStoredConfig()->sdErrorEnable;
 }
 
 void BMPX80_startMeasurement(void)
@@ -1981,7 +1976,9 @@ __interrupt void TIMER0_B1_ISR(void)
 
             // below are settings for green1, blue, yellow and red leds
 
-            if (!shimmerStatus.docked && (shimmerStatus.sdBadFile || !shimmerStatus.sdInserted) && sdErrorFlash)
+            if (!shimmerStatus.docked
+                    && (shimmerStatus.sdBadFile || !shimmerStatus.sdInserted)
+                    && ShimConfig_getStoredConfig()->sdErrorEnable)
             {   // bad file = yellow/red alternating
                 if (fileBadCnt-- > 0)
                 {
@@ -2432,47 +2429,20 @@ void setMacId(uint8_t *buf)
 
 //void ProcessCommand(void)
 //{
-//    uint32_t config_time;
-//    uint8_t my_config_time[4];
-//    uint8_t name_len;
-//    uint8_t update_sdconfig = 0, calib_sensor = 0,
-//            calib_range = 0, update_calib_dump_file = 0;
-//    //uint8_t update_sdconfig_manual = 0;
-////    sc_t sc1;
-//    uint8_t fullSyncResp[SYNC_PACKET_MAX_SIZE] = {0};
-//
-//    uint8_t *sdHeadTextPtr = S4Ram_getSdHeadText();
-//
 //    switch (gAction)
 //    {
-//    case INQUIRY_COMMAND:
-//        inquiryResponse = 1;
-//        break;
-//    case DUMMY_COMMAND:
-//        break;
-//    case GET_SAMPLING_RATE_COMMAND:
-//        samplingRateResponse = 1;
-//        break;
-//    case TOGGLE_LED_COMMAND:
-//        shimmerStatus.toggleLedRedCmd ^= 1;
-//        break;
 //    case START_STREAMING_COMMAND:
 //        shimmerStatus.btstreamCmd = 1;
 //        if (!shimmerStatus.sensing)
 //        {
 //            ShimTask_set(TASK_CFGCH);
-//            //startSensing = 1;
 //            SetStartSensing();
 //        }
-//        //enableSdlog = 0;
-//        //newDirFlag = 1;
-//        //CheckSdInslot();
 //        break;
 //    case START_SDBT_COMMAND:
 //        if (!shimmerStatus.sensing)
 //        {
 //            ShimTask_set(TASK_CFGCH);
-//            //startSensing = 1;
 //            SetStartSensing();
 //        }
 //        shimmerStatus.btstreamCmd = 1;
@@ -2487,18 +2457,10 @@ void setMacId(uint8_t *buf)
 //            shimmerStatus.sdlogCmd = 1;
 //            if (!shimmerStatus.sensing)
 //            {
-//                //startSensing = 1;
 //                SetStartSensing();
 //                ShimTask_set(TASK_CFGCH);
 //            }
 //        }
-//        break;
-//    case SET_CRC_COMMAND:
-//        setBtCrcMode(args[0]);
-//        break;
-//
-//    case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
-//        setUseAckPrefixForInstreamResponses(args[0]);
 //        break;
 //
 //    case STOP_STREAMING_COMMAND:
@@ -2510,86 +2472,15 @@ void setMacId(uint8_t *buf)
 //    case STOP_SDBT_COMMAND:
 //        if (shimmerStatus.sensing)
 //        {
-//            setStopSensingFlag(1U);
-//            //return;
 //        }
 //        break;
 //    case STOP_LOGGING_COMMAND:
 //        if (shimmerStatus.sdLogging)
 //        {
 //            stopLogging = 1;
-//            //if(!shimmerStatus.isStreaming);
-//            //return;
 //        }
 //        break;
-//    case SET_SENSORS_COMMAND:
-//        storedConfig[NV_SENSORS0] = args[0];
-//        storedConfig[NV_SENSORS1] = args[1];
-//        storedConfig[NV_SENSORS2] = args[2];
-//        if (storedConfigPtr->chEnGsr) // they are sharing adc1, so ban intch1 when gsr is on
-//            storedConfig[NV_SENSORS1] &= ~SENSOR_INT_A1;
-//        InfoMem_write((void*) NV_SENSORS0, &storedConfig[NV_SENSORS0], 3);
-//        sdHeadTextPtr[SDH_SENSORS0] = storedConfig[NV_SENSORS0];
-//        sdHeadTextPtr[SDH_SENSORS1] = storedConfig[NV_SENSORS1];
-//        sdHeadTextPtr[SDH_SENSORS2] = storedConfig[NV_SENSORS2];
-//        update_sdconfig = 1;
-//        ShimTask_set(TASK_CFGCH);
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case GET_WR_ACCEL_RANGE_COMMAND:
-//        wrAccelRangeResponse = 1;
-//        break;
-//    case GET_MAG_GAIN_COMMAND:
-//        magGainResponse = 1;
-//        break;
-//    case GET_MAG_SAMPLING_RATE_COMMAND:
-//        magSamplingRateResponse = 1;
-//        break;
-//    case GET_STATUS_COMMAND:
-//        dockedResponse = 1;
-//        break;
-//    case GET_VBATT_COMMAND:
-//        btVbattResponse = 1;
-//        break;
-//    case GET_TRIAL_CONFIG_COMMAND:
-//        trialConfigResponse = 1;
-//        break;
-//    case SET_TRIAL_CONFIG_COMMAND:
-//        storedConfig[NV_SD_TRIAL_CONFIG0] = args[0];
-//        //        storedConfig[NV_SD_TRIAL_CONFIG1] = 0;
-//        storedConfig[NV_SD_TRIAL_CONFIG1] = args[1];
-//#if !IS_SUPPORTED_TCXO
-//        storedConfig[NV_SD_TRIAL_CONFIG1] &= ~SDH_TCXO; /* Disable TCXO */
-//#endif
-//        storedConfig[NV_SD_BT_INTERVAL] = args[2];
-//        if (IS_SUPPORTED_SINGLE_TOUCH && storedConfig[NV_SD_TRIAL_CONFIG1] & SDH_SINGLETOUCH)
-//        {
-//            storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_USER_BUTTON_ENABLE;
-//            storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_TIME_SYNC;
-//        }
-//        if (storedConfig[NV_SD_BT_INTERVAL] < SYNC_INT_C)
-//            storedConfig[NV_SD_BT_INTERVAL] = SYNC_INT_C;
-//        InfoMem_write((void*) NV_SAMPLING_RATE,
-//                      &storedConfig[NV_SD_TRIAL_CONFIG0], 3);
-//        sdHeadTextPtr[SDH_TRIAL_CONFIG0] = storedConfig[NV_SD_TRIAL_CONFIG0];
-//        //        sdHeadText[SDH_TRIAL_CONFIG1] = 0;  //storedConfig[NV_SD_TRIAL_CONFIG1];
-//        sdHeadTextPtr[SDH_TRIAL_CONFIG1] = storedConfig[NV_SD_TRIAL_CONFIG1];
-//        sdHeadTextPtr[SDH_BROADCAST_INTERVAL] = storedConfig[NV_SD_BT_INTERVAL];
-//        update_sdconfig = 1;
-//        break;
-//    case GET_CENTER_COMMAND:
-//        centerResponse = 1;
-//        break;
-//    case SET_CENTER_COMMAND:
-//        break;
-//    case GET_SHIMMERNAME_COMMAND:
-//        shimmerNameResponse = 1;
-//        break;
+
 //    case SET_SHIMMERNAME_COMMAND:
 //        name_len = args[0] < (MAX_CHARS - 1) ? args[0] : (MAX_CHARS - 1);
 //        memset((uint8_t*) (storedConfig + NV_SD_SHIMMER_NAME), 0,
@@ -2601,9 +2492,6 @@ void setMacId(uint8_t *buf)
 //        SD_setShimmerName();
 //        update_sdconfig = 1;
 //        break;
-//    case GET_EXPID_COMMAND:
-//        expIDResponse = 1;
-//        break;
 //    case SET_EXPID_COMMAND:
 //        name_len = args[0] < (MAX_CHARS - 1) ? args[0] : (MAX_CHARS - 1);
 //        memset((uint8_t*) (storedConfig + NV_SD_EXP_ID_NAME), 0, MAX_CHARS - 1);
@@ -2614,653 +2502,7 @@ void setMacId(uint8_t *buf)
 //        SD_setExpIdName();
 //        update_sdconfig = 1;
 //        break;
-//    case GET_CONFIGTIME_COMMAND:
-//        configTimeResponse = 1;
-//        break;
-//    case GET_DIR_COMMAND:
-//        dirResponse = 1;
-//        break;
-//    case SET_CONFIGTIME_COMMAND:
-//        name_len = args[0] < (MAX_CHARS - 1) ? args[0] : (MAX_CHARS - 1);
-//        memcpy(configTimeText, &args[1], name_len);
-//        configTimeText[args[0]] = '\0';
-//        SetName();
-//        config_time = atol((char*) configTimeText);
-//        my_config_time[3] = *((uint8_t*) &config_time);
-//        my_config_time[2] = *(((uint8_t*) &config_time) + 1);
-//        my_config_time[1] = *(((uint8_t*) &config_time) + 2);
-//        my_config_time[0] = *(((uint8_t*) &config_time) + 3);
-//        memcpy(sdHeadTextPtr + SDH_CONFIG_TIME_0, my_config_time, 4);
-//        memcpy((uint8_t*) (storedConfig + NV_SD_CONFIG_TIME), my_config_time,
-//               4);
-//        InfoMem_write(NV_SD_CONFIG_TIME,
-//                      storedConfig + NV_SD_CONFIG_TIME, 4);
-//        update_sdconfig = 1;
-//        break;
-//    case GET_NSHIMMER_COMMAND:
-//        nshimmerResponse = 1;
-//        break;
-//    case SET_NSHIMMER_COMMAND:
-//        storedConfig[NV_SD_NSHIMMER] = args[0];
-//        sdHeadTextPtr[SDH_NSHIMMER] = args[0];
-//        InfoMem_write(NV_SD_NSHIMMER, storedConfig + NV_SD_NSHIMMER,
-//                      1);
-//        update_sdconfig = 1;
-//        break;
-//    case GET_MYID_COMMAND:
-//        myIDResponse = 1;
-//        break;
-//    case SET_MYID_COMMAND:
-//        storedConfig[NV_SD_MYTRIAL_ID] = args[0];
-//        sdHeadTextPtr[SDH_MYTRIAL_ID] = args[0];
-//        InfoMem_write(NV_SD_MYTRIAL_ID,
-//                      storedConfig + NV_SD_MYTRIAL_ID, 1);
-//        update_sdconfig = 1;
-//        break;
-//    case SET_WR_ACCEL_RANGE_COMMAND:
-//        if (args[0] < 4)
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xF3)
-//                            + ((args[0] & 0x03) << 2);
-//        }
-//        else
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] &= 0xF3;
-//        }
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE0,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE0], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE0] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE0];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case GET_WR_ACCEL_SAMPLING_RATE_COMMAND:
-//        wrAccelSamplingRateResponse = 1;
-//        break;
-//    case GET_WR_ACCEL_LPMODE_COMMAND:
-//        wrAccelLpModeResponse = 1;
-//        break;
-//    case GET_WR_ACCEL_HRMODE_COMMAND:
-//        wrAccelHrModeResponse = 1;
-//        break;
-//    case GET_GYRO_RANGE_COMMAND:
-//        gyroRangeResponse = 1;
-//        break;
-//    case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
-//    {
-//        //      sc1.id = SC_SENSOR_BMPX80_PRESSURE;
-//        //      sc1.range = SC_SENSOR_RANGE_BMPX80;
-//        //      sc1.data_len = SC_DATA_LEN_BMPX80;
-//        //      memcpy(sc1.data, bmpX80Calib, 22);
-//        //      ShimmerCalib_singleSensorWrite(&sc1);
-//        //      update_calib_dump_file = 1;
-//        bmp180CalibrationCoefficientsResponse = 1;
-//        break;
-//    }
-//    case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
-//        bmp280CalibrationCoefficientsResponse = 1;
-//        break;
-//    case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
-//        bmpGenericCalibrationCoefficientsResponse = 1;
-//        break;
-//    case GET_GYRO_SAMPLING_RATE_COMMAND:
-//        gyroSamplingRateResponse = 1;
-//        break;
-//    case GET_ALT_ACCEL_RANGE_COMMAND:
-//        altAccelRangeResponse = 1;
-//        break;
-//    case GET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
-//        pressureOversamplingRatioResponse = 1;
-//        break;
-//    case GET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
-//        internalExpPowerEnableResponse = 1;
-//        break;
-//    case GET_MPU9150_MAG_SENS_ADJ_VALS_COMMAND:
-//        mpu9150MagSensAdjValsResponse = 1;
-//        break;
-//    case GET_EXG_REGS_COMMAND:
-//        if (args[0] < 2 && args[1] < 10 && args[2] < 11)
-//        {
-//            exgChip = args[0];
-//            exgStartAddr = args[1];
-//            exgLength = args[2];
-//        }
-//        else
-//            exgLength = 0;
-//        exgRegsResponse = 1;
-//        break;
-//    case GET_BT_VERSION_STR_COMMAND:
-//        btVerResponse = 1;
-//        break;
-//    case SET_DATA_RATE_TEST:
-//        /* Stop test before ACK is sent */
-//        if (args[0] == 0)
-//        {
-//            setBtDataRateTestState(0);
-//            clearBtTxBuf(1);
-//        }
-//        btDataRateTestResponse = 1;
-//        break;
-//    case SET_FACTORY_TEST:
-//        if (args[0] < FACTORY_TEST_COUNT)
-//        {
-//            setup_factory_test(PRINT_TO_BT_UART, (factory_test_t) args[0]);
-//            ShimTask_set(TASK_FACTORY_TEST);
-//        }
-//        break;
 //
-//    case SET_WR_ACCEL_SAMPLING_RATE_COMMAND:
-//        if (args[0] < 10)
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0F)
-//                            + ((args[0] & 0x0F) << 4);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0F)
-//                            + (LSM303DLHC_ACCEL_100HZ << 4);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE0,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE0], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE0] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE0];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_MAG_GAIN_COMMAND:
-//        if (args[0] > 0 && args[0] < 8)
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1F)
-//                            + ((args[0] & 0x07) << 5);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1F)
-//                            + (LSM303DLHC_MAG_1_3G << 5);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE2,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE2], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE2] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE2];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_MAG_SAMPLING_RATE_COMMAND:
-//        if (args[0] < 8)
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xE3)
-//                            + ((args[0] & 0x07) << 2);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xE3)
-//                            + (LSM303DLHC_MAG_75HZ << 2);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE2,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE2], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE2] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE2];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_WR_ACCEL_LPMODE_COMMAND:
-//        if (args[0] == 1)
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xFD) + 0x02;
-//        }
-//        else
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] &= 0xFD;
-//        }
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE0,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE0], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE0] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE0];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_WR_ACCEL_HRMODE_COMMAND:
-//        if (args[0] == 1)
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xFE) + 0x01;
-//        }
-//        else
-//        {
-//            storedConfig[NV_CONFIG_SETUP_BYTE0] &= 0xFE;
-//        }
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE0,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE0], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE0] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE0];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_GYRO_RANGE_COMMAND:
-//        if (args[0] < 4)
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xFC)
-//                            + (args[0] & 0x03);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE2] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE2] & 0xFC)
-//                            + MPU9X50_GYRO_500DPS;
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE2,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE2], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE2] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE2];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_GYRO_SAMPLING_RATE_COMMAND:
-//        storedConfig[NV_CONFIG_SETUP_BYTE1] = args[0];
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE1,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE1], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE1] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE1];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_ALT_ACCEL_RANGE_COMMAND:
-//        if (args[0] < 4)
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x3F)
-//                            + ((args[0] & 0x03) << 6);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0x3F)
-//                            + (ACCEL_2G << 6);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE3,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE3] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE3];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_PRESSURE_OVERSAMPLING_RATIO_COMMAND:
-//        if (args[0] < 4)
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xCF)
-//                            + ((args[0] & 0x03) << 4);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xCF)
-//                            + (BMPX80_OSS_1 << 4);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE3,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE3] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE3];
-//        update_sdconfig = 1;
-//        break;
-//    case SET_INTERNAL_EXP_POWER_ENABLE_COMMAND:
-//        if (args[0] == 1)
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xFE)
-//                            + (args[0] & 0x01);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] &= 0xFE;
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE3,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE3] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE3];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case GET_CONFIG_SETUP_BYTES_COMMAND:
-//        configSetupBytesResponse = 1;
-//        break;
-//    case SET_CONFIG_SETUP_BYTES_COMMAND:
-//        storedConfig[NV_CONFIG_SETUP_BYTE0] = args[0];
-//        storedConfig[NV_CONFIG_SETUP_BYTE1] = args[1];
-//        storedConfig[NV_CONFIG_SETUP_BYTE2] = args[2];
-//        storedConfig[NV_CONFIG_SETUP_BYTE3] = args[3];
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE0,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE0], 4);
-//        memcpy(sdHeadTextPtr + SDH_CONFIG_SETUP_BYTE0,
-//               &storedConfig[NV_CONFIG_SETUP_BYTE0], 4);
-//        Config2SdHead();
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_SAMPLING_RATE_COMMAND:
-//        storedConfigPtr->samplingRateTicks = *(uint16_t*) args;
-//        InfoMem_write((void*) NV_SAMPLING_RATE, &storedConfig[NV_SAMPLING_RATE],
-//                      2);
-//        sdHeadTextPtr[SDH_SAMPLE_RATE_0] = storedConfig[NV_SAMPLING_RATE];
-//        sdHeadTextPtr[SDH_SAMPLE_RATE_1] = storedConfig[NV_SAMPLING_RATE + 1];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            //restart sampling timer to use new sampling rate
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case GET_CALIB_DUMP_COMMAND:
-//        // usage:
-//        // 0x98, offset, offset, length
-//        calibRamLength = args[0];
-//        calibRamOffset = args[1] + (args[2] << 8);
-//        calibRamResponse = 1;
-//        break;
-//    case SET_CALIB_DUMP_COMMAND:
-//        // usage:
-//        // 0x98, offset, offset, length, data[0:127]
-//        // max length of this command = 132
-//        calibRamLength = args[0];
-//        calibRamOffset = args[1] + (args[2] << 8);
-//        if (ShimmerCalib_ramWrite(args + 3, calibRamLength, calibRamOffset)
-//                == 1)
-//        {
-//            ShimmerCalibSyncFromDumpRamAll();
-//            update_calib_dump_file = 1;
-//        }
-//        break;
-//    case UPD_CALIB_DUMP_COMMAND:
-//        ShimmerCalibSyncFromDumpRamAll();
-//        update_calib_dump_file = 1;
-//        break;
-//    case UPD_SDLOG_CFG_COMMAND:
-//        ShimTask_set(TASK_SDLOG_CFG_UPDATE);
-//        //update_sdconfig_manual = 1;
-//        break;
-//    case SET_LN_ACCEL_CALIBRATION_COMMAND:
-//        memcpy(&storedConfigPtr->lnAccelCalib.rawBytes[0], args, 21);
-//        InfoMem_write((void*) NV_LN_ACCEL_CALIBRATION,
-//                      &storedConfigPtr->lnAccelCalib.rawBytes[0], 21);
-//        memcpy(sdHeadTextPtr + SDH_LN_ACCEL_CALIBRATION,
-//               &storedConfigPtr->lnAccelCalib.rawBytes[0], 21);
-//
-//        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_ANALOG_ACCEL);
-//
-//        update_calib_dump_file = 1;
-//        //update_calib = 1;
-//        //calib_sensor = S_ACCEL_A;
-//        break;
-//    case GET_LN_ACCEL_CALIBRATION_COMMAND:
-//        lnAccelCalibrationResponse = 1;
-//        break;
-//    case SET_GYRO_CALIBRATION_COMMAND:
-//        memcpy(&storedConfigPtr->gyroCalib.rawBytes[0], args, 21);
-//        InfoMem_write((void*) NV_GYRO_CALIBRATION,
-//                      &storedConfigPtr->gyroCalib.rawBytes[0], 21);
-//        memcpy(sdHeadTextPtr + SDH_GYRO_CALIBRATION,
-//               &storedConfigPtr->gyroCalib.rawBytes[0], 21);
-//
-//        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_MPU9X50_ICM20948_GYRO);
-//
-//        update_calib_dump_file = 1;
-//        //      update_calib = 1;
-//        //      calib_sensor = S_GYRO;
-//        //      calib_range = get_config_byte_gyro_range();
-//        break;
-//    case GET_GYRO_CALIBRATION_COMMAND:
-//        gyroCalibrationResponse = 1;
-//        break;
-//    case SET_MAG_CALIBRATION_COMMAND:
-//        memcpy(&storedConfigPtr->magCalib.rawBytes[0], args, 21);
-//        InfoMem_write((void*) NV_MAG_CALIBRATION,
-//                      &storedConfigPtr->magCalib.rawBytes[0], 21);
-//        memcpy(sdHeadTextPtr + SDH_MAG_CALIBRATION,
-//               &storedConfigPtr->magCalib.rawBytes[0], 21);
-//
-//        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303_MAG);
-//
-//        update_calib_dump_file = 1;
-//        //      update_calib = 1;
-//        //      calib_sensor = S_MAG;
-//        //      calib_range = (storedConfig[NV_CONFIG_SETUP_BYTE2]>>5) & 0x07;
-//        break;
-//    case GET_MAG_CALIBRATION_COMMAND:
-//        magCalibrationResponse = 1;
-//        break;
-//    case SET_WR_ACCEL_CALIBRATION_COMMAND:
-//        memcpy(&storedConfigPtr->wrAccelCalib.rawBytes[0], args, 21);
-//        InfoMem_write((void*) NV_WR_ACCEL_CALIBRATION,
-//                      &storedConfigPtr->wrAccelCalib.rawBytes[0], 21);
-//        memcpy(sdHeadTextPtr + SDH_WR_ACCEL_CALIBRATION,
-//               &storedConfigPtr->wrAccelCalib.rawBytes[0], 21);
-//
-//        CalibSaveFromInfoMemToCalibDump(SC_SENSOR_LSM303_ACCEL);
-//
-//        update_calib_dump_file = 1;
-//        //      update_calib = 1;
-//        //      calib_sensor = S_ACCEL_D;
-//        //      calib_range = (storedConfig[NV_CONFIG_SETUP_BYTE0]>>2)&0x03;
-//        break;
-//    case SET_GSR_RANGE_COMMAND:
-//        if (args[0] <= 4)
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xF1)
-//                            + ((args[0] & 0x07) << 1);
-//        else
-//            storedConfig[NV_CONFIG_SETUP_BYTE3] =
-//                    (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xF1)
-//                            + (GSR_AUTORANGE << 1);
-//        InfoMem_write((void*) NV_CONFIG_SETUP_BYTE3,
-//                      &storedConfig[NV_CONFIG_SETUP_BYTE3], 1);
-//        sdHeadTextPtr[SDH_CONFIG_SETUP_BYTE3] =
-//                storedConfig[NV_CONFIG_SETUP_BYTE3];
-//        update_sdconfig = 1;
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case SET_EXG_REGS_COMMAND:
-//        if (args[0] < 2 && args[1] < 10 && args[2] < 11)
-//        {
-//            if (args[0])
-//            {
-//                memcpy((storedConfig + NV_EXG_ADS1292R_2_CONFIG1 + args[1]),
-//                       (args + 3), args[2]);
-//                InfoMem_write(
-//                        (void*) (NV_EXG_ADS1292R_2_CONFIG1 + args[1]),
-//                        (storedConfig + NV_EXG_ADS1292R_2_CONFIG1 + args[1]),
-//                        args[2]);
-//                memcpy(sdHeadTextPtr + SDH_EXG_ADS1292R_2_CONFIG1,
-//                       storedConfig + NV_EXG_ADS1292R_2_CONFIG1, args[2]);
-//            }
-//            else
-//            {
-//                memcpy((storedConfig + NV_EXG_ADS1292R_1_CONFIG1 + args[1]),
-//                       (args + 3), args[2]);
-//
-//                if (areADS1292RClockLinesTied())
-//                {
-//                    /* Check if unit is SR47-4 or greater.
-//                     * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
-//                     * This ensures clock lines on ADS chip are correct
-//                     */
-//                    *(storedConfig + NV_EXG_ADS1292R_1_CONFIG2) |= 8;
-//                }
-//
-//                InfoMem_write(
-//                        (void*) (NV_EXG_ADS1292R_1_CONFIG1 + args[1]),
-//                        (storedConfig + NV_EXG_ADS1292R_1_CONFIG1 + args[1]),
-//                        args[2]);
-//                memcpy(sdHeadTextPtr + SDH_EXG_ADS1292R_1_CONFIG1,
-//                       storedConfig + NV_EXG_ADS1292R_1_CONFIG1, args[2]);
-//            }
-//            update_sdconfig = 1;
-//        }
-//        break;
-//    case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
-//        ShimConfig_setDefaultConfig();
-//        Config2SdHead();
-//        update_sdconfig = 1;
-//        ShimTask_set(TASK_CFGCH);
-//        if (shimmerStatus.sensing)
-//        {
-//            setStopSensingFlag(1U);
-//            //startSensing = 1;
-//            SetStartSensing();
-//        }
-//        break;
-//    case RESET_CALIBRATION_VALUE_COMMAND:
-//        //      memset(&storedConfig[NV_A_ACCEL_CALIBRATION], 0xFF, NV_NUM_CALIBRATION_BYTES);
-//        //      InfoMem_write((void*)NV_A_ACCEL_CALIBRATION, &storedConfig[NV_A_ACCEL_CALIBRATION], NV_NUM_CALIBRATION_BYTES);
-//        //      memcpy(&sdHeadText[SDH_LSM303DLHC_ACCEL_CALIBRATION], &storedConfig[NV_LSM303DLHC_ACCEL_CALIBRATION], 21);
-//        //      memcpy(&sdHeadText[SDH_MPU9150_GYRO_CALIBRATION], &storedConfig[NV_MPU9150_GYRO_CALIBRATION], 21);
-//        //      memcpy(&sdHeadText[SDH_LSM303DLHC_MAG_CALIBRATION], &storedConfig[NV_LSM303DLHC_MAG_CALIBRATION], 21);
-//        //      memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION], &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
-//        ShimmerCalib_init();
-//        ShimmerCalibSyncFromDumpRamAll();
-//        update_calib_dump_file = 1;
-//        break;
-//    case GET_WR_ACCEL_CALIBRATION_COMMAND:
-//        wrAccelCalibrationResponse = 1;
-//        break;
-//    case GET_GSR_RANGE_COMMAND:
-//        gsrRangeResponse = 1;
-//        break;
-//    case GET_ALL_CALIBRATION_COMMAND:
-//        allCalibrationResponse = 1;
-//        break;
-//    case DEPRECATED_GET_DEVICE_VERSION_COMMAND:
-//    case GET_DEVICE_VERSION_COMMAND:
-//        deviceVersionResponse = 1;
-//        break;
-//    case GET_FW_VERSION_COMMAND:
-//        fwVersionResponse = 1;
-//        break;
-//    case GET_CHARGE_STATUS_LED_COMMAND:
-//        blinkLedResponse = 1;
-//        break;
-//    case GET_BUFFER_SIZE_COMMAND:
-//        bufferSizeResponse = 1;
-//        break;
-//    case GET_UNIQUE_SERIAL_COMMAND:
-//        uniqueSerialResponse = 1;
-//        break;
-//    case GET_DAUGHTER_CARD_ID_COMMAND:
-//        dcMemLength = args[0];
-//        dcMemOffset = args[1];
-//        if ((dcMemLength <= 16) && (dcMemOffset <= 15)
-//                && (dcMemLength + dcMemOffset <= 16))
-//            dcIdResponse = 1;
-//        break;
-//    case SET_DAUGHTER_CARD_ID_COMMAND:
-//        dcMemLength = args[0];
-//        dcMemOffset = args[1];
-//        if ((dcMemLength <= 16) && (dcMemOffset <= 15)
-//                && (dcMemLength + dcMemOffset <= 16))
-//        {
-//            eepromReadWrite(dcMemOffset, dcMemLength, args + 2U, EEPROM_WRITE);
-//        }
-//        break;
-//    case GET_DAUGHTER_CARD_MEM_COMMAND:
-//        dcMemLength = args[0];
-//        dcMemOffset = args[1] + (args[2] << 8);
-//        if ((dcMemLength <= 128) && (dcMemOffset <= 2031)
-//                && (dcMemLength + dcMemOffset <= 2032))
-//            dcMemResponse = 1;
-//        break;
-//    case SET_DAUGHTER_CARD_MEM_COMMAND:
-//        dcMemLength = args[0];
-//        dcMemOffset = args[1] + (args[2] << 8);
-//        if ((dcMemLength <= 128) && (dcMemOffset <= 2031)
-//                && (dcMemLength + dcMemOffset <= 2032))
-//        {
-//            eepromWrite(dcMemOffset + 16U, (uint16_t) dcMemLength, args + 3U);
-//        }
-//        break;
-//    case GET_BT_COMMS_BAUD_RATE:
-//        btCommsBaudRateResponse = 1;
-//        break;
-//    case SET_BT_COMMS_BAUD_RATE:
-//#if BT_ENABLE_BAUD_RATE_CHANGE
-//        if (args[0] != storedConfig[NV_BT_COMMS_BAUD_RATE])
-//        {
-//            if (args[0] <= BAUD_1000000)
-//            {
-//                changeBtBaudRate = args[0];
-//            }
-//            else
-//            {
-//                changeBtBaudRate = DEFAULT_BT_BAUD_RATE;
-//            }
-//        }
-//#endif
-//        break;
-//    case GET_DERIVED_CHANNEL_BYTES:
-//        derivedChannelResponse = 1;
-//        break;
-//    case SET_DERIVED_CHANNEL_BYTES:
-//        memcpy(&storedConfig[NV_DERIVED_CHANNELS_0], &args[0], 3);
-//        memcpy(&storedConfig[NV_DERIVED_CHANNELS_3], &args[3], 5);
-//        InfoMem_write((void*) NV_DERIVED_CHANNELS_0,
-//                      &storedConfig[NV_DERIVED_CHANNELS_0], 3);
-//        InfoMem_write((void*) NV_DERIVED_CHANNELS_3,
-//                      &storedConfig[NV_DERIVED_CHANNELS_3], 5);
-//        memcpy(sdHeadTextPtr + SDH_DERIVED_CHANNELS_0,
-//               &storedConfig[NV_DERIVED_CHANNELS_0], 3);
-//        memcpy(sdHeadTextPtr + SDH_DERIVED_CHANNELS_3,
-//               &storedConfig[NV_DERIVED_CHANNELS_3], 5);
-//        update_sdconfig = 1;
-//        break;
-//    case GET_INFOMEM_COMMAND:
-//        infomemLength = args[0];
-//        infomemOffset = args[1] + (args[2] << 8);
-//        if ((infomemLength <= 128)
-//                && (infomemOffset <= (NV_NUM_RWMEM_BYTES - 1))
-//                && (infomemLength + infomemOffset <= NV_NUM_RWMEM_BYTES))
-//            infomemResponse = 1;
-//        break;
 //    case SET_INFOMEM_COMMAND:
 //    {
 //        // Update shimmerStatus.badFile status bit after bt config
@@ -3345,97 +2587,7 @@ void setMacId(uint8_t *buf)
 //            return;
 //        break;
 //    }
-//    case GET_RWC_COMMAND:
-//        rwcResponse = 1;
-//        break;
-//    case SET_RWC_COMMAND:
-//        setRwcTime(&args[0]);
-//        RwcCheck();
-//        storedConfig[NV_SD_TRIAL_CONFIG0] |= SDH_RTC_SET_BY_BT;
-//        InfoMem_write(NV_SD_TRIAL_CONFIG0,
-//                      &storedConfig[NV_SD_TRIAL_CONFIG0], 1);
-//        sdHeadTextPtr[SDH_TRIAL_CONFIG0] = storedConfig[NV_SD_TRIAL_CONFIG0];
-//        uint64_t * rwcTimeDiffPtr = getRwcTimeDiffPtr();
-//        sdHeadTextPtr[SDH_RTC_DIFF_7] = *((uint8_t*) rwcTimeDiffPtr);
-//        sdHeadTextPtr[SDH_RTC_DIFF_6] = *(((uint8_t*) rwcTimeDiffPtr) + 1);
-//        sdHeadTextPtr[SDH_RTC_DIFF_5] = *(((uint8_t*) rwcTimeDiffPtr) + 2);
-//        sdHeadTextPtr[SDH_RTC_DIFF_4] = *(((uint8_t*) rwcTimeDiffPtr) + 3);
-//        sdHeadTextPtr[SDH_RTC_DIFF_3] = *(((uint8_t*) rwcTimeDiffPtr) + 4);
-//        sdHeadTextPtr[SDH_RTC_DIFF_2] = *(((uint8_t*) rwcTimeDiffPtr) + 5);
-//        sdHeadTextPtr[SDH_RTC_DIFF_1] = *(((uint8_t*) rwcTimeDiffPtr) + 6);
-//        sdHeadTextPtr[SDH_RTC_DIFF_0] = *(((uint8_t*) rwcTimeDiffPtr) + 7);
-//        break;
-//    case SET_SD_SYNC_COMMAND:
-//        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
-//        {
-//            /* Reassemble full packet so that original RcNodeR10() will work without modificiation */
-//            fullSyncResp[0] = gAction;
-//            memcpy(&fullSyncResp[1], &args[0], SYNC_PACKET_MAX_SIZE-SYNC_PACKET_SIZE_CMD);
-//            setSyncResp(&fullSyncResp[0], SYNC_PACKET_MAX_SIZE);
-//            ShimTask_set(TASK_RCNODER10);
-//        }
-//        else
-//        {
-//            sendNack = 1;
-//        }
-//        break;
-//    case ACK_COMMAND_PROCESSED:
-//        if (isBtModuleRunningInSyncMode() && isBtSdSyncRunning())
-//        {
-//            /* Slave response received by Master */
-//            if (args[0] == SD_SYNC_RESPONSE)
-//            {
-//                /* SD Sync Center - get's into this case when the center is waiting for a 0x01 or 0xFF from a node */
-//                setSyncResp(&args[1], 1U);
-//                ShimTask_set(TASK_RCCENTERR1);
-//            }
-//        }
-//        else
-//        {
-//            sendNack = 1;
-//        }
-//        break;
-//    default:
-//        ;
-//    }
 //
-//    /* Send Response back for all commands except when FW has received an ACK */
-//    /* ACK is sent back as part of SD_SYNC_RESPONSE so no need to send it here */
-//    if (!(gAction == ACK_COMMAND_PROCESSED || gAction == SET_SD_SYNC_COMMAND)
-//            || sendNack)
-//    {
-//        if (sendNack == 0)
-//        {
-//            /* Send ACK back for all commands except when FW is sending a NACK */
-//            sendAck = 1;
-//        }
-//        ShimTask_set(TASK_BT_RESPOND);
-//    }
-//
-//    //   if(update_sdconfig_manual && CheckSdInslot()){
-//    //      if(!shimmerStatus.isDocked){
-//    //         UpdateSdConfig();
-//    //         SetSdCfgFlag(0);
-//    //      }else{
-//    //         SetSdCfgFlag(1);
-//    //         sdlogcfgUpdate = 0;
-//    //      }
-//    //   }
-//    if (update_sdconfig)
-//    {
-//        SetSdCfgFlag(1);
-//    }
-//    if (update_calib_dump_file && CheckSdInslot() && !shimmerStatus.sdBadFile)
-//    {
-//        if (!shimmerStatus.docked)
-//        {
-//            ShimmerCalib_ram2File();
-//        }
-//        else
-//        {
-//            SetRamCalibFlag(1);
-//        }
-//    }
 //}
 //
 //void SendResponse(void)
@@ -4286,11 +3438,9 @@ uint8_t CheckSdInslot(void)
 void RwcCheck(void)
 {
 #if RTC_OFF
-    rwcErrorEn = 0;
     rwcErrorFlash = 0;
 #else
-    rwcErrorEn = ShimConfig_getStoredConfig()->rtcErrorEnable;
-    rwcErrorFlash = ((!getRwcTimeDiff()) && rwcErrorEn) ? 1 : 0;
+    rwcErrorFlash = ((!getRwcTimeDiff()) && ShimConfig_getStoredConfig()->rtcErrorEnable) ? 1 : 0;
 #endif
 }
 
