@@ -121,8 +121,6 @@ void ClkAssignment();
 uint16_t FreqProd(uint16_t samplingFreq);
 float samplingClockFreqGet(void);
 void RwcCheck(void);
-uint8_t CheckOnDefault();
-void SdInfoSync();
 inline uint8_t Skip65ms();
 void saveBatteryVoltageAndUpdateStatus(void);
 void setSamplingClkSource(float samplingClock);
@@ -401,7 +399,6 @@ void Init(void)
 
     CheckOnDefault();
 
-    ShimSens_configureChannels();
     txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
 
     setBootStage(BOOT_STAGE_BLUETOOTH);
@@ -546,8 +543,11 @@ void checkStreamData(void)
 void checkStartSensing(void)
 {
     shimmerStatus.configuring = 1;
+
     if (!shimmerStatus.sensing && !batteryStatus.battCritical)
     {
+        ShimSens_configureChannels();
+
         if (!sensing.isFileCreated && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
         {
             SD_fileInit();
@@ -1326,7 +1326,7 @@ inline void StopSensing(void)
 
 void ADC_configureChannels(void)
 {
-    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t *channel_contents_ptr = &sensing.cc[sensing.ccLen];
     uint8_t nbr_adc_chans = 0;
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
     uint16_t mask = 0;
@@ -1440,7 +1440,7 @@ void ADC_configureChannels(void)
         DMA0_transferDoneFunction(&Dma0ConversionDone);
         if (adcStartPtr)
         {
-            DMA0_init(adcStartPtr, (uint16_t*) (txBuff0 + 4), nbr_adc_chans);
+            DMA0_init(adcStartPtr, (uint16_t*) (txBuff0 + FIRST_CH_BYTE_IDX), nbr_adc_chans);
         }
     }
 
@@ -1450,7 +1450,7 @@ void ADC_configureChannels(void)
 
 void I2C_configureChannels(void)
 {
-    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t *channel_contents_ptr = &sensing.cc[sensing.ccLen];
     uint8_t nbr_i2c_chans = 0;
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
@@ -1541,7 +1541,7 @@ void I2C_configureChannels(void)
 
 void SPI_configureChannels(void)
 {
-    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t *channel_contents_ptr = &sensing.cc[sensing.ccLen];
     uint8_t nbr_spi_chans = 0;
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
@@ -1584,40 +1584,6 @@ void SPI_configureChannels(void)
 
     sensing.ccLen += nbr_spi_chans;
     sensing.nbrDigiChans += nbr_spi_chans;
-}
-
-uint8_t CheckOnDefault()
-{
-    onSingleTouch = 0;
-    onUserButton = 0;
-    onDefault = 0;
-    if (IS_SUPPORTED_SINGLE_TOUCH && ShimConfig_getStoredConfig()->singleTouchStart)
-    {
-        onSingleTouch = 1;
-    }
-    else if (ShimConfig_getStoredConfig()->userButtonEnable)
-    {
-        onUserButton = 1;
-    }
-    else
-    {
-        onDefault = 1;
-    }
-
-    //    shimmerStatus.badFile = UpdateSdConfig() ? TRUE : FALSE;
-
-    if (onDefault && shimmerStatus.sdlogReady && !shimmerStatus.sensing && (shimmerStatus.sdBadFile == FALSE))
-    {   //state == BTSD_IDLESD
-        //startSensing = 1;
-        ShimTask_setStartSensing();
-        //        enableSdlog = (shimmerStatus.badFile) ? 0 : 1;
-        shimmerStatus.sdlogCmd = 1;
-        shimmerStatus.sensing = 1;
-        BtsdSelfcmd();
-        shimmerStatus.sensing = 0;
-        return 1;
-    }
-    return 0;
 }
 
 // Switch SW1, BT_RTS and BT connect/disconnect
@@ -2419,27 +2385,24 @@ __interrupt void TIMER0_B0_ISR(void)
 
 uint8_t Dma0ConversionDone(void)
 {
-    uint8_t adc_offset;
-
     if (battWait)
     {
         battWait = 0;
+        //TODO check if this is really needed
         ShimSens_configureChannels();
         saveBatteryVoltageAndUpdateStatus();
     }
     else
     {
-        adc_offset = 4;
-
         //Destination address for next transfer
         if (currentBuffer)
         {
-            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff0 + adc_offset),
+            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff0 + FIRST_CH_BYTE_IDX),
                                 sensing.nbrAdcChans);
         }
         else
         {
-            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff1 + adc_offset),
+            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff1 + FIRST_CH_BYTE_IDX),
                                 sensing.nbrAdcChans);
         }
         ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
@@ -2785,43 +2748,6 @@ void SetupDock()
     shimmerStatus.configuring = 0;
 }
 
-void SdInfoSync()
-{
-    setSdInfoSyncDelayed(0);
-    if (GetSdCfgFlag())
-    { // info > sdcard
-        ShimConfig_readRam();
-        UpdateSdConfig();
-        SetSdCfgFlag(0);
-    }
-    else
-    {
-        ReadSdConfiguration();
-    }
-
-    if (GetRamCalibFlag())
-    {
-        ShimmerCalib_ram2File();
-        SetRamCalibFlag(0);
-    }
-    else
-    {
-        if (ShimmerCalib_file2Ram())
-        {
-            ShimmerCalib_ram2File();
-        }
-        else
-        {
-            // only need to do this when file2Ram succeeds
-            ShimmerCalibSyncFromDumpRamAll();
-        }
-
-    }
-
-    ShimSens_configureChannels();
-    CheckOnDefault();
-}
-
 void ReadSdConfiguration(void)
 {
     ShimTask_clear(TASK_STREAMDATA); // this will skip one sample
@@ -2855,15 +2781,12 @@ void RwcCheck(void)
 void StreamData()
 {
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-    uint8_t adc_offset;
     uint8_t *current_buffer_ptr, *other_buffer_ptr;
 
     current_buffer_ptr = currentBuffer ? txBuff1 : txBuff0;
     other_buffer_ptr = currentBuffer ? txBuff0 : txBuff1;
 
-    adc_offset = 4;
-
-    uint8_t digi_offset = (sensing.nbrAdcChans * 2) + adc_offset;
+    uint8_t digi_offset = (sensing.nbrAdcChans * 2) + FIRST_CH_BYTE_IDX;
     if (storedConfigPtr->chEnGsr)
     {
         GsrRange();
@@ -3525,7 +3448,7 @@ void manageReadBatt(uint8_t isBlockingRead)
 // Produces spikes in PPG data when only GSR enabled & aaccel, vbatt are off.
     __bis_SR_register(LPM3_bits + GIE);            //ACLK remains active
 
-    //TODO check if this is really needed per interrupt?
+    //TODO check if this is really needed
     ShimSens_configureChannels();
 
     saveBatteryVoltageAndUpdateStatus();
