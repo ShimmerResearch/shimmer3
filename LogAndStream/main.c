@@ -309,10 +309,9 @@ void Init(void)
     onSingleTouch = 0;
     setUndock = 0;
     currentBuffer = 0;
-    stopSensing = 0;
     setStopSensingFlag(0);
-    stopLogging = 0;
-    stopStreaming = 0;
+    setStopLoggingFlag(0);
+    setStopStreamingFlag(0);
     streamDataInProc = 0;
 
     memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
@@ -3525,6 +3524,8 @@ void manageReadBatt(uint8_t isBlockingRead)
     SetBattDma();
 // Produces spikes in PPG data when only GSR enabled & aaccel, vbatt are off.
     __bis_SR_register(LPM3_bits + GIE);            //ACLK remains active
+
+    //TODO check if this is really needed per interrupt?
     ShimSens_configureChannels();
 
     saveBatteryVoltageAndUpdateStatus();
