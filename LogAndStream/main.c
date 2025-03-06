@@ -93,7 +93,9 @@ void StartStreaming(void);
 inline void StopSensing(void);
 uint8_t Dma0ConversionDone(void);
 void setMacId(uint8_t *buf);
-void ConfigureChannels(void);
+void ADC_configureChannels(void);
+void I2C_configureChannels(void);
+void SPI_configureChannels(void);
 char *HAL_GetUID(void);
 void Timestamp0ToFirstFile();
 FRESULT WriteFile(uint8_t *text, WORD size);
@@ -138,7 +140,6 @@ uint32_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
 
 uint8_t fwInfo[7], ackStr[4],
-        channelContents[MAX_NUM_CHANNELS],
         infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
@@ -224,8 +225,6 @@ bool isIcm20948GyroEn = FALSE;
 #define RTC_OFF             0
 #define PRES_TS_EN          0
 #define IS_SUPPORTED_TCXO   0
-/* should be 1 */
-#define TS_BYTE3            1
 #define SKIP65MS            1
 
 // bluetooth variables
@@ -335,7 +334,7 @@ void Init(void)
     ShimConfig_reset();
     SD_init();
 
-    S4Sens_init();
+    ShimSens_init();
     preSampleMpuMag = 0;
     preSampleBmpPress = 0;
     sampleBmpTemp = 0;
@@ -403,12 +402,8 @@ void Init(void)
 
     CheckOnDefault();
 
-    ConfigureChannels();
-#if TS_BYTE3
+    ShimSens_configureChannels();
     txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
-#else
-    txBuff0[1] = txBuff1[1] = DATA_PACKET; //packet type
-#endif
 
     setBootStage(BOOT_STAGE_BLUETOOTH);
     InitialiseBt();
@@ -1330,13 +1325,12 @@ inline void StopSensing(void)
     shimmerStatus.configuring = 0;
 }
 
-void ConfigureChannels(void)
+void ADC_configureChannels(void)
 {
-    uint8_t *channel_contents_ptr = channelContents;
-    uint16_t mask = 0;
+    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t nbr_adc_chans = 0;
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-
-    sensing.nbrAdcChans = sensing.nbrAdcChans = 0;
+    uint16_t mask = 0;
 
     //Analog Accel
     if (storedConfigPtr->chEnLnAccel)
@@ -1345,42 +1339,54 @@ void ConfigureChannels(void)
         *channel_contents_ptr++ = Y_A_ACCEL;
         *channel_contents_ptr++ = Z_A_ACCEL;
         mask += MASK_A_ACCEL;
-        sensing.nbrAdcChans += 3;
+        nbr_adc_chans += 3;
+        sensing.ptr.accel1 = sensing.dataLen;
+        sensing.dataLen += 6;
     }
     //Battery Voltage
     if (storedConfigPtr->chEnVBattery)
     {
         *channel_contents_ptr++ = VBATT;
         mask += MASK_VBATT;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.batteryAnalog = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //External ADC channel A7
     if (storedConfigPtr->chEnExtADC7)
     {
         *channel_contents_ptr++ = EXTERNAL_ADC_7;
         mask += MASK_EXT_A7;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.extADC0 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //External ADC channel A6
     if (storedConfigPtr->chEnExtADC6)
     {
         *channel_contents_ptr++ = EXTERNAL_ADC_6;
         mask += MASK_EXT_A6;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.extADC1 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //External ADC channel A15
     if (storedConfigPtr->chEnExtADC15)
     {
         *channel_contents_ptr++ = EXTERNAL_ADC_15;
         mask += MASK_EXT_A15;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.extADC2 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //Internal ADC channel A12
     if (storedConfigPtr->chEnIntADC12)
     {
         *channel_contents_ptr++ = INTERNAL_ADC_12;
         mask += MASK_INT_A12;      //ppg
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.intADC0 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //Strain gauge
     if (storedConfigPtr->chEnBridgeAmp)
@@ -1388,21 +1394,27 @@ void ConfigureChannels(void)
         *channel_contents_ptr++ = STRAIN_HIGH;
         *channel_contents_ptr++ = STRAIN_LOW;
         mask += MASK_STRAIN;
-        sensing.nbrAdcChans += 2;
+        nbr_adc_chans += 2;
+        sensing.ptr.strainGauge = sensing.dataLen;
+        sensing.dataLen += 4;
     }
     //Internal ADC channel A13
     if (storedConfigPtr->chEnIntADC13 && !storedConfigPtr->chEnBridgeAmp)
     {
         *channel_contents_ptr++ = INTERNAL_ADC_13;
         mask += MASK_INT_A13;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.intADC1 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //Internal ADC channel A14
     if (storedConfigPtr->chEnIntADC14 && !storedConfigPtr->chEnBridgeAmp)
     {
         *channel_contents_ptr++ = INTERNAL_ADC_14;
         mask += MASK_INT_A14;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.intADC2 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     //Internal ADC channel A1
     if (storedConfigPtr->chEnGsr)
@@ -1410,21 +1422,48 @@ void ConfigureChannels(void)
         //needs to be last analog channel
         *channel_contents_ptr++ = GSR_RAW;
         mask += MASK_INT_A1;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.gsr = sensing.dataLen;
+        sensing.dataLen += 2;
     }
     if (storedConfigPtr->chEnIntADC1)
     {
         *channel_contents_ptr++ = INTERNAL_ADC_1;
         mask += MASK_INT_A1;
-        sensing.nbrAdcChans++;
+        nbr_adc_chans++;
+        sensing.ptr.intADC3 = sensing.dataLen;
+        sensing.dataLen += 2;
     }
+
+    if (mask)
+    {
+        adcStartPtr = ADC_init(mask);
+        DMA0_transferDoneFunction(&Dma0ConversionDone);
+        if (adcStartPtr)
+        {
+            DMA0_init(adcStartPtr, (uint16_t*) (txBuff0 + 4), nbr_adc_chans);
+        }
+    }
+
+    sensing.nbrAdcChans += nbr_adc_chans;
+    sensing.ccLen += nbr_adc_chans;
+}
+
+void I2C_configureChannels(void)
+{
+    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t nbr_i2c_chans = 0;
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
     //Digi Gyro
     if (storedConfigPtr->chEnGyro)
     {
         *channel_contents_ptr++ = X_MPU9150_GYRO;
         *channel_contents_ptr++ = Y_MPU9150_GYRO;
         *channel_contents_ptr++ = Z_MPU9150_GYRO;
-        sensing.nbrAdcChans += 3;
+        nbr_i2c_chans += 3;
+        sensing.ptr.gyro = sensing.dataLen;
+        sensing.dataLen += 6;
     }
     //Digi Accel
     if (storedConfigPtr->chEnWrAccel)
@@ -1432,7 +1471,9 @@ void ConfigureChannels(void)
         *channel_contents_ptr++ = X_LSM303DLHC_ACCEL;
         *channel_contents_ptr++ = Y_LSM303DLHC_ACCEL;
         *channel_contents_ptr++ = Z_LSM303DLHC_ACCEL;
-        sensing.nbrAdcChans += 3;
+        nbr_i2c_chans += 3;
+        sensing.ptr.accel2 = sensing.dataLen;
+        sensing.dataLen += 6;
     }
     //Mag
     if (storedConfigPtr->chEnMag)
@@ -1449,7 +1490,9 @@ void ConfigureChannels(void)
             *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
             *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
         }
-        sensing.nbrAdcChans += 3;
+        nbr_i2c_chans += 3;
+        sensing.ptr.mag1 = sensing.dataLen;
+        sensing.dataLen += 6;
     }
     //Digi Accel
     if (storedConfigPtr->chEnAltAccel)
@@ -1457,7 +1500,9 @@ void ConfigureChannels(void)
         *channel_contents_ptr++ = X_MPU9150_ACCEL;
         *channel_contents_ptr++ = Y_MPU9150_ACCEL;
         *channel_contents_ptr++ = Z_MPU9150_ACCEL;
-        sensing.nbrAdcChans += 3;
+        nbr_i2c_chans += 3;
+        sensing.ptr.accel3 = sensing.dataLen;
+        sensing.dataLen += 6;
     }
     //Digi Accel
     if (storedConfigPtr->chEnAltMag)
@@ -1465,66 +1510,18 @@ void ConfigureChannels(void)
         *channel_contents_ptr++ = X_MPU9150_MAG;
         *channel_contents_ptr++ = Y_MPU9150_MAG;
         *channel_contents_ptr++ = Z_MPU9150_MAG;
-        sensing.nbrAdcChans += 3;
+        nbr_i2c_chans += 3;
+        sensing.ptr.mag2 = sensing.dataLen;
+        sensing.dataLen += 6;
     }
-
-#if TS_BYTE3
-    uint8_t clk_offset = 3;
-#else
-        uint8_t clk_offset = 2;
-#endif
-
-    blockLen = (((sensing.nbrAdcChans + sensing.nbrAdcChans) * 2) + clk_offset);
 
     if (storedConfigPtr->chEnPressureAndTemperature)
     {
         *channel_contents_ptr++ = BMPX80_TEMP;
         *channel_contents_ptr++ = BMPX80_PRESSURE;
-        sensing.nbrAdcChans += 2;   //PRES & TEMP, ON/OFF together
-        blockLen += BMPX80_PACKET_SIZE;
-    }
-
-    if (storedConfigPtr->chEnExg1_24Bit)
-    {
-        *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
-        *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_24BIT;
-        *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_24BIT;
-        sensing.nbrAdcChans += 3;
-        blockLen += 7;
-    }
-    else if (storedConfigPtr->chEnExg1_16Bit)
-    {
-        *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
-        *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_16BIT;
-        *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_16BIT;
-        sensing.nbrAdcChans += 3;
-        blockLen += 5;
-    }
-    if (storedConfigPtr->chEnExg2_24Bit)
-    {
-        *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
-        *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_24BIT;
-        *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_24BIT;
-        sensing.nbrAdcChans += 3;
-        blockLen += 7;
-    }
-    else if (storedConfigPtr->chEnExg2_16Bit)
-    {
-        *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
-        *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_16BIT;
-        *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_16BIT;
-        sensing.nbrAdcChans += 3;
-        blockLen += 5;
-    }
-
-    if (mask)
-    {
-        adcStartPtr = ADC_init(mask);
-        DMA0_transferDoneFunction(&Dma0ConversionDone);
-        if (adcStartPtr)
-        {
-            DMA0_init(adcStartPtr, (uint16_t*) (txBuff0 + 4), sensing.nbrAdcChans);
-        }
+        sensing.nbrDigiChans += 2;   //PRES & TEMP, ON/OFF together
+        sensing.ptr.pressure = sensing.dataLen;
+        sensing.dataLen += BMPX80_PACKET_SIZE;
     }
 
     isIcm20948AccelEn = FALSE;
@@ -1539,7 +1536,55 @@ void ConfigureChannels(void)
         isIcm20948AccelEn = TRUE;
     }
 
-    calculateClassicBtTxSampleSetBufferSize(blockLen, storedConfigPtr->samplingRateTicks);
+    sensing.ccLen += nbr_i2c_chans;
+    sensing.nbrDigiChans += nbr_i2c_chans;
+}
+
+void SPI_configureChannels(void)
+{
+    uint8_t *channel_contents_ptr = sensing.cc + sensing.ccLen;
+    uint8_t nbr_spi_chans = 0;
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
+    if (storedConfigPtr->chEnExg1_24Bit)
+    {
+        *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
+        *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_24BIT;
+        *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_24BIT;
+        nbr_spi_chans += 3;
+        sensing.ptr.exg1 = sensing.dataLen;
+        sensing.dataLen += 7;
+    }
+    else if (storedConfigPtr->chEnExg1_16Bit)
+    {
+        *channel_contents_ptr++ = EXG_ADS1292R_1_STATUS;
+        *channel_contents_ptr++ = EXG_ADS1292R_1_CH1_16BIT;
+        *channel_contents_ptr++ = EXG_ADS1292R_1_CH2_16BIT;
+        nbr_spi_chans += 3;
+        sensing.ptr.exg1 = sensing.dataLen;
+        sensing.dataLen += 5;
+    }
+    if (storedConfigPtr->chEnExg2_24Bit)
+    {
+        *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
+        *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_24BIT;
+        *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_24BIT;
+        nbr_spi_chans += 3;
+        sensing.ptr.exg2 = sensing.dataLen;
+        sensing.dataLen += 7;
+    }
+    else if (storedConfigPtr->chEnExg2_16Bit)
+    {
+        *channel_contents_ptr++ = EXG_ADS1292R_2_STATUS;
+        *channel_contents_ptr++ = EXG_ADS1292R_2_CH1_16BIT;
+        *channel_contents_ptr++ = EXG_ADS1292R_2_CH2_16BIT;
+        nbr_spi_chans += 3;
+        sensing.ptr.exg2 = sensing.dataLen;
+        sensing.dataLen += 5;
+    }
+
+    sensing.ccLen += nbr_spi_chans;
+    sensing.nbrDigiChans += nbr_spi_chans;
 }
 
 uint8_t CheckOnDefault()
@@ -2342,7 +2387,6 @@ __interrupt void TIMER0_B0_ISR(void)
     if (!streamDataInProc)
     {
         streamDataInProc = 1;
-#if TS_BYTE3
         if (firstTsFlag == 1)
         {
             firstTs = RTC_get64();
@@ -2359,16 +2403,6 @@ __interrupt void TIMER0_B0_ISR(void)
         current_buffer_ptr[1] = currentSampleTsTicks[0];
         current_buffer_ptr[2] = currentSampleTsTicks[1];
         current_buffer_ptr[3] = currentSampleTsTicks[2];
-#else
-        if(currentBuffer)
-        {
-            *((uint16_t *)(txBuff1+2)) = timer_b0; //the first two bytes are packet type bytes. reserved for BTstream
-        }
-        else
-        {
-            *((uint16_t *)(txBuff0+2)) = timer_b0;
-        }
-#endif
     }
     //start ADC conversion
     if (sensing.nbrAdcChans)
@@ -2391,7 +2425,7 @@ uint8_t Dma0ConversionDone(void)
     if (battWait)
     {
         battWait = 0;
-        ConfigureChannels();
+        ShimSens_configureChannels();
         saveBatteryVoltageAndUpdateStatus();
     }
     else
@@ -2785,7 +2819,7 @@ void SdInfoSync()
 
     }
 
-    ConfigureChannels();
+    ShimSens_configureChannels();
     CheckOnDefault();
 }
 
@@ -3205,7 +3239,6 @@ void StreamData()
 #endif
         if (shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
         {
-#if TS_BYTE3
             if (firstTsFlag == 2)
             {
                 firstTsFlag = 3;
@@ -3214,10 +3247,6 @@ void StreamData()
 
             memcpy(sdBuff + sdBuffLen, current_buffer_ptr + 1, digi_offset - 1);
             sdBuffLen += digi_offset - 1;
-#else
-            memcpy(sdBuff+sdBuffLen, current_buffer_ptr+2, digi_offset-2);
-            sdBuffLen+=digi_offset-2;
-#endif
         }
 
         if (shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady
@@ -3230,11 +3259,7 @@ void StreamData()
                 calculateCrcAndInsert(crcMode, current_buffer_ptr, digi_offset);
                 digi_offset += crcMode;
             }
-#if TS_BYTE3
             BT_write(current_buffer_ptr, digi_offset, SENSOR_DATA);
-#else
-            BT_write(current_buffer_ptr+1, digi_offset-1, SENSOR_DATA);
-#endif
         }
     }
 }
@@ -3500,7 +3525,7 @@ void manageReadBatt(uint8_t isBlockingRead)
     SetBattDma();
 // Produces spikes in PPG data when only GSR enabled & aaccel, vbatt are off.
     __bis_SR_register(LPM3_bits + GIE);            //ACLK remains active
-    ShimTask_set(TASK_CFGCH);
+    ShimSens_configureChannels();
 
     saveBatteryVoltageAndUpdateStatus();
 
