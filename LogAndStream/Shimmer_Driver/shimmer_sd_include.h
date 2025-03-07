@@ -15,6 +15,7 @@
 #include "5xx_HAL/hal_pmm.h"
 #include "5xx_HAL/hal_SDCard.h"
 #include "5xx_HAL/hal_UCS.h"
+
 #include "BMPX80/bmpX80.h"
 #include "CAT24C16/cat24c16.h"
 #include "EXG/exg.h"
@@ -26,7 +27,8 @@
 #include "MPU9150/mpu9150.h"
 #include "ICM20948/ICM20948.h"
 #include "msp430_clock/msp430_clock.h"
-#include "log_and_stream_includes.h"
 #include "RN4X/RN4X.h"
+
+#include "log_and_stream_includes.h"
 
 #endif

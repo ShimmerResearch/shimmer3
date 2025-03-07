@@ -80,7 +80,6 @@ void setStopSensingFlag(uint8_t state);
 void setStopLoggingFlag(uint8_t state);
 void setStopStreamingFlag(uint8_t state);
 void detectI2cSlaves(void);
-void loadSensorConfigurationAndCalibration(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
@@ -164,7 +163,6 @@ uint64_t firstTs, fileLastHour, fileLastMin;
 volatile uint8_t currentSampleTsTicks[4];
 
 volatile uint8_t fileBad, fileBadCnt;
-static FRESULT ff_result;
 
 /*battery evaluation vars*/
 uint8_t battVal[3];
@@ -411,7 +409,7 @@ void Init(void)
      * order to know which default calib to set for attached chips.
      * It also needs to be loaded after the BT is initialised so that the
      * MAC ID can be used for default Shimmer name and calibration file names.*/
-    loadSensorConfigurationAndCalibration();
+    ShimConfig_loadSensorConfigAndCalib();
 
     UART_setState(shimmerStatus.docked);
 
@@ -625,50 +623,6 @@ void detectI2cSlaves(void)
     {
         ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
     }
-}
-
-void loadSensorConfigurationAndCalibration(void)
-{
-    ShimCalib_init();
-    ShimCalib_initFromInfoAll();
-
-    if (!shimmerStatus.docked && CheckSdInslot())
-    {  //sd card ready to access
-        if (!(P4OUT & BIT2))
-        {
-            // Hits here when undocked
-            SdPowerOn();
-        }
-        if (ShimConfig_getSdCfgFlag())
-        { // info > sdcard
-            ShimConfig_readRam();
-            ShimSd_updateSdConfig();
-            ShimConfig_setSdCfgFlag(0);
-            if (ff_result != FR_OK)
-            {
-                shimmerStatus.sdlogReady = 0;
-                shimmerStatus.sdBadFile = TRUE;
-            }
-        }
-        else
-        {
-            // Hits here when undocked
-            ReadSdConfiguration();
-        }
-
-        if (ShimCalib_file2Ram())
-        {
-            //fail, i.e. no such file. use current DumpRam to generate a file
-            ShimCalib_ram2File();
-            ShimConfig_readRam();
-        }
-    }
-    else
-    {   // sd card not available
-        ShimConfig_readRam();
-    }
-
-    ShimCalib_syncFromDumpRamAll();
 }
 
 void ProcessHwRevision(void)
@@ -1336,9 +1290,9 @@ void ADC_configureChannels(void)
     //Analog Accel
     if (storedConfigPtr->chEnLnAccel)
     {
-        *channel_contents_ptr++ = X_A_ACCEL;
-        *channel_contents_ptr++ = Y_A_ACCEL;
-        *channel_contents_ptr++ = Z_A_ACCEL;
+        *channel_contents_ptr++ = X_LN_ACCEL;
+        *channel_contents_ptr++ = Y_LN_ACCEL;
+        *channel_contents_ptr++ = Z_LN_ACCEL;
         mask += MASK_A_ACCEL;
         nbr_adc_chans += 3;
         sensing.ptr.accel1 = sensing.dataLen;
@@ -1459,9 +1413,9 @@ void I2C_configureChannels(void)
     //Digi Gyro
     if (storedConfigPtr->chEnGyro)
     {
-        *channel_contents_ptr++ = X_MPU9150_GYRO;
-        *channel_contents_ptr++ = Y_MPU9150_GYRO;
-        *channel_contents_ptr++ = Z_MPU9150_GYRO;
+        *channel_contents_ptr++ = X_GYRO;
+        *channel_contents_ptr++ = Y_GYRO;
+        *channel_contents_ptr++ = Z_GYRO;
         nbr_i2c_chans += 3;
         sensing.ptr.gyro = sensing.dataLen;
         sensing.dataLen += 6;
@@ -1469,9 +1423,9 @@ void I2C_configureChannels(void)
     //Digi Accel
     if (storedConfigPtr->chEnWrAccel)
     {
-        *channel_contents_ptr++ = X_LSM303DLHC_ACCEL;
-        *channel_contents_ptr++ = Y_LSM303DLHC_ACCEL;
-        *channel_contents_ptr++ = Z_LSM303DLHC_ACCEL;
+        *channel_contents_ptr++ = X_WR_ACCEL;
+        *channel_contents_ptr++ = Y_WR_ACCEL;
+        *channel_contents_ptr++ = Z_WR_ACCEL;
         nbr_i2c_chans += 3;
         sensing.ptr.accel2 = sensing.dataLen;
         sensing.dataLen += 6;
@@ -1479,17 +1433,17 @@ void I2C_configureChannels(void)
     //Mag
     if (storedConfigPtr->chEnMag)
     {
-        *channel_contents_ptr++ = X_LSM303DLHC_MAG;
+        *channel_contents_ptr++ = X_MAG;
 
         if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
-            *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
-            *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
+            *channel_contents_ptr++ = Z_MAG;
+            *channel_contents_ptr++ = Y_MAG;
         }
         else
         {
-            *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
-            *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
+            *channel_contents_ptr++ = Y_MAG;
+            *channel_contents_ptr++ = Z_MAG;
         }
         nbr_i2c_chans += 3;
         sensing.ptr.mag1 = sensing.dataLen;
@@ -1498,9 +1452,9 @@ void I2C_configureChannels(void)
     //Digi Accel
     if (storedConfigPtr->chEnAltAccel)
     {
-        *channel_contents_ptr++ = X_MPU9150_ACCEL;
-        *channel_contents_ptr++ = Y_MPU9150_ACCEL;
-        *channel_contents_ptr++ = Z_MPU9150_ACCEL;
+        *channel_contents_ptr++ = X_ALT_ACCEL;
+        *channel_contents_ptr++ = Y_ALT_ACCEL;
+        *channel_contents_ptr++ = Z_ALT_ACCEL;
         nbr_i2c_chans += 3;
         sensing.ptr.accel3 = sensing.dataLen;
         sensing.dataLen += 6;
@@ -1508,9 +1462,9 @@ void I2C_configureChannels(void)
     //Digi Accel
     if (storedConfigPtr->chEnAltMag)
     {
-        *channel_contents_ptr++ = X_MPU9150_MAG;
-        *channel_contents_ptr++ = Y_MPU9150_MAG;
-        *channel_contents_ptr++ = Z_MPU9150_MAG;
+        *channel_contents_ptr++ = X_ALT_MAG;
+        *channel_contents_ptr++ = Y_ALT_MAG;
+        *channel_contents_ptr++ = Z_ALT_MAG;
         nbr_i2c_chans += 3;
         sensing.ptr.mag2 = sensing.dataLen;
         sensing.dataLen += 6;
@@ -1518,8 +1472,8 @@ void I2C_configureChannels(void)
 
     if (storedConfigPtr->chEnPressureAndTemperature)
     {
-        *channel_contents_ptr++ = BMPX80_TEMP;
-        *channel_contents_ptr++ = BMPX80_PRESSURE;
+        *channel_contents_ptr++ = BMP_TEMPERATURE;
+        *channel_contents_ptr++ = BMP_PRESSURE;
         sensing.nbrDigiChans += 2;   //PRES & TEMP, ON/OFF together
         sensing.ptr.pressure = sensing.dataLen;
         sensing.dataLen += BMPX80_PACKET_SIZE;
@@ -2557,7 +2511,7 @@ void Timestamp0ToFirstFile()
 //   fileLastHour = rwc_curr_time_64;
 //   fileLastMin = rwc_curr_time_64;
 // Write header to file
-    ff_result = f_write(&dataFile, sdHeadTextPtr, SD_HEAD_SIZE, &bw);
+    ff_result = f_write(&dataFile, sdHeadTextPtr, SD_HEAD_SIZE_S3, &bw);
 }
 
 FRESULT WriteFile(uint8_t *text, WORD size)

@@ -95,49 +95,6 @@ typedef uint8_t error_t;
                                        //channels plus 2 status bytes instead of
                                        //4xinternalADC)
 
-// Channel contents
-#define X_A_ACCEL                         0x00
-#define Y_A_ACCEL                         0x01
-#define Z_A_ACCEL                         0x02
-#define VBATT                             0x03
-#define X_LSM303DLHC_ACCEL                0x04
-#define Y_LSM303DLHC_ACCEL                0x05
-#define Z_LSM303DLHC_ACCEL                0x06
-#define X_LSM303DLHC_MAG                  0x07
-#define Y_LSM303DLHC_MAG                  0x08
-#define Z_LSM303DLHC_MAG                  0x09
-#define X_MPU9150_GYRO                    0x0A
-#define Y_MPU9150_GYRO                    0x0B
-#define Z_MPU9150_GYRO                    0x0C
-#define EXTERNAL_ADC_7                    0x0D
-#define EXTERNAL_ADC_6                    0x0E
-#define EXTERNAL_ADC_15                   0x0F
-#define INTERNAL_ADC_1                    0x10
-#define INTERNAL_ADC_12                   0x11
-#define INTERNAL_ADC_13                   0x12
-#define INTERNAL_ADC_14                   0x13
-#define X_MPU9150_ACCEL                   0x14
-#define Y_MPU9150_ACCEL                   0x15
-#define Z_MPU9150_ACCEL                   0x16
-#define X_MPU9150_MAG                     0x17
-#define Y_MPU9150_MAG                     0x18
-#define Z_MPU9150_MAG                     0x19
-#define BMPX80_TEMP                       0x1A
-#define BMPX80_PRESSURE                   0x1B
-#define GSR_RAW                           0x1C
-#define EXG_ADS1292R_1_STATUS             0x1D
-#define EXG_ADS1292R_1_CH1_24BIT          0x1E
-#define EXG_ADS1292R_1_CH2_24BIT          0x1F
-#define EXG_ADS1292R_2_STATUS             0x20
-#define EXG_ADS1292R_2_CH1_24BIT          0x21
-#define EXG_ADS1292R_2_CH2_24BIT          0x22
-#define EXG_ADS1292R_1_CH1_16BIT          0x23
-#define EXG_ADS1292R_1_CH2_16BIT          0x24
-#define EXG_ADS1292R_2_CH1_16BIT          0x25
-#define EXG_ADS1292R_2_CH2_16BIT          0x26
-#define STRAIN_HIGH                       0x27
-#define STRAIN_LOW                        0x28
-
 //Config byte masks
 //Config Byte0
 #define LSM303DLHC_ACCEL_SAMPLING_RATE          0xF0
@@ -245,12 +202,6 @@ typedef uint8_t error_t;
 //choice of clock
 #define TCXO_CLOCK      (255765.625)
 #define MSP430_CLOCK    (32768.0)
-
-#define MAX_NODES       20
-#define MAX_CHARS       13
-#define UINT32_LEN      11 // 10+1, where the last byte should be 0x00
-#define UINT64_LEN      21 // 20+1, where the last byte should be 0x00
-#define RESPONSE_PACKET_SIZE 133
 
 //BMP Pressure oversampling ratio
 #define BMPX80_OSS_1                0x00
