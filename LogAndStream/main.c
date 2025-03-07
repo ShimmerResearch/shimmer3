@@ -164,6 +164,8 @@ volatile uint8_t currentSampleTsTicks[4];
 
 volatile uint8_t fileBad, fileBadCnt;
 
+FRESULT ff_result;
+
 /*battery evaluation vars*/
 uint8_t battVal[3];
 uint8_t battWait;
