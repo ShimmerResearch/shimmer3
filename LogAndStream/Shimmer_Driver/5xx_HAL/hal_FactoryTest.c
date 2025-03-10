@@ -12,8 +12,9 @@
 #include "../../shimmer_btsd.h"
 
 #include "msp430.h"
-#include "../shimmer_sd_include.h"
+
 #include "log_and_stream_externs.h"
+#include "../shimmer_driver_include.h"
 
 factory_test_target_t factoryTestTarget;
 factory_test_t factoryTestToRun;
