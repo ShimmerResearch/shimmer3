@@ -93,7 +93,6 @@ inline void SampleTimerStop(void);
 void StartStreaming(void);
 inline void StopSensing(void);
 uint8_t Dma0ConversionDone(void);
-void setMacId(uint8_t *buf);
 void ADC_configureChannels(void);
 void I2C_configureChannels(void);
 void SPI_configureChannels(void);
@@ -686,8 +685,8 @@ void InitialiseBt(void)
         setRn4678OperationalMode(RN4678_OP_MODE_NOT_USED);
     }
 
-    ShimBt_btCommsProtocolInit(ShimTask_setNewBtCmdToProcess, setMacId, ShimBt_getBtActionPtr(), ShimBt_getBtArgsPtr());
-    ShimSdSync_init(InitialiseBtAfterBoot, BtStop, ShimTask_set);
+    ShimBt_btCommsProtocolInit();
+    ShimSdSync_init(InitialiseBtAfterBoot, BtStop);
     BT_init();
     BT_rn4xDisableRemoteConfig(1);
     BT_setRadioMode(SLAVE_MODE);  // slave mode for center&node
@@ -2370,13 +2369,6 @@ uint8_t Dma0ConversionDone(void)
         ShimTask_set(TASK_STREAMDATA);
     }
     return 1;
-}
-
-void setMacId(uint8_t *buf)
-{
-    bt_setMacId(buf);
-    InfoMem_write(NV_MAC_ADDRESS, getMacIdBytesPtr(), 6);
-    memcpy(&ShimConfig_getStoredConfig()->rawBytes[NV_MAC_ADDRESS], getMacIdBytesPtr(), 6);
 }
 
 //void ProcessCommand(void)

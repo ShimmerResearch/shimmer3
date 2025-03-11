@@ -65,6 +65,7 @@
 #include "../msp430_clock/msp430_clock.h"
 
 #include "log_and_stream_externs.h"
+#include <Comms/shimmer_bt_uart.h>
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -138,8 +139,6 @@ volatile uint8_t rn4678RtsLockDetected;
 #endif
 
 char *daughtCardIdStrPtrForBle;
-
-uint8_t macIdStr[14], macIdBytes[6];
 
 const char * const hex = "0123456789ABCDEF";
 
@@ -1163,14 +1162,14 @@ void runSetCommands(void)
                      * increases flash requirements by 6KB */
                     bleCompleteLocalName[10U] = hex[((uint8_t)('-' >> 4) & 0xF)];
                     bleCompleteLocalName[11U] = hex[(uint8_t)('-' & 0xF)];
-                    bleCompleteLocalName[12U] = hex[(uint8_t)((getMacIdStrPtr()[8U] >> 4) & 0xF)];
-                    bleCompleteLocalName[13U] = hex[(uint8_t)(getMacIdStrPtr()[8U] & 0xF)];
-                    bleCompleteLocalName[14U] = hex[(uint8_t)((getMacIdStrPtr()[9U] >> 4) & 0xF)];
-                    bleCompleteLocalName[15U] = hex[(uint8_t)(getMacIdStrPtr()[9U] & 0xF)];
-                    bleCompleteLocalName[16U] = hex[(uint8_t)((getMacIdStrPtr()[10U] >> 4) & 0xF)];
-                    bleCompleteLocalName[17U] = hex[(uint8_t)(getMacIdStrPtr()[10U] & 0xF)];
-                    bleCompleteLocalName[18U] = hex[(uint8_t)((getMacIdStrPtr()[11U] >> 4) & 0xF)];
-                    bleCompleteLocalName[19U] = hex[(uint8_t)(getMacIdStrPtr()[11U] & 0xF)];
+                    bleCompleteLocalName[12U] = hex[(uint8_t)((ShimBt_macIdStrPtrGet()[8U] >> 4) & 0xF)];
+                    bleCompleteLocalName[13U] = hex[(uint8_t)(ShimBt_macIdStrPtrGet()[8U] & 0xF)];
+                    bleCompleteLocalName[14U] = hex[(uint8_t)((ShimBt_macIdStrPtrGet()[9U] >> 4) & 0xF)];
+                    bleCompleteLocalName[15U] = hex[(uint8_t)(ShimBt_macIdStrPtrGet()[9U] & 0xF)];
+                    bleCompleteLocalName[16U] = hex[(uint8_t)((ShimBt_macIdStrPtrGet()[10U] >> 4) & 0xF)];
+                    bleCompleteLocalName[17U] = hex[(uint8_t)(ShimBt_macIdStrPtrGet()[10U] & 0xF)];
+                    bleCompleteLocalName[18U] = hex[(uint8_t)((ShimBt_macIdStrPtrGet()[11U] >> 4) & 0xF)];
+                    bleCompleteLocalName[19U] = hex[(uint8_t)(ShimBt_macIdStrPtrGet()[11U] & 0xF)];
                     bleCompleteLocalName[20U] = 0;
 
                     sprintf(commandbuf, "IA,09,%s\r", bleCompleteLocalName);
@@ -1786,9 +1785,7 @@ void BT_disconnect(void)
 void BT_setGetMacAddress(uint8_t val)
 {
     getMacAddress = val;
-
-    memset(macIdStr, 0x00, sizeof(macIdStr) / sizeof(macIdStr[0]));
-    memset(macIdBytes, 0x00, sizeof(macIdBytes) / sizeof(macIdBytes[0]));
+    ShimBt_macIdVarsReset();
 }
 
 void BT_setGetVersion(uint8_t val)
@@ -2817,29 +2814,6 @@ void string2hexString(char* input, char* output)
     }
     //insert NULL at the end of the output string
     output[i++] = '\0';
-}
-
-void bt_setMacId(uint8_t *buf)
-{
-    memcpy(macIdStr, buf, 14);
-    uint8_t i, pchar[3];
-    pchar[2] = 0;
-    for (i = 0; i < 6; i++)
-    {
-        pchar[0] = macIdStr[i * 2];
-        pchar[1] = macIdStr[i * 2 + 1];
-        macIdBytes[i] = strtoul((char*) pchar, 0, 16);
-    }
-}
-
-uint8_t* getMacIdStrPtr(void)
-{
-    return &macIdStr[0];
-}
-
-uint8_t* getMacIdBytesPtr(void)
-{
-    return &macIdBytes[0];
 }
 
 #pragma vector=USCI_A1_VECTOR

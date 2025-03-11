@@ -482,8 +482,5 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char* input, char* output);
-void bt_setMacId(uint8_t *buf);
-uint8_t* getMacIdStrPtr(void);
-uint8_t* getMacIdBytesPtr(void);
 
 #endif //RN4X_H
