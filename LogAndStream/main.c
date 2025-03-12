@@ -103,7 +103,6 @@ void PrepareSDBuffHead(void);
 inline void GsrRange(void);
 void DockSdPowerCycle();
 void SetupDock(void);
-void ReadSdConfiguration(void);
 uint8_t CheckSdInslot(void);
 void BtStop(uint8_t isCalledFromMain);
 void BtStart(void);
@@ -2698,19 +2697,6 @@ void SetupDock()
         }
     }
     shimmerStatus.configuring = 0;
-}
-
-void ReadSdConfiguration(void)
-{
-    ShimTask_clear(TASK_STREAMDATA); // this will skip one sample
-    sensing.isFileCreated = 0;
-    SdPowerOn();
-    ShimSd_parseConfig();
-
-    /* Check BT module configuration after sensor configuration read from SD
-     * card to see if it is in the correct state (i.e., BT on vs. BT off vs. SD
-     * Sync) */
-    ShimConfig_checkBtModeFromConfig();
 }
 
 uint8_t CheckSdInslot(void)
