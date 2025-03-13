@@ -3113,7 +3113,7 @@ void StreamData()
                 calculateCrcAndInsert(crcMode, current_buffer_ptr, digi_offset);
                 digi_offset += crcMode;
             }
-            BT_write(current_buffer_ptr, digi_offset, SENSOR_DATA);
+            ShimBt_writeToTxBufAndSend(current_buffer_ptr, digi_offset, SENSOR_DATA);
         }
     }
 }

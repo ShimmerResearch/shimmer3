@@ -70,11 +70,10 @@
 uint8_t starting;
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
-void (*BT_write)(uint8_t *buf, uint8_t len, btResponseType responseType);
-void (*sendNextChar_cb)(void);
+uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 uint8_t btRebootRequired; //boolean for checking if new commands are added
-volatile uint8_t messageInProgress, txOverflow;
+volatile uint8_t txOverflow;
 uint8_t txie_reg;
 uint8_t receiveBuffer[8];
 
@@ -194,11 +193,6 @@ void BT_startDone_cb(void (*cb)(void))
 void BT_baudRateChange_cb(void (*cb)(void))
 {
     baudRateChange_cb = cb;
-}
-
-void BT_setSendNextChar_cb(void (*cb)(void))
-{
-    sendNextChar_cb = cb;
 }
 
 /* TODO create common boot sequence for both BT modules */
@@ -371,7 +365,7 @@ void writeCommandNoRspWithCmdLen(char *cmd, uint8_t cmdLen)
 {
     memcpy(commandbuf, cmd, cmdLen);
     charsReceived = 0;
-    BT_write((uint8_t*) commandbuf, cmdLen, BT_SETUP);
+    ShimBt_writeToTxBufAndSend((uint8_t*) commandbuf, cmdLen, BT_SETUP);
 }
 
 //write data to be transmitted to the Bluetooth module
@@ -1487,49 +1481,24 @@ uint8_t areBtSetupCommandsRunning(void)
     return (bt_setcommands_start || bt_runmastercommands_start);
 }
 
-void sendNextCharIfNotInProgress(void)
-{
-    if (!messageInProgress)
-    {
-        sendNextChar();
-    }
-}
-
 uint8_t isBtModuleOverflowPinHigh(void)
 {
     return (P1IN & BIT3);
 }
 
-void sendNextChar(void)
+HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len)
 {
-    if(sendNextChar_cb)
-    {
-        sendNextChar_cb();
-    }
-
-    if (!ShimBt_isBtTxBufEmpty()
-#if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
-            && (rn4678RtsLockDetected || !isBtModuleOverflowPinHigh())
-#else
-            && !isBtModuleOverflowPinHigh())
-#endif
-    {
-        messageInProgress = 1;
-        /* commenting out while loop as individual bytes are sent based on
-         * interrupt firing so no need to wait here. */
-        //ensure no tx interrupt is pending
+    /* commenting out while loop as individual bytes are sent based on
+     * interrupt firing so no need to wait here. */
+    //ensure no tx interrupt is pending
 //        while (UCA1IFG & UCTXIFG);
-        UCA1TXBUF = ShimBt_popBytefromBtTxBuf();
-    }
-    else
-    {
-        messageInProgress = 0;              //false
-    }
+    UCA1TXBUF = *buf;
+    return HAL_SHIM_OK;
 }
 
 void BT_init(void)
 {
-    messageInProgress = txOverflow = 0;
+    txOverflow = 0;
 
     setRn4678ConnectionState(RN4678_DISCONNECTED);
 
@@ -1620,8 +1589,6 @@ void BT_init(void)
     BT_setRn4678BleConnectionParameters("0001,001C,0000,0200");
 
     BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
-
-    BT_setSendNextChar_cb(0);
 }
 
 void BT_start(void)
@@ -1684,7 +1651,7 @@ void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 
     ShimBt_pushBytesToBtTxBuf(buf, len);
 
-    sendNextCharIfNotInProgress();
+    ShimBt_sendNextCharIfNotInProgress();
 }
 
 void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
@@ -1704,7 +1671,9 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
     /* Buffer before sending to the BT module */
     if (ShimBt_getSpaceInBtTxBuf() <= len
             || (responseType == SENSOR_DATA
-                    && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize || messageInProgress || isBtModuleOverflowPinHigh())))
+                    && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize
+                            || ShimBt_btTxInProgressGet()
+                            || isBtModuleOverflowPinHigh())))
     {
         return; //fail
     }
@@ -1724,7 +1693,7 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
     if (responseType != SENSOR_DATA
             || ((ShimBt_getUsedSpaceInBtTxBuf() + len) > sampleSetBufferSize))
     {
-        sendNextCharIfNotInProgress();
+        ShimBt_sendNextCharIfNotInProgress();
     }
 }
 
@@ -1744,7 +1713,7 @@ void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
     }
 #endif
 
-    sendNextCharIfNotInProgress();
+    ShimBt_sendNextCharIfNotInProgress();
 }
 
 void BT_connect(uint8_t *addr)
@@ -2022,13 +1991,13 @@ void BT_rtsInterrupt(uint8_t value)
     {   //in disabling sending
         txie_reg = UCA1IE & UCTXIE;
         UCA1IE &= ~UCTXIE;
-        messageInProgress = 0;              //false
+        ShimBt_btTxInProgressSet(0);              //false
     }
     else
     {   // in resuming sending
         if (txie_reg)
             UCA1IE |= UCTXIE;
-        sendNextCharIfNotInProgress();
+        ShimBt_sendNextCharIfNotInProgress();
     }
 }
 
@@ -2292,19 +2261,19 @@ void updateBtWriteFunctionPtr(void)
 {
     if(isRn4678ConnectionBle())
     {
-        BT_write = &BT_write_rn4678_ble;
+        ShimBt_writeToTxBufAndSend = &BT_write_rn4678_ble;
     }
     else if (doesBtDeviceSupport1Mbps())
     {
-        BT_write = &BT_write_rn4678_1M;
+        ShimBt_writeToTxBufAndSend = &BT_write_rn4678_1M;
     }
     else if (isBtDeviceRn4678())
     {
-        BT_write = &BT_write_rn4678_460800;
+        ShimBt_writeToTxBufAndSend = &BT_write_rn4678_460800;
     }
     else
     {
-        BT_write = &BT_write_rn42;
+        ShimBt_writeToTxBufAndSend = &BT_write_rn42;
     }
 }
 
@@ -2729,7 +2698,7 @@ __interrupt void USCI_A1_ISR(void)
     case 2:                                   // Vector 2 - RXIFG
         break;
     case 4:                                   // Vector 4 - TXIFG
-        sendNextChar();
+        ShimBt_TxCpltCallback();
         break;
     default:
         break;

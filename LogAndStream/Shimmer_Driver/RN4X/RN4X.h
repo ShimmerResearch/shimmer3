@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#include <log_and_stream_definitions.h>
+#include <Comms/shimmer_bt_uart.h>
+
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
 #define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 1
 
@@ -47,13 +50,6 @@ typedef enum
     * Remote Address field. */
     PAIRING_MODE                = 6 /* Supported in RN42 and RN4678 */
 } btOperatingMode;
-
-typedef enum
-{
-    BT_SETUP,
-    SHIMMER_CMD,
-    SENSOR_DATA
-} btResponseType;
 
 /* Order here needs to be maintained as it's saved to the EEPROM */
 enum BT_FIRMWARE_VERSION
@@ -317,10 +313,7 @@ void BT_resetBaudRate(void);
 void BT_setGoodCommand(void);
 uint8_t areBtSetupCommandsRunning(void);
 
-void sendNextCharIfNotInProgress(void);
-
 uint8_t isBtModuleOverflowPinHigh(void);
-void sendNextChar(void);
 
 // initialize the vars and power on
 void BT_init(void);
@@ -336,7 +329,9 @@ void BT_disable(void);
 //write data to be transmitted to the Bluetooth module
 //returns 0 if fails, else 1
 //will fail if the function is already being called or the buffer doesn't have the capacity to store buf argument
-extern void (*BT_write)(uint8_t *buf, uint8_t len, btResponseType responseType);
+extern uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf, uint8_t len, btResponseType responseType);
+HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len);
+
 void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType);
 void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType);
 void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType);
