@@ -249,12 +249,6 @@ void main(void)
     while (1)
     {
         ShimTask_manage();
-
-        if(getBtClearTxBufFlag())
-        {
-            setBtClearTxBufFlag(0);
-            clearBtTxBuf(1U);
-        }
     }
 }
 
@@ -776,7 +770,7 @@ void InitialiseBt(void)
             }
 
             BT_rst_MessageProgress();
-            clearBtTxBuf(1U);
+            ShimBt_clearBtTxBuf(1U);
 
             baudsTried[initialBaudRate] = 1U;
             setBtBaudRateToUse(initialBaudRate);
@@ -2202,7 +2196,7 @@ void BtStart(void)
 
 void BtStop(uint8_t isCalledFromMain)
 {
-    clearBtTxBuf(isCalledFromMain);
+    ShimBt_clearBtTxBuf(isCalledFromMain);
 
     ShimTask_clear(TASK_RCNODER10);
 

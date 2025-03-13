@@ -116,17 +116,6 @@ rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
 
-/* Buffer read / write macros                                                 */
-#define RINGFIFO_RESET(ringFifo)                {ringFifo.rdIdx = ringFifo.wrIdx = 0;}
-#define RINGFIFO_WR(ringFifo, dataIn, mask)     {ringFifo.data[mask & ringFifo.wrIdx++] = (dataIn);}
-#define RINGFIFO_RD(ringFifo, dataOut, mask)    {ringFifo.rdIdx++; dataOut = ringFifo.data[mask & (ringFifo.rdIdx-1)];}
-#define RINGFIFO_EMPTY(ringFifo)                (ringFifo.rdIdx == ringFifo.wrIdx)
-#define RINGFIFO_FULL(ringFifo, mask)           ((mask & ringFifo.rdIdx) == (mask & (ringFifo.wrIdx+1)))
-#define RINGFIFO_COUNT(ringFifo, mask)          (mask & (ringFifo.wrIdx - ringFifo.rdIdx))
-
-volatile RingFifoTx_t gBtTxFifo;
-
-volatile uint8_t btClearTxBuf;
 char *btRxFullResponse;
 
 // global bluetooth variables
@@ -1518,7 +1507,7 @@ void sendNextChar(void)
         sendNextChar_cb();
     }
 
-    if (!RINGFIFO_EMPTY(gBtTxFifo)
+    if (!ShimBt_isBtTxBufEmpty()
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
             && (rn4678RtsLockDetected || !isBtModuleOverflowPinHigh())
 #else
@@ -1530,7 +1519,7 @@ void sendNextChar(void)
          * interrupt firing so no need to wait here. */
         //ensure no tx interrupt is pending
 //        while (UCA1IFG & UCTXIFG);
-        RINGFIFO_RD(gBtTxFifo, UCA1TXBUF, BT_TX_BUF_MASK);
+        UCA1TXBUF = ShimBt_popBytefromBtTxBuf();
     }
     else
     {
@@ -1582,12 +1571,6 @@ void BT_init(void)
 
     clearExpectedResponseBuf();
     charsReceived = 0;
-
-    setBtClearTxBufFlag(0);
-    clearBtTxBuf(1U);
-
-    RINGFIFO_RESET(gBtTxFifo);
-    memset(gBtTxFifo.data, 0x00, sizeof(gBtTxFifo.data) / sizeof(gBtTxFifo.data[0]));
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
     rn4678RtsLockDetected = 0U;
@@ -1694,12 +1677,12 @@ void BT_disable(void)
 //write data to be transmitted to the Bluetooth module - specific to the RN42
 void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
-    if (getSpaceInBtTxBuf() <= len)
+    if (ShimBt_getSpaceInBtTxBuf() <= len)
     {
         return; //fail
     }
 
-    pushBytesToBtTxBuf(buf, len);
+    ShimBt_pushBytesToBtTxBuf(buf, len);
 
     sendNextCharIfNotInProgress();
 }
@@ -1719,14 +1702,14 @@ void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
 void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
 {
     /* Buffer before sending to the BT module */
-    if (getSpaceInBtTxBuf() <= len
+    if (ShimBt_getSpaceInBtTxBuf() <= len
             || (responseType == SENSOR_DATA
-                    && (getUsedSpaceInBtTxBuf() >= sampleSetBufferSize || messageInProgress || isBtModuleOverflowPinHigh())))
+                    && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize || messageInProgress || isBtModuleOverflowPinHigh())))
     {
         return; //fail
     }
 
-    pushBytesToBtTxBuf(buf, len);
+    ShimBt_pushBytesToBtTxBuf(buf, len);
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
     if(responseType==SHIMMER_CMD && isBtModuleOverflowPinHigh())
@@ -1739,7 +1722,7 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
      * the Bluetooth module - grouping the bytes was found to help to reduce
      * packet loss */
     if (responseType != SENSOR_DATA
-            || ((getUsedSpaceInBtTxBuf() + len) > sampleSetBufferSize))
+            || ((ShimBt_getUsedSpaceInBtTxBuf() + len) > sampleSetBufferSize))
     {
         sendNextCharIfNotInProgress();
     }
@@ -1747,12 +1730,12 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
 
 void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
-    if (getSpaceInBtTxBuf() <= len)
+    if (ShimBt_getSpaceInBtTxBuf() <= len)
     {
         return; //fail
     }
 
-    pushBytesToBtTxBuf(buf, len);
+    ShimBt_pushBytesToBtTxBuf(buf, len);
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
     if(responseType==SHIMMER_CMD && isBtModuleOverflowPinHigh())
@@ -2107,76 +2090,6 @@ uint8_t BT_getWaitForReturnNewLine(void)
     return waitForReturnNewLine;
 }
 
-void clearBtTxBuf(uint8_t isCalledFromMain)
-{
-//    uint16_t i;
-    /* We don't want to be clearing the TX buffer if main is in the middle to
-     * streaming bytes to it */
-    if (isCalledFromMain)
-    {
-        RINGFIFO_RESET(gBtTxFifo);
-
-        // Reset all bytes in the buffer -> only used during debugging
-//        for(i=BT_TX_BUF_SIZE-1;i<BT_TX_BUF_SIZE;i--)
-//        {
-//            *(&gBtTxFifo.data[0]+i) = 0xFF;
-//        }
-    }
-    else
-    {
-        setBtClearTxBufFlag(1);
-    }
-}
-
-void pushByteToBtTxBuf(uint8_t c)
-{
-    if (!RINGFIFO_FULL(gBtTxFifo, BT_TX_BUF_MASK))
-    {
-        RINGFIFO_WR(gBtTxFifo, c, BT_TX_BUF_MASK);
-    }
-}
-
-void pushBytesToBtTxBuf(uint8_t *buf, uint8_t len)
-{
-//    uint8_t i;
-//    for (i = 0; i < len; i++)
-//    {
-//        pushByteToBtTxBuf(*(buf + i));
-//    }
-
-    /* if enough space at after head, copy it in */
-    uint16_t spaceAfterHead = BT_TX_BUF_SIZE - (gBtTxFifo.wrIdx & BT_TX_BUF_MASK);
-    if (spaceAfterHead > len)
-    {
-        memcpy(&gBtTxFifo.data[(gBtTxFifo.wrIdx & BT_TX_BUF_MASK)], buf, len);
-        gBtTxFifo.wrIdx += len;
-    }
-    else
-    {
-        /* Fill from head to end of buf */
-        memcpy(&gBtTxFifo.data[(gBtTxFifo.wrIdx & BT_TX_BUF_MASK)], buf, spaceAfterHead);
-        gBtTxFifo.wrIdx += spaceAfterHead;
-
-        /* Fill from start of buf. We already checked above whether there is
-         * enough space in the buf (getSpaceInBtTxBuf()) so we don't need to
-         * worry about the tail position. */
-        uint16_t remaining = len - spaceAfterHead;
-        memcpy(&gBtTxFifo.data[(gBtTxFifo.wrIdx & BT_TX_BUF_MASK)], buf + spaceAfterHead, remaining);
-        gBtTxFifo.wrIdx += remaining;
-    }
-}
-
-uint16_t getUsedSpaceInBtTxBuf(void)
-{
-    return RINGFIFO_COUNT(gBtTxFifo, BT_TX_BUF_MASK);
-}
-
-uint16_t getSpaceInBtTxBuf(void)
-{
-    // Minus 1 as we always need to leave 1 empty byte in the rolling buffer
-    return BT_TX_BUF_SIZE - 1 - getUsedSpaceInBtTxBuf();
-}
-
 void setDmaWaitingForResponseIfStatusStrEnabled(void)
 {
     if (areBtStatusStringsEnabled())
@@ -2403,16 +2316,6 @@ uint8_t getCurrentBtBaudRate(void)
 void setBtRxFullResponsePtr(char *ptr)
 {
     btRxFullResponse = ptr;
-}
-
-uint8_t getBtClearTxBufFlag(void)
-{
-    return btClearTxBuf;
-}
-
-void setBtClearTxBufFlag(uint8_t val)
-{
-    btClearTxBuf = val;
 }
 
 uint8_t areBtStatusStringsEnabled(void)

@@ -257,23 +257,12 @@ enum BT_SET_COMMAND_STAGES
 #define BT_STAT_STR_LEN_SMALLEST        BT_STAT_STR_LEN_RN42_REBOOT
 #define BT_STAT_STR_LEN_LARGEST         BT_STAT_STR_LEN_CONN_PARAM
 
-#define BT_TX_BUF_SIZE                  256U              /* serial buffer in bytes (power 2)  */
-#define BT_TX_BUF_MASK                  (BT_TX_BUF_SIZE-1UL)
 #define BLE_MTU_SIZE                    157U
 
 #define INSTREAM_STATUS_RESPONSE_LEN    4U
 
 #define RN42_OTHER_SETTINGS_TX_POWER    "TX Power=\0"
 #define RN42_OTHER_SETTINGS_ROLE_SWCH    "RoleSwch=\0"
-
-
-typedef struct{
-    uint8_t data[BT_TX_BUF_SIZE];
-    // tail points to the buffer index for the oldest byte that was added to it
-    uint16_t rdIdx;
-    // head points to the index of the next empty byte in the buffer
-    uint16_t wrIdx;
-} RingFifoTx_t;
 
 typedef enum
 {
@@ -420,11 +409,6 @@ void BT_setWaitForVersion(uint8_t val);
 uint8_t BT_getWaitForVersion(void);
 uint8_t BT_getWaitForReturnNewLine(void);
 
-void clearBtTxBuf(uint8_t isCalledFromMain);
-void pushByteToBtTxBuf(uint8_t b);
-void pushBytesToBtTxBuf(uint8_t *buf, uint8_t len);
-uint16_t getUsedSpaceInBtTxBuf(void);
-uint16_t getSpaceInBtTxBuf(void);
 void setDmaWaitingForResponseIfStatusStrEnabled(void);
 void setDmaWaitingForResponseIfStatusStrDisabled(void);
 void setDmaWaitingForResponse(uint16_t numChars);
@@ -448,8 +432,6 @@ enum BT_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
 uint8_t getCurrentBtBaudRate(void);
 void setBtRxFullResponsePtr(char *ptr);
-uint8_t getBtClearTxBufFlag(void);
-void setBtClearTxBufFlag(uint8_t val);
 uint8_t areBtStatusStringsEnabled(void);
 void setRnCommandModeActive(uint8_t state);
 uint8_t isRnCommandModeActive(void);
