@@ -115,7 +115,7 @@ rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
 
-char *btRxFullResponse;
+volatile char *btRxFullResponse;
 
 // global bluetooth variables
 volatile enum BT_FIRMWARE_VERSION btFwVer;
@@ -1642,31 +1642,32 @@ void BT_disable(void)
 }
 
 //write data to be transmitted to the Bluetooth module - specific to the RN42
-void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
+uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
     if (ShimBt_getSpaceInBtTxBuf() <= len)
     {
-        return; //fail
+        return 1; //fail
     }
 
     ShimBt_pushBytesToBtTxBuf(buf, len);
 
     ShimBt_sendNextCharIfNotInProgress();
+    return 0;
 }
 
-void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
+uint8_t BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
     /* If it's the RN4678 and 1Mbps isn't supported, only allow a fixed number of sensor data packets to be in the TX buffer */
-    BT_write_rn4678_with_buf(buf, len, responseType, rn4678ClassicBtSampleSetBufferSize);
+    return BT_write_rn4678_with_buf(buf, len, responseType, rn4678ClassicBtSampleSetBufferSize);
 }
 
-void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
+uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
     /* If it's BLE, try to fill as many bytes as possible into the available MTU size */
-    BT_write_rn4678_with_buf(buf, len, responseType, BLE_MTU_SIZE);
+    return BT_write_rn4678_with_buf(buf, len, responseType, BLE_MTU_SIZE);
 }
 
-void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
+uint8_t BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
 {
     /* Buffer before sending to the BT module */
     if (ShimBt_getSpaceInBtTxBuf() <= len
@@ -1675,7 +1676,7 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
                             || ShimBt_btTxInProgressGet()
                             || isBtModuleOverflowPinHigh())))
     {
-        return; //fail
+        return 1; //fail
     }
 
     ShimBt_pushBytesToBtTxBuf(buf, len);
@@ -1695,13 +1696,14 @@ void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType response
     {
         ShimBt_sendNextCharIfNotInProgress();
     }
+    return 0;
 }
 
-void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
+uint8_t BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
     if (ShimBt_getSpaceInBtTxBuf() <= len)
     {
-        return; //fail
+        return 1; //fail
     }
 
     ShimBt_pushBytesToBtTxBuf(buf, len);
@@ -1714,6 +1716,8 @@ void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
 #endif
 
     ShimBt_sendNextCharIfNotInProgress();
+
+    return 0;
 }
 
 void BT_connect(uint8_t *addr)
@@ -2282,7 +2286,7 @@ uint8_t getCurrentBtBaudRate(void)
     return btBaudRateToUse;
 }
 
-void setBtRxFullResponsePtr(char *ptr)
+void setBtRxFullResponsePtr(volatile char *ptr)
 {
     btRxFullResponse = ptr;
 }

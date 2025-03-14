@@ -332,11 +332,11 @@ void BT_disable(void);
 extern uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf, uint8_t len, btResponseType responseType);
 HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len);
 
-void BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType);
-void BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType);
-void BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType);
-void BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize);
-void BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize);
+uint8_t BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 //connect to a specific device that was previously discovered
 void BT_connect(uint8_t *addr);
@@ -426,7 +426,7 @@ enum BT_FIRMWARE_VERSION getBtFwVersion(void);
 enum BT_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
 uint8_t getCurrentBtBaudRate(void);
-void setBtRxFullResponsePtr(char *ptr);
+void setBtRxFullResponsePtr(volatile char *ptr);
 uint8_t areBtStatusStringsEnabled(void);
 void setRnCommandModeActive(uint8_t state);
 uint8_t isRnCommandModeActive(void);
