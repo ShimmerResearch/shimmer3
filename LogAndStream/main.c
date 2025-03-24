@@ -203,7 +203,6 @@ bool isIcm20948GyroEn = FALSE;
 
 /* should be 0 */
 #define PRESS2UNDOCK        0
-#define TESTDOCK            0
 #define RTC_OFF             0
 #define PRES_TS_EN          0
 #define IS_SUPPORTED_TCXO   0
@@ -388,7 +387,7 @@ void Init(void)
 
 void handleIfDockedStateOnBoot(void)
 {
-#if TESTDOCK
+#if TEST_UNDOCKED
     if (0)
     {
 #else
