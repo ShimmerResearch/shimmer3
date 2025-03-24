@@ -43,6 +43,7 @@
 #include "ads1292.h"
 #include "msp430.h"
 #include <string.h>
+#include "../5xx_HAL/hal_Board.h"
 #include "../5xx_HAL/hal_UCA0.h"
 
 //uint8_t exgOrUart;
@@ -59,8 +60,7 @@ uint8_t rxCount, chip1ReadPending, chip2ReadPending;
 void ADS1292_init(void) {
    //exgOrUart = 0;
 
-   P3OUT &= ~BIT3;                  //EXP_RESET_N set low
-   P3DIR |= BIT3;                   //EXP_RESET_N set as output
+   Board_setExpansionBrdPower(1);
 
    P1DIR &= ~BIT4;                  //RESP_DRDY as input
    P2DIR &= ~BIT0;                  //EXG_DRDY as input
@@ -171,26 +171,24 @@ void ADS1292_regWrite(uint8_t startaddress, uint8_t size, uint8_t *wdata) {
    __bis_SR_register(gie);                   //Restore original GIE state
 }
 
-
 void ADS1292_powerOn(void) {
-   P3OUT |= BIT3;
+   Board_setExpansionBrdPower(1);
    __delay_cycles(240000);                   //10ms (assuming 24MHz clock)
 }
 
 void ADS1292_powerOff(void) {
-   P3OUT &= ~BIT3;
+    Board_setExpansionBrdPower(0);
 }
-
 
 //Issues a reset pulse
 //Remains powered on afterwards
 //Delays match the sample code from TI
 void ADS1292_resetPulse(void) {
-   P3OUT |= BIT3;          //set high
+   Board_setExpansionBrdPower(1);          //set high
    __delay_cycles(24000);  //1ms (assuming 24MHz clock)
-   P3OUT &= ~BIT3;         //set low
+   Board_setExpansionBrdPower(0);         //set low
    __delay_cycles(24000);  //1ms (assuming 24MHz clock)
-   P3OUT |= BIT3;          //set high
+   Board_setExpansionBrdPower(1);          //set high
    __delay_cycles(168000); //7ms (assuming 24MHz clock)
 }
 

@@ -190,17 +190,6 @@
 
 
 /**************************************************************/
-/**\name	FUNCTION FOR I2C ENABLE    */
-/**************************************************************/
-/*!
- * @brief Function enables i2c line's power and clock and allows
- * settling time for voltage to rise.
- *
- */
-void BMPX80_init(void);
-
-
-/**************************************************************/
 /**\name	FUNCTION FOR RETURNING BMP ID REGISTER    */
 /**************************************************************/
 /*!

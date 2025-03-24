@@ -121,7 +121,7 @@ uint8_t uartUca0RxIsr(){
    return 0;
 }
 
-void UART_deactivate(){
+void DockUart_disable(){
    UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
 
    UARTSEL &= ~(UARTTXD+UARTRXD);
@@ -137,7 +137,7 @@ void UART_deactivate(){
    P3OUT &= ~BIT3;
 }
 
-void UART_activate(){
+void DockUart_enable(){
    P6SEL &= ~BIT1;
    P6DIR |= BIT1;
    P6OUT |= BIT1;

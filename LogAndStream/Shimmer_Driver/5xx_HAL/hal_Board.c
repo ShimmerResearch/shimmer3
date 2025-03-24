@@ -156,7 +156,9 @@ void Board_init(void) {
    P6DIR |= BIT0;             //set as output
 
    //EXP_RESET_N
-   P3DIR &= ~BIT3;            //set as input
+   Board_setExpansionBrdPower(0);
+   P3DIR |= BIT3;       //set as output
+   P3SEL &= ~BIT3;
 
    //External ADC expansion ports
    P6DIR &= ~(BIT6 + BIT7);   //A6 and A7 as input
@@ -189,7 +191,7 @@ void Board_init(void) {
    P5DIR &= ~(BIT0 + BIT1);  //set as input
 
    //SW_I2C
-   P8OUT &= ~BIT4;           //set low
+   Board_setI2cPower(0);
    P8DIR |= BIT4;            //set as output
 }
 
@@ -303,4 +305,31 @@ void Board_setSdPower(uint8_t state)
         P4OUT &= ~BIT2;
     }
     shimmerStatus.sdPowerOn = state;
+}
+
+void Board_setExpansionBrdPower(uint8_t state)
+{
+  if (state)
+  {
+    P3OUT |= BIT3;
+  }
+  else
+  {
+    P3OUT &= ~BIT3;
+  }
+  shimmerStatus.pinPvExt = state;
+}
+
+void Board_setI2cPower(uint8_t state)
+{
+  //Enable/disable I2C pull-ups by turning on/off SW_I2C
+  if (state)
+  {
+    P8OUT |= BIT4;
+  }
+  else
+  {
+    P8OUT &= ~BIT4;
+  }
+  shimmerStatus.pinPvI2c = state;
 }

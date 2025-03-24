@@ -53,16 +53,6 @@ uint8_t bmpInUse;
 static uint8_t bmpX80Address;
 uint8_t bmpX80Calib[BMP280_CALIB_DATA_SIZE];
 
-//configure I2C
-void BMPX80_init(void) {
-
-	P8OUT |= BIT4;              //set SW_I2C high to power on all I2C chips
-	__delay_cycles(2400000);     //wait 100ms for power ramp up
-
-	//Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK, max is 3.4MHz
-	I2C_Master_Init(S_MCLK, 24000000, 400000);
-}
-
 uint8_t BMPX80_getId(void) {
 	uint8_t buf;
 	I2C_Set_Slave_Address(bmpX80Address);
@@ -205,11 +195,7 @@ uint8_t isBmp280InUse(void)
 void loadBmpCalibration(void)
 {
     memset(bmpX80Calib, 0, sizeof(bmpX80Calib));
-
-    BMPX80_init();
-
     BMPX80_getCalibCoeff(bmpX80Calib);
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
 }
 
 uint8_t *get_bmp_calib_data_bytes(void)

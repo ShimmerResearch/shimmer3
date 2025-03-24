@@ -85,10 +85,10 @@ extern void UART_config();
 //      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
 // to switch between uart_isr and other isrs
 // the last activated one works
-extern void UART_activate();
+extern void DockUart_enable();
 
 // reset p6.1 and p7.6 back to sel+input
-extern void UART_deactivate();
+extern void DockUart_disable();
 
 //============================== above is the UART part ===============================
 

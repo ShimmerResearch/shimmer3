@@ -48,11 +48,6 @@
 void MPU9150_init(void) {
    uint8_t buf[2];
 
-   P8OUT |= BIT4;             //set SW_I2C high to power on all I2C chips
-   __delay_cycles(24000000);  //wait 1s (assuming 24MHz MCLK) to allow for power ramp up
-
-   I2C_Master_Init(S_MCLK,24000000,400000);  //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-                                             //which is max for this part
    //put in I2C pass through mode so that mag can be accessed
    I2C_Set_Slave_Address(MPU9150_ADDR);
 

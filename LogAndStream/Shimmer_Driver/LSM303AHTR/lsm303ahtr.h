@@ -111,9 +111,6 @@
 #define OUTZ_H_REG_M           0x6D
 /* Reserved 0x6E - 0x6F */
 
-//initialize the I2C for use with the LSM303AHTR
-void LSM303AHTR_init(void);
-
 //initialize the accelerometer
 void LSM303AHTR_accelInit(uint8_t samplingrate, uint8_t range, uint8_t lowpower, uint8_t highresolution);
 

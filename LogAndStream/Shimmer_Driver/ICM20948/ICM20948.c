@@ -67,12 +67,6 @@ void ICM20948_init(void)
 {
     uint8_t buf[2];
 
-    P8OUT |= BIT4;             //set SW_I2C high to power on all I2C chips
-    __delay_cycles(24000000);  //wait 1s (assuming 24MHz MCLK) to allow for power ramp up
-
-    I2C_Master_Init(S_MCLK, 24000000, 400000); //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-                                               //which is max for this part
-
     //put in I2C pass through mode so that mag can be accessed
     I2C_Set_Slave_Address(ICM20948_ADDR);
 
@@ -352,7 +346,7 @@ uint8_t ICM20948_isMagSampleSkipEnabled(void)
     return magSampleSkipEnabled;
 }
 
-uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
+uint8_t ICM20948_hasTimeoutPeriodPassed(uint64_t currentSampleTsTicks)
 {
     //TODO make more efficient
 
@@ -377,7 +371,7 @@ uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
     return 1;
 }
 
-uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf)
+uint8_t ICM20948_getMagAndStatus(uint64_t currentSampleTsTicks, uint8_t *buf)
 {
     I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
@@ -390,7 +384,7 @@ uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf)
         return 0;
     }
 
-    lastMagSampleTsTicks = currentSampleTsTicks;
+    lastMagSampleTsTicks = currentSampleTsTicks & 0xFFFFFFFF;
 
     //check Status 2 register
     if (*(buf + ICM_MAG_IDX_ST2) & 0x08)

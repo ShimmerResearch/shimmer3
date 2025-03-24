@@ -45,15 +45,6 @@
 #include "../5xx_HAL/hal_I2C.h"
 #include "lsm303dlhc.h"
 
-//configure I2C
-void LSM303DLHC_init(void) {
-
-   P8OUT |= BIT4;                            //set SW_I2C high to power on all I2C chips
-   __delay_cycles(24000000);                 //wait 1s (assuming 24MHz MCLK) to allow for power ramp up
-
-   I2C_Master_Init(S_MCLK,24000000,400000);  //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-}
-
 void LSM303DLHC_setHPClick(uint8_t hp){
    uint8_t i2c_buffer[2];
 

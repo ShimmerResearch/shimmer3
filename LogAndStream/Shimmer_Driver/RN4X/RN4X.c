@@ -115,7 +115,7 @@ rn4678OperationalMode rn4678OpMode;
 
 rn4678ConnectionType rn4678ConnectionState;
 
-volatile char *btRxFullResponse;
+char *btRxFullResponse;
 
 // global bluetooth variables
 volatile enum BT_FIRMWARE_VERSION btFwVer;

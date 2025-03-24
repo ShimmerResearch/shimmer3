@@ -95,9 +95,6 @@
 #define TEMP_OUT_H_M          0x31
 #define TEMP_OUT_L_M          0x32
 
-//initialise the I2C for use with the LSM303DLHC
-void LSM303DLHC_init(void);
-
 void LSM303DLHC_setHPClick(uint8_t hp);
 uint16_t LSM303DLHC_getDataFreq(void);
 uint8_t LSM303DLHC_getFullScale(void);

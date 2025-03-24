@@ -445,24 +445,6 @@ uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData, uint16_t dataLength) {
 
 char i2cSlavePresent(char address)
 {
-//    char isPresent = 0;
-//
-//    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-//    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-//    P3OUT |= BIT3;
-//    __delay_cycles(480000);            //20ms
-//
-//    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-//    I2C_Master_Init(S_MCLK, 24000000, 400000);
-//
-//    isPresent = TI_USCI_I2C_slave_present(address);
-//
-//    P8OUT &= ~BIT4;            //disable I2C pull-ups by turning off SW_I2C
-//    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-//    P3OUT &= ~BIT3;
-//
-//    return isPresent;
-
     /* Approach relies on i2cSlaveDiscover having been performed before this */
     uint8_t i;
     for (i = 0; i < sizeof(slave_addresses)-1; i++)
@@ -485,14 +467,6 @@ void i2cSlaveDiscover(void)
 {
     char address;
 
-    //I2C pull-ups must be enabled (on rev4 boards) before initialising I2C bus
-    P8OUT |= BIT4;            //enable I2C pull-ups by turning on SW_I2C
-    P3OUT |= BIT3;
-    __delay_cycles(480000);            //20ms
-
-    //Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK
-    I2C_Master_Init(S_MCLK, 24000000, 400000);
-
     memset(slave_addresses, 0x00, sizeof(slave_addresses) / sizeof(slave_addresses[0]));
 
     slave_address_pointer = &slave_addresses[0];
@@ -505,10 +479,6 @@ void i2cSlaveDiscover(void)
     }
     *slave_address_pointer++ = 0xFF;
     *slave_address_pointer = 0xFE;
-
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-    P3OUT &= ~BIT3;
 }
 
 #pragma vector = USCI_B0_VECTOR

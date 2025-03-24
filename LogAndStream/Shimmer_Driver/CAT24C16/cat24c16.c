@@ -7,12 +7,16 @@
 
 #include "cat24c16.h"
 
+#include "../5xx_HAL/hal_Board.h"
 #include "../5xx_HAL/hal_I2C.h"
 #include "../5xx_HAL/hal_RTC.h"
 #include "msp430.h"
 #include "string.h"
 
 #define min(a,b) ((a<b)?a:b)
+
+extern void I2C_start(uint8_t controlExpBrd);
+extern void I2C_stop(uint8_t controlExpBrd);
 
 void CAT24C16_init(void)
 {
@@ -22,16 +26,12 @@ void CAT24C16_init(void)
 
 void CAT24C16_powerOn(void)
 {
-    P8OUT |= BIT4;          //enable I2C pull-ups by turning on SW_I2C
-    P3OUT |= BIT3;
-    __delay_cycles(48000);  //2ms
+    I2C_start(1);
 }
 
 void CAT24C16_powerOff(void)
 {
-    P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-    P3OUT &= ~BIT3;
+    I2C_stop(1);
 }
 
 void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)

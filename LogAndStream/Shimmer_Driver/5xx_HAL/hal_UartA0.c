@@ -182,15 +182,15 @@ void UART_setState(uint8_t state)
 {
     if (state)
     {
-        UART_activate();
+        DockUart_enable();
     }
     else
     {
-        UART_deactivate();
+        DockUart_disable();
     }
 }
 
-void UART_deactivate()
+void DockUart_disable(void)
 {
     UARTCTL1 |= UCSWRST;                      // **Put state machine in reset**
 
@@ -202,12 +202,10 @@ void UART_deactivate()
     P7SEL |= BIT6;
     P7DIR &= ~BIT6;
 
-    P3SEL &= ~BIT3;
-    P3DIR |= BIT3;
-    P3OUT &= ~BIT3;
+    Board_setExpansionBrdPower(0);
 }
 
-void UART_activate()
+void DockUart_enable(void)
 {
     P6SEL &= ~BIT1;
     P6DIR |= BIT1;
@@ -217,9 +215,7 @@ void UART_activate()
     P7DIR |= BIT6;
     P7OUT |= BIT6;
 
-    P3SEL &= ~BIT3;
-    P3DIR |= BIT3;
-    P3OUT |= BIT3;
+    Board_setExpansionBrdPower(1);
 
     UCA0_isrActivate(UCA0_isrRegister(uartUca0RxIsr, uartUca0TxIsr));
 

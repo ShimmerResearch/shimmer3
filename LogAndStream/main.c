@@ -76,30 +76,32 @@ void handleIfDockedStateOnBoot(void);
 void sleepWhenNoTask(void);
 void checkSetupDock(void);
 void BMPX80_startMeasurement(void);
-void checkStreamData(void);
-void checkStartSensing(void);
-void setStopSensingFlag(uint8_t state);
-void setStopLoggingFlag(uint8_t state);
-void setStopStreamingFlag(uint8_t state);
 void detectI2cSlaves(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
+void I2C_start(uint8_t controlExpBrd);
+void I2C_stop(uint8_t controlExpBrd);
+void ADC_startSensing(void);
+void I2C_startSensing(void);
+void SPI_startSensing(void);
+void ADC_stopSensing(void);
+void I2C_stopSensing(void);
+void SPI_stopSensing(void);
+void stopSensingWrapup(void);
 void BlinkTimerStart(void);
 void BlinkTimerStop(void);
 void setBootStage(boot_stage_t bootStageNew);
 void SampleTimerStart(void);
-inline void SampleTimerStop(void);
-void StartStreaming(void);
-inline void StopSensing(void);
+void SampleTimerStop(void);
 uint8_t Dma0ConversionDone(void);
 void ADC_configureChannels(void);
 void I2C_configureChannels(void);
 void SPI_configureChannels(void);
+void ADC_gatherDataStart(void);
+void I2C_pollSensors(void);
+void SPI_pollSensors(void);
 char *HAL_GetUID(void);
-void Timestamp0ToFirstFile();
-FRESULT WriteFile(uint8_t *text, WORD size);
-void PrepareSDBuffHead(void);
 inline void GsrRange(void);
 void DockSdPowerCycle();
 void SetupDock(void);
@@ -107,8 +109,6 @@ uint8_t CheckSdInslot(void);
 void BtStop(uint8_t isCalledFromMain);
 void BtStart(void);
 void BtStartDone();
-void StreamData();
-void Write2SD();
 void TB0Start();
 void TB0Stop();
 void ChargeStatusTimerStart(void);
@@ -120,7 +120,6 @@ void ClkAssignment();
 uint16_t FreqProd(uint16_t samplingFreq);
 float samplingClockFreqGet(void);
 void RwcCheck(void);
-inline uint8_t Skip65ms();
 void saveBatteryVoltageAndUpdateStatus(void);
 void setSamplingClkSource(float samplingClock);
 uint16_t getBmpX80SamplingTimeInTicks(void);
@@ -142,27 +141,12 @@ uint8_t fwInfo[7], ackStr[4],
         infomemLength, calibRamLength;
 uint16_t *adcStartPtr, infomemOffset, calibRamOffset;
 
-uint8_t currentBuffer;
-uint8_t stopSensing, stopLogging, stopStreaming;
-uint8_t skip65ms;
-
 uint8_t watchDogWasOnDuringBtStart;
 
-// file system vars
-FATFS fatfs;         // File object
-DIRS dir;               //Directory object
-FIL dataFile;
-/* make dir for SDLog files*/
-uint8_t firstTsFlag,
-        txBuff0[DATA_PACKET_SIZE + 2], txBuff1[DATA_PACKET_SIZE + 2],
-        sdBuff[SD_WRITE_BUF_SIZE], // todo: btRxBuff too long
-        dirLen;
-uint16_t sdBuffLen, blockLen, fileNum, dirCounter, blinkCnt10, blinkCnt20,
+uint16_t blinkCnt10, blinkCnt20,
         blinkCnt50;
-uint64_t firstTs, fileLastHour, fileLastMin;
-volatile uint8_t currentSampleTsTicks[4];
 
-volatile uint8_t fileBad, fileBadCnt;
+volatile uint8_t fileBadCnt;
 
 FRESULT ff_result;
 
@@ -215,8 +199,6 @@ uint8_t icm20948AccelGyroBuf[12]= {0};
 bool isIcm20948AccelEn = FALSE;
 bool isIcm20948GyroEn = FALSE;
 
-/* approx. 10% cutoff voltage - 3.65 Volts */
-#define BATT_CUTOFF_3_65VOLTS   (2500)
 #define TIMEOUT_100_MS          (3277)
 
 /* should be 0 */
@@ -225,7 +207,6 @@ bool isIcm20948GyroEn = FALSE;
 #define RTC_OFF             0
 #define PRES_TS_EN          0
 #define IS_SUPPORTED_TCXO   0
-#define SKIP65MS            1
 
 // bluetooth variables
 uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
@@ -282,11 +263,6 @@ void Init(void)
     ShimTask_init();
     ShimTask_set(TASK_BATT_READ);
 
-    memset(txBuff0, 0, DATA_PACKET_SIZE);
-    memset(txBuff1, 0, DATA_PACKET_SIZE);
-
-    firstTsFlag = 0;
-    skip65ms = 0;
     buttonLastReleaseTs64 = 0;
     rwcErrorFlash = 0;
 
@@ -296,24 +272,19 @@ void Init(void)
     battLastTs64 = 0;
     battWait = 0;
     blinkCnt10 = blinkCnt20 = blinkCnt50 = 0;
-    fileBad = 0;
     fileBadCnt = 0;
     onDefault = 0;
     onUserButton = 0;
     onSingleTouch = 0;
     setUndock = 0;
-    currentBuffer = 0;
-    setStopSensingFlag(0);
-    setStopLoggingFlag(0);
-    setStopStreamingFlag(0);
     streamDataInProc = 0;
 
     memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
 
     // sd file system initiate.
-    memset(sdBuff, 0, SD_WRITE_BUF_SIZE);
+//    memset(sdBuff, 0, SD_WRITE_BUF_SIZE);
     ShimSdHead_reset();
-    sdBuffLen = 0;
+//    sdBuffLen = 0;
 
     setSamplingClkSource((float) MSP430_CLOCK);
 
@@ -356,11 +327,6 @@ void Init(void)
     UCA0_isrInit();
     UART_init(ShimDock_rxCallback);
 
-    /* exp power */
-    P3OUT &= ~BIT3;      //set low
-    P3DIR |= BIT3;       //set as output
-    P3SEL &= ~BIT3;
-
     shimmerStatus.sdInserted = (bool) (!(P4IN & BIT1));
 
     handleIfDockedStateOnBoot();
@@ -379,8 +345,13 @@ void Init(void)
     dierecord = (char*) 0x01A0A;
 
     setBootStage(BOOT_STAGE_I2C);
+    I2C_start(1);
     detectI2cSlaves();
+    I2C_stop(1);
+    /* I2C slave discover leaves the I2C bus configuration in the wrong state so just reinitialising here. */
+    I2C_start(0);
     loadBmpCalibration();
+    I2C_stop(0);
     ShimSdHead_saveBmpCalibrationToSdHeader();
 
     ShimBrd_resetDaughterCardId();
@@ -394,8 +365,6 @@ void Init(void)
     shimmerStatus.configuring = 1;
 
     ShimSens_checkOnDefault();
-
-    txBuff0[0] = txBuff1[0] = DATA_PACKET; //packet type
 
     setBootStage(BOOT_STAGE_BLUETOOTH);
     InitialiseBt();
@@ -500,89 +469,6 @@ void BMPX80_startMeasurement(void)
 #endif
         BMPX80_startPressMeasurement(ShimConfig_configBytePressureOversamplingRatioGet());
     }
-}
-
-void checkStreamData(void)
-{
-    if (streamDataInProc)
-    {
-        if ((!(shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady))
-                && (!(shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)))
-        {
-            btsdSelfCmd = 1;
-            setStopSensingFlag(1U);
-        }
-        if (!sensing.isFileCreated && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
-        {
-            ShimSd_fileInit();
-            //               Timestamp0ToFirstFile();
-        }
-        StreamData();
-        // if sensor data buffer is large enough (about 1024 bytes),
-        // write it to SDcard and clear the buffer
-        if (shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
-        {
-            if (sdBuffLen > SD_WRITE_BUF_SIZE - blockLen)
-            {
-                ShimTask_set(TASK_SDWRITE);
-            }
-        }
-        if (btsdSelfCmd)
-        {
-            ShimBt_btsdSelfcmd();
-            btsdSelfCmd = 0;
-        }
-    }
-    streamDataInProc = 0;
-}
-
-void checkStartSensing(void)
-{
-    shimmerStatus.configuring = 1;
-
-    if (!shimmerStatus.sensing && !batteryStatus.battCritical)
-    {
-        ShimSens_configureChannels();
-
-        if (!sensing.isFileCreated && shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
-        {
-            ShimSd_fileInit();
-            //shimmerStatus.isLogging = 1;
-        }
-        if ((shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
-                || (shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady))
-        {
-            StartStreaming();
-            if (shimmerStatus.sdSyncEnabled)
-            {
-                ShimConfig_experimentLengthCntReset();
-                ShimSdSync_start();
-            }
-        }
-        streamDataInProc = 0;
-        //            if(enableSdlog && shimmerStatus.sdlogReady)
-        //               Timestamp0ToFirstFile();
-        if (shimmerStatus.docked)
-        {
-            shimmerStatus.sdlogCmd = 0;
-        }
-    }
-    shimmerStatus.configuring = 0;
-}
-
-void setStopSensingFlag(uint8_t state)
-{
-    stopSensing = state;
-}
-
-void setStopLoggingFlag(uint8_t state)
-{
-    stopLogging = state;
-}
-
-void setStopStreamingFlag(uint8_t state)
-{
-    stopStreaming = state;
 }
 
 void detectI2cSlaves(void)
@@ -807,390 +693,368 @@ void InitialiseBtAfterBoot(void)
     BtStart();
 }
 
-void StartStreaming(void)
+void ADC_startSensing(void)
 {
-    uint8_t i2cEn = 0;
-    uint8_t ICMsampleRateDiv = 0;
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
-    if (!shimmerStatus.sensing)
+    if (storedConfigPtr->chEnLnAccel)
     {
-#if SKIP65MS
-        skip65ms = 1;
-#endif
-        if (shimmerStatus.docked)
+        P8REN &= ~BIT6;      //disable pull down resistor
+        P8DIR |= BIT6;      //set as output
+        P8SEL &= ~BIT6;  //analog accel being used so take out of sleep mode
+        P8OUT |= BIT6;   //analog accel being used so take out of sleep mode
+    }
+
+    if (storedConfigPtr->chEnBridgeAmp)
+    {
+        P2OUT |= BIT0;   //GPIO_INTERNAL1 set high
+    }
+
+    if (storedConfigPtr->chEnGsr)
+    {
+        GSR_init();
+        if (storedConfigPtr->gsrRange <= HW_RES_3M3)
         {
-            UART_deactivate();
+            GSR_setRange(storedConfigPtr->gsrRange);
+            gsrActiveResistor = storedConfigPtr->gsrRange;
         }
-
-        TB0CTL = MC_0; // StopTb0()
-        TB0Start();
-
-        if (storedConfigPtr->expansionBoardPower)
-        { //EXT_RESET_N
-            P3SEL &= ~BIT3;
-            P3DIR |= BIT3;
-            P3OUT |= BIT3;
-        }
-        if (storedConfigPtr->chEnLnAccel)
+        else
         {
-            P8REN &= ~BIT6;      //disable pull down resistor
-            P8DIR |= BIT6;      //set as output
-            P8SEL &= ~BIT6;  //analog accel being used so take out of sleep mode
-            P8OUT |= BIT6;   //analog accel being used so take out of sleep mode
+            GSR_setRange(HW_RES_40K);
+            gsrActiveResistor = HW_RES_40K;
         }
-
-        if (storedConfigPtr->chEnBridgeAmp)
-        {
-            P2OUT |= BIT0;   //GPIO_INTERNAL1 set high
-        }
-
-        if (storedConfigPtr->chEnGsr)
-        {
-            GSR_init();
-            if (storedConfigPtr->gsrRange <= HW_RES_3M3)
-            {
-                GSR_setRange(storedConfigPtr->gsrRange);
-                gsrActiveResistor = storedConfigPtr->gsrRange;
-            }
-            else
-            {
-                GSR_setRange(HW_RES_40K);
-                gsrActiveResistor = HW_RES_40K;
-            }
-        }
-
-        if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
-                || storedConfigPtr->chEnAltMag
-                || (ShimBrd_isWrAccelInUseIcm20948()
-                        && (storedConfigPtr->chEnWrAccel
-                                || storedConfigPtr->chEnMag)))
-        {
-            if (ShimBrd_isGyroInUseIcm20948())
-            {
-                ICM20948_init();
-                ICM20948_wake(1);
-                volatile uint8_t icm_id = ICM20948_getId();    // should be 0xEA
-                volatile uint8_t mag_id = ICM20948_getMagId(); // should be 0x09
-            }
-            else if (ShimBrd_isGyroInUseMpu9x50())
-            {
-                MPU9150_init();
-                MPU9150_wake(1);
-                volatile uint8_t mpu_id = MPU9150_getId();
-            }
-            i2cEn = 1;
-            if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
-                    || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
-            {
-                if (ShimBrd_isGyroInUseIcm20948())
-                {
-                    ICMsampleRateDiv = ICM20948_convertSampleRateDivFromMPU9X50(
-                            storedConfigPtr->gyroRate, 0);
-
-                    ICM20948_setGyroSamplingRate(ICMsampleRateDiv);
-                }
-                else if (ShimBrd_isGyroInUseMpu9x50())
-                {
-                    MPU9150_setSamplingRate(storedConfigPtr->gyroRate);
-                }
-                if (storedConfigPtr->chEnGyro)
-                {
-                    if (ShimBrd_isGyroInUseIcm20948())
-                    {
-                        ICM20948_setGyroSensitivity(ShimConfig_gyroRangeGet());
-                    }
-                    else if (ShimBrd_isGyroInUseMpu9x50())
-                    {
-                        MPU9150_setGyroSensitivity(
-                                ShimConfig_gyroRangeGet()); //This needs to go after the wake?
-                    }
-                }
-                if (storedConfigPtr->chEnAltAccel
-                        || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
-                {
-                    uint8_t wrAccelRange = storedConfigPtr->altAccelRange;
-                    if (ShimBrd_isGyroInUseIcm20948())
-                    {
-                        if (ShimBrd_isWrAccelInUseIcm20948())
-                        {
-                            // Use setting design for WR accel - re-map to suit the ICM-20948
-                            wrAccelRange = storedConfigPtr->wrAccelRange;
-                            switch (wrAccelRange)
-                            {
-                            case 2:
-                                wrAccelRange = 1; // +-4g
-                                break;
-                            case 3:
-                                wrAccelRange = 2; // +-8g
-                                break;
-                            case 1:
-                                wrAccelRange = 3; // +-16g
-                                break;
-                            default:
-                                break;
-                            }
-                        }
-                        ICM20948_setAccelRange(wrAccelRange);
-                    }
-                    else if (ShimBrd_isGyroInUseMpu9x50())
-                    {
-                        MPU9150_setAccelRange(wrAccelRange);
-                    }
-                }
-            }
-            else
-            {
-                //For some reason it seems necessary to power on the gyro/accel core before trying to access the mag
-                //followed by one other I2C command (read or write)
-                //No idea why
-                //timing delays or other I2C commands to gyro/accel core do not seem to have the same effect?!?
-                //Only relevant first time mag is accessed after powering up MPU9150
-                if (ShimBrd_isGyroInUseIcm20948())
-                {
-                    ICM20948_wake(0);
-                }
-                else if (ShimBrd_isGyroInUseMpu9x50())
-                {
-                    MPU9150_wake(0);
-                }
-            }
-            if (storedConfigPtr->chEnAltMag
-                || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
-            {
-                if (ShimBrd_isGyroInUseIcm20948())
-                {
-                    ICM20948_setMagSamplingRateFromShimmerRate(storedConfigPtr->samplingRateTicks);
-                }
-                else if (ShimBrd_isGyroInUseMpu9x50())
-                {
-                    if (storedConfigPtr->samplingRateTicks >= clk_120)
-                    {
-                        //max of approx. 3ms to sample everything + 9ms between starting mag to data ready
-                        //so 12ms in total (394 ticks of 32768Hz clock = 12.024ms) (3070 ticks of 255765.625Hz clock = 12.024ms)
-                        //so there is time to get the mag sampled before the readings need to start each sample period
-                        preSampleMpuMag = 1;
-                    }
-                    else
-                    {
-                        MPU9150_startMagMeasurement();
-                        preSampleMpuMag = 0;
-                        mpuMagCount = mpuMagFreq = (clk_90
-                                / storedConfigPtr->samplingRateTicks)
-                                + 1;
-                    }
-                }
-            }
-        }
-
-        if (!ShimBrd_isWrAccelInUseIcm20948()
-                && (storedConfigPtr->chEnMag
-                || storedConfigPtr->chEnWrAccel))
-        {
-            if (!i2cEn)
-            {
-                //Initialise I2C
-                if (ShimBrd_isWrAccelInUseLsm303dlhc())
-                {
-                    LSM303DLHC_init();
-                }
-                else
-                {
-                    LSM303AHTR_init();
-                }
-                i2cEn = 1;
-            }
-            if (storedConfigPtr->chEnWrAccel)
-            {
-                if (ShimBrd_isWrAccelInUseLsm303dlhc())
-                {
-                    LSM303DLHC_accelInit(
-                            storedConfigPtr->wrAccelRate, //sampling rate
-                            storedConfigPtr->wrAccelRange, //range
-                            storedConfigPtr->wrAccelLpModeLsb, //low power mode
-                            storedConfigPtr->wrAccelHrMode); //high resolution mode
-                }
-                else
-                {
-                    LSM303AHTR_accelInit(
-                            storedConfigPtr->wrAccelRate, //sampling rate
-                            storedConfigPtr->wrAccelRange, //range
-                            storedConfigPtr->wrAccelLpModeLsb, //low power mode
-                            storedConfigPtr->wrAccelHrMode); //high resolution mode
-                }
-            }
-            if (storedConfigPtr->chEnMag)
-            {
-                if (ShimBrd_isWrAccelInUseLsm303dlhc())
-                {
-                    LSM303DLHC_magInit(
-                            storedConfigPtr->magRateLsb, //sampling rate
-                            storedConfigPtr->magRange); //gain
-                }
-                else
-                {
-                    LSM303AHTR_magInit(
-                            storedConfigPtr->magRateLsb); //sampling rate
-                }
-            }
-        }
-
-        if (storedConfigPtr->chEnPressureAndTemperature)
-        {
-            uint16_t bmpX80SamplingTimeTicks = getBmpX80SamplingTimeInTicks();
-
-            if (!i2cEn)
-            {
-                BMPX80_init();
-            }
-            if (storedConfigPtr->samplingRateTicks >= (clk_30 + bmpX80SamplingTimeTicks))
-            {
-                preSampleBmpPress = 1;
-                bmpPressFreq = 1; //required for the calculation of sampleBmpTempFreq below
-            }
-            else
-            {
-                //sample, then check each sample period if ready to read. Start new sample immediately
-#if PRES_TS_EN
-                bmpTempStartTs = RTC_get64();
-#endif
-
-                BMPX80_startTempMeasurement();
-
-                preSampleBmpPress = 0;
-                bmpPressCount = bmpPressFreq = (bmpX80SamplingTimeTicks
-                        / storedConfigPtr->samplingRateTicks)
-                        + 1;
-            }
-            //only need to sample temp once a second at most
-            if (storedConfigPtr->samplingRateTicks >= clk_2500)
-            {
-                //less than 4Hz
-                //so every second sample must be temp
-                sampleBmpTemp = sampleBmpTempFreq = 1;
-            }
-            else
-            {
-                sampleBmpTemp = sampleBmpTempFreq = (uint8_t) ((ShimConfig_freqDiv(
-                        storedConfigPtr->samplingRateTicks) - 1)
-                        / bmpPressFreq);
-            }
-#if PRES_TS_EN
-            bmpPresInterval = bmpX80SamplingTimeTicks;
-            // TODO Set as 5.5ms here for BMP280 but datasheet recommends to set same as pressure channel
-            bmpTempInterval = (isBmp180InUse() ? clk_45 : clk_55);
-#endif
-            memset(bmpVal, 0, BMPX80_PACKET_SIZE);
-        }
-
-        /* ExG */
-        if (storedConfigPtr->chEnExg1_24Bit
-                || storedConfigPtr->chEnExg2_24Bit
-                || storedConfigPtr->chEnExg1_16Bit
-                || storedConfigPtr->chEnExg2_16Bit)
-        {
-            EXG_init();
-
-            if (storedConfigPtr->chEnExg1_24Bit
-                    || storedConfigPtr->chEnExg1_16Bit)
-            {
-                EXG_writeRegs(0, ADS1292R_CONFIG1, 10,
-                              &storedConfigPtr->exgADS1292rRegsCh1.rawBytes[0]);
-            }
-
-            /* This second long delay was added to satisfy program flow requirements
-             * of the ADS1292R as per pg 63 of its datasheet. */
-            __delay_cycles(24000000);
-
-            if (storedConfigPtr->chEnExg2_24Bit
-                    || storedConfigPtr->chEnExg2_16Bit)
-            {
-                EXG_writeRegs(1, ADS1292R_CONFIG1, 10,
-                              &storedConfigPtr->exgADS1292rRegsCh2.rawBytes[0]);
-            }
-            /* probably turning on internal reference, so wait for it to settle */
-            __delay_cycles(2400000); /* 100ms (assuming 24MHz clock) */
-
-            //probably setting the PGA gain so cancel the channel offset
-            if ((storedConfigPtr->chEnExg1_24Bit
-                    || storedConfigPtr->chEnExg1_16Bit)
-                    && (storedConfigPtr->exgADS1292rRegsCh1.resp2 & BIT7))
-            {
-                EXG_offsetCal(0);
-            }
-            if ((storedConfigPtr->chEnExg2_24Bit
-                    || storedConfigPtr->chEnExg2_16Bit)
-                    && (storedConfigPtr->exgADS1292rRegsCh2.resp2 & BIT7))
-            {
-                EXG_offsetCal(1);
-            }
-
-            if ((storedConfigPtr->chEnExg1_24Bit
-                    || storedConfigPtr->chEnExg1_16Bit)
-                    && (storedConfigPtr->chEnExg2_24Bit
-                            || storedConfigPtr->chEnExg2_16Bit))
-            {
-                EXG_start(2);
-            }
-            else if (storedConfigPtr->chEnExg1_24Bit
-                    || storedConfigPtr->chEnExg1_16Bit)
-            {
-                EXG_start(0);
-            }
-            else
-            {
-                EXG_start(1);
-            }
-
-            if (ShimBrd_areADS1292RClockLinesTied())
-            {
-                /* Check if unit is SR47-4 or greater.
-                 * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
-                 * This ensures clock lines on ADS chip are correct
-                 */
-                ADS1292_disableDrdyInterrupts(ADS1292_DRDY_INT_CHIP2);
-                adsClockTied = 1;
-            }
-
-        }
-
-        SampleTimerStart();
-        if (shimmerStatus.sdSyncEnabled)
-        {
-            PrepareSDBuffHead();
-        }
-        shimmerStatus.sensing = 1;
     }
 }
 
-inline void StopSensing(void)
+void I2C_start(uint8_t controlExpBrd)
 {
-    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-
-    /*shut everything down*/
-    shimmerStatus.configuring = 1;
-    shimmerStatus.sensing = 0;
-    shimmerStatus.btStreaming = 0;
-    shimmerStatus.btstreamCmd = 0;
-    shimmerStatus.sdlogCmd = 0;
-    if (shimmerStatus.docked)
-    { /* if docked, cannot write to SD card any more*/
-        DockSdPowerCycle();
+    /* set SW_I2C high to power on all I2C chips */
+    Board_setI2cPower(1);
+    if (controlExpBrd)
+    {
+        Board_setExpansionBrdPower(1);
+        __delay_cycles(48000);  //2ms
     }
     else
     {
-        sensing.isFileCreated = 0;
-        if (shimmerStatus.sdLogging)
+        /* wait 1s (assuming 24MHz MCLK) to allow for power ramp up */
+//        __delay_cycles(24000000);
+        /* wait 100ms (assuming 24MHz MCLK) to allow for power ramp up */
+        __delay_cycles(2400000);
+    }
+
+    /* Source from SMCLK, which is running @ 24MHz. 4kHz desired BRCLK which
+     * is max for this part */
+    I2C_Master_Init(S_MCLK, 24000000, 400000);
+}
+
+void I2C_stop(uint8_t controlExpBrd)
+{
+    /* wait 10ms (assuming 24MHz MCLK) to any on-going I2C comms to finish */
+    _delay_cycles(240000);
+    I2C_Disable();
+    Board_setI2cPower(0);
+    if(controlExpBrd)
+    {
+        /* 5ms delay needed to ensure no writes pending but this is handled above */
+        Board_setExpansionBrdPower(0);
+    }
+}
+
+void I2C_startSensing(void)
+{
+    uint8_t ICMsampleRateDiv = 0;
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
+    if (sensing.nbrI2cChans)
+    {
+        I2C_start(0);
+    }
+
+    if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
+            || storedConfigPtr->chEnAltMag
+            || (ShimBrd_isWrAccelInUseIcm20948()
+                    && (storedConfigPtr->chEnWrAccel
+                            || storedConfigPtr->chEnMag)))
+    {
+        if (ShimBrd_isGyroInUseIcm20948())
         {
-            Write2SD();
-            f_close(&dataFile);
-            _delay_cycles(1200000);
-            SdPowerOff();
+            ICM20948_init();
+            ICM20948_wake(1);
+            volatile uint8_t icm_id = ICM20948_getId();    // should be 0xEA
+            volatile uint8_t mag_id = ICM20948_getMagId(); // should be 0x09
+        }
+        else if (ShimBrd_isGyroInUseMpu9x50())
+        {
+            MPU9150_init();
+            MPU9150_wake(1);
+            volatile uint8_t mpu_id = MPU9150_getId();
+        }
+
+        if (storedConfigPtr->chEnGyro || storedConfigPtr->chEnAltAccel
+                || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
+        {
+            if (ShimBrd_isGyroInUseIcm20948())
+            {
+                ICMsampleRateDiv = ICM20948_convertSampleRateDivFromMPU9X50(
+                        storedConfigPtr->gyroRate, 0);
+
+                ICM20948_setGyroSamplingRate(ICMsampleRateDiv);
+            }
+            else if (ShimBrd_isGyroInUseMpu9x50())
+            {
+                MPU9150_setSamplingRate(storedConfigPtr->gyroRate);
+            }
+            if (storedConfigPtr->chEnGyro)
+            {
+                if (ShimBrd_isGyroInUseIcm20948())
+                {
+                    ICM20948_setGyroSensitivity(ShimConfig_gyroRangeGet());
+                }
+                else if (ShimBrd_isGyroInUseMpu9x50())
+                {
+                    MPU9150_setGyroSensitivity(
+                            ShimConfig_gyroRangeGet()); //This needs to go after the wake?
+                }
+            }
+            if (storedConfigPtr->chEnAltAccel
+                    || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
+            {
+                uint8_t wrAccelRange = storedConfigPtr->altAccelRange;
+                if (ShimBrd_isGyroInUseIcm20948())
+                {
+                    if (ShimBrd_isWrAccelInUseIcm20948())
+                    {
+                        // Use setting design for WR accel - re-map to suit the ICM-20948
+                        wrAccelRange = storedConfigPtr->wrAccelRange;
+                        switch (wrAccelRange)
+                        {
+                        case 2:
+                            wrAccelRange = 1; // +-4g
+                            break;
+                        case 3:
+                            wrAccelRange = 2; // +-8g
+                            break;
+                        case 1:
+                            wrAccelRange = 3; // +-16g
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                    ICM20948_setAccelRange(wrAccelRange);
+                }
+                else if (ShimBrd_isGyroInUseMpu9x50())
+                {
+                    MPU9150_setAccelRange(wrAccelRange);
+                }
+            }
+        }
+        else
+        {
+            //For some reason it seems necessary to power on the gyro/accel core before trying to access the mag
+            //followed by one other I2C command (read or write)
+            //No idea why
+            //timing delays or other I2C commands to gyro/accel core do not seem to have the same effect?!?
+            //Only relevant first time mag is accessed after powering up MPU9150
+            if (ShimBrd_isGyroInUseIcm20948())
+            {
+                ICM20948_wake(0);
+            }
+            else if (ShimBrd_isGyroInUseMpu9x50())
+            {
+                MPU9150_wake(0);
+            }
+        }
+        if (storedConfigPtr->chEnAltMag
+            || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
+        {
+            if (ShimBrd_isGyroInUseIcm20948())
+            {
+                ICM20948_setMagSamplingRateFromShimmerRate(storedConfigPtr->samplingRateTicks);
+            }
+            else if (ShimBrd_isGyroInUseMpu9x50())
+            {
+                if (storedConfigPtr->samplingRateTicks >= clk_120)
+                {
+                    //max of approx. 3ms to sample everything + 9ms between starting mag to data ready
+                    //so 12ms in total (394 ticks of 32768Hz clock = 12.024ms) (3070 ticks of 255765.625Hz clock = 12.024ms)
+                    //so there is time to get the mag sampled before the readings need to start each sample period
+                    preSampleMpuMag = 1;
+                }
+                else
+                {
+                    MPU9150_startMagMeasurement();
+                    preSampleMpuMag = 0;
+                    mpuMagCount = mpuMagFreq = (clk_90
+                            / storedConfigPtr->samplingRateTicks)
+                            + 1;
+                }
+            }
         }
     }
-    shimmerStatus.sdLogging = 0;
 
-    SampleTimerStop();
+    if (!ShimBrd_isWrAccelInUseIcm20948()
+            && (storedConfigPtr->chEnMag
+            || storedConfigPtr->chEnWrAccel))
+    {
+        if (storedConfigPtr->chEnWrAccel)
+        {
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
+            {
+                LSM303DLHC_accelInit(
+                        storedConfigPtr->wrAccelRate, //sampling rate
+                        storedConfigPtr->wrAccelRange, //range
+                        storedConfigPtr->wrAccelLpModeLsb, //low power mode
+                        storedConfigPtr->wrAccelHrMode); //high resolution mode
+            }
+            else
+            {
+                LSM303AHTR_accelInit(
+                        storedConfigPtr->wrAccelRate, //sampling rate
+                        storedConfigPtr->wrAccelRange, //range
+                        storedConfigPtr->wrAccelLpModeLsb, //low power mode
+                        storedConfigPtr->wrAccelHrMode); //high resolution mode
+            }
+        }
+        if (storedConfigPtr->chEnMag)
+        {
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
+            {
+                LSM303DLHC_magInit(
+                        storedConfigPtr->magRateLsb, //sampling rate
+                        storedConfigPtr->magRange); //gain
+            }
+            else
+            {
+                LSM303AHTR_magInit(
+                        storedConfigPtr->magRateLsb); //sampling rate
+            }
+        }
+    }
+
+    if (storedConfigPtr->chEnPressureAndTemperature)
+    {
+        uint16_t bmpX80SamplingTimeTicks = getBmpX80SamplingTimeInTicks();
+        if (storedConfigPtr->samplingRateTicks >= (clk_30 + bmpX80SamplingTimeTicks))
+        {
+            preSampleBmpPress = 1;
+            bmpPressFreq = 1; //required for the calculation of sampleBmpTempFreq below
+        }
+        else
+        {
+            //sample, then check each sample period if ready to read. Start new sample immediately
+#if PRES_TS_EN
+            bmpTempStartTs = RTC_get64();
+#endif
+
+            BMPX80_startTempMeasurement();
+
+            preSampleBmpPress = 0;
+            bmpPressCount = bmpPressFreq = (bmpX80SamplingTimeTicks
+                    / storedConfigPtr->samplingRateTicks)
+                    + 1;
+        }
+        //only need to sample temp once a second at most
+        if (storedConfigPtr->samplingRateTicks >= clk_2500)
+        {
+            //less than 4Hz
+            //so every second sample must be temp
+            sampleBmpTemp = sampleBmpTempFreq = 1;
+        }
+        else
+        {
+            sampleBmpTemp = sampleBmpTempFreq = (uint8_t) ((ShimConfig_freqDiv(
+                    storedConfigPtr->samplingRateTicks) - 1)
+                    / bmpPressFreq);
+        }
+#if PRES_TS_EN
+        bmpPresInterval = bmpX80SamplingTimeTicks;
+        // TODO Set as 5.5ms here for BMP280 but datasheet recommends to set same as pressure channel
+        bmpTempInterval = (isBmp180InUse() ? clk_45 : clk_55);
+#endif
+        memset(bmpVal, 0, BMPX80_PACKET_SIZE);
+    }
+}
+
+void SPI_startSensing(void)
+{
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
+    /* ExG */
+    if (storedConfigPtr->chEnExg1_24Bit
+            || storedConfigPtr->chEnExg2_24Bit
+            || storedConfigPtr->chEnExg1_16Bit
+            || storedConfigPtr->chEnExg2_16Bit)
+    {
+        EXG_init();
+
+        if (storedConfigPtr->chEnExg1_24Bit
+                || storedConfigPtr->chEnExg1_16Bit)
+        {
+            EXG_writeRegs(0, ADS1292R_CONFIG1, 10,
+                          &storedConfigPtr->exgADS1292rRegsCh1.rawBytes[0]);
+        }
+
+        /* This second long delay was added to satisfy program flow requirements
+         * of the ADS1292R as per pg 63 of its datasheet. */
+        __delay_cycles(24000000);
+
+        if (storedConfigPtr->chEnExg2_24Bit
+                || storedConfigPtr->chEnExg2_16Bit)
+        {
+            EXG_writeRegs(1, ADS1292R_CONFIG1, 10,
+                          &storedConfigPtr->exgADS1292rRegsCh2.rawBytes[0]);
+        }
+        /* probably turning on internal reference, so wait for it to settle */
+        __delay_cycles(2400000); /* 100ms (assuming 24MHz clock) */
+
+        //probably setting the PGA gain so cancel the channel offset
+        if ((storedConfigPtr->chEnExg1_24Bit
+                || storedConfigPtr->chEnExg1_16Bit)
+                && (storedConfigPtr->exgADS1292rRegsCh1.resp2 & BIT7))
+        {
+            EXG_offsetCal(0);
+        }
+        if ((storedConfigPtr->chEnExg2_24Bit
+                || storedConfigPtr->chEnExg2_16Bit)
+                && (storedConfigPtr->exgADS1292rRegsCh2.resp2 & BIT7))
+        {
+            EXG_offsetCal(1);
+        }
+
+        if ((storedConfigPtr->chEnExg1_24Bit
+                || storedConfigPtr->chEnExg1_16Bit)
+                && (storedConfigPtr->chEnExg2_24Bit
+                        || storedConfigPtr->chEnExg2_16Bit))
+        {
+            EXG_start(2);
+        }
+        else if (storedConfigPtr->chEnExg1_24Bit
+                || storedConfigPtr->chEnExg1_16Bit)
+        {
+            EXG_start(0);
+        }
+        else
+        {
+            EXG_start(1);
+        }
+
+        if (ShimBrd_areADS1292RClockLinesTied())
+        {
+            /* Check if unit is SR47-4 or greater.
+             * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
+             * This ensures clock lines on ADS chip are correct
+             */
+            ADS1292_disableDrdyInterrupts(ADS1292_DRDY_INT_CHIP2);
+            adsClockTied = 1;
+        }
+
+    }
+}
+
+void ADC_stopSensing(void)
+{
     ADC_disable();
     DMA0_disable();
 
@@ -1198,8 +1062,13 @@ inline void StopSensing(void)
     //P8REN |= BIT6;      //enable pull down resistor
     //P8DIR &= ~BIT6;     //SW_ACCEL set as input
 
-    P3OUT &= ~BIT3;        //set EXP_RESET_N low
+    Board_setExpansionBrdPower(0);        //set EXP_RESET_N low
     P2OUT &= ~BIT0;        //set GPIO_INTERNAL1 low (strain)
+}
+
+void I2C_stopSensing(void)
+{
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
     if (storedConfigPtr->chEnGyro
             || storedConfigPtr->chEnAltAccel
@@ -1233,6 +1102,13 @@ inline void StopSensing(void)
         }
     }
 
+    I2C_stop(0);
+}
+
+void SPI_stopSensing(void)
+{
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
     if (storedConfigPtr->chEnExg1_24Bit
             || storedConfigPtr->chEnExg1_16Bit)
     {
@@ -1251,30 +1127,14 @@ inline void StopSensing(void)
     {
         EXG_powerOff();
     }
-    if (shimmerStatus.docked)
-    {
-        UART_activate();
-    }
+}
 
-    _delay_cycles(240000);
-    I2C_Disable();
-    P8OUT &= ~BIT4;         //set SW_I2C low to power off I2C chips
-    ShimTask_clear(TASK_STREAMDATA);
-    ShimTask_clear(TASK_SDWRITE);
-    sdBuffLen = 0;
-    ShimConfig_experimentLengthCntReset();
-#if SKIP65MS
-    skip65ms = 0;
-#endif
+void stopSensingWrapup(void)
+{
     ShimTask_clear(TASK_SAMPLE_BMPX80_PRESS);
     ShimTask_clear(TASK_SAMPLE_MPU9150_MAG);
-    if (ShimSd_isSdInfoSyncDelayed())
-    {
-        ShimSd_sdInfoSync();
-    }
-    _NOP();
-    shimmerStatus.configuring = 0;
 }
+
 
 void ADC_configureChannels(void)
 {
@@ -1386,18 +1246,18 @@ void ADC_configureChannels(void)
         sensing.dataLen += 2;
     }
 
+    sensing.nbrAdcChans += nbr_adc_chans;
+    sensing.ccLen += nbr_adc_chans;
+
     if (mask)
     {
         adcStartPtr = ADC_init(mask);
         DMA0_transferDoneFunction(&Dma0ConversionDone);
         if (adcStartPtr)
         {
-            DMA0_init(adcStartPtr, (uint16_t*) (txBuff0 + FIRST_CH_BYTE_IDX), nbr_adc_chans);
+            DMA0_init(adcStartPtr, (uint16_t*) &sensing.dataBuf[FIRST_CH_BYTE_IDX], sensing.nbrAdcChans);
         }
     }
-
-    sensing.nbrAdcChans += nbr_adc_chans;
-    sensing.ccLen += nbr_adc_chans;
 }
 
 void I2C_configureChannels(void)
@@ -1470,7 +1330,7 @@ void I2C_configureChannels(void)
     {
         *channel_contents_ptr++ = BMP_TEMPERATURE;
         *channel_contents_ptr++ = BMP_PRESSURE;
-        sensing.nbrDigiChans += 2;   //PRES & TEMP, ON/OFF together
+        nbr_i2c_chans += 2;   //PRES & TEMP, ON/OFF together
         sensing.ptr.pressure = sensing.dataLen;
         sensing.dataLen += BMPX80_PACKET_SIZE;
     }
@@ -1488,7 +1348,7 @@ void I2C_configureChannels(void)
     }
 
     sensing.ccLen += nbr_i2c_chans;
-    sensing.nbrDigiChans += nbr_i2c_chans;
+    sensing.nbrI2cChans = nbr_i2c_chans;
 }
 
 void SPI_configureChannels(void)
@@ -1535,7 +1395,7 @@ void SPI_configureChannels(void)
     }
 
     sensing.ccLen += nbr_spi_chans;
-    sensing.nbrDigiChans += nbr_spi_chans;
+    sensing.nbrSpiChans = nbr_spi_chans;
 }
 
 // Switch SW1, BT_RTS and BT connect/disconnect
@@ -1640,16 +1500,16 @@ __interrupt void Port1_ISR(void)
                     // toggles sensing and refresh BT timers (for the centre)
                     if (shimmerStatus.sensing)
                     {
-                        setStopSensingFlag(1U);
+                        shimmerStatus.sdlogCmd = SD_LOG_CMD_STATE_STOP;
+                        ShimTask_setStopSensing();
                         btsdSelfCmd = 1;
                     }
                     else
                     {
-                        if (shimmerStatus.sdlogReady && (!shimmerStatus.sdBadFile))
+                        if (shimmerStatus.sdlogReady && !shimmerStatus.sdBadFile)
                         {
-                            //startSensing = 1;
+                            shimmerStatus.sdlogCmd = SD_LOG_CMD_STATE_START;
                             ShimTask_setStartSensing();
-                            shimmerStatus.sdlogCmd = 1;
                         }
 
                         shimmerStatus.sensing = 1;
@@ -1874,7 +1734,7 @@ __interrupt void TIMER0_B1_ISR(void)
         {
             if (ShimConfig_checkAutostopCondition())
             {
-                setStopSensingFlag(1U);
+                ShimTask_setStopSensing();
                 btsdSelfCmd = 1;
             }
         }
@@ -2012,8 +1872,8 @@ __interrupt void TIMER0_B1_ISR(void)
                     {                           //sensing
                         // shimmerStatus.sdlogReady, shimmerStatus.btstreamReady, enableSdlog, enableBtstream
                         // btstream only
-                        if ((shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
-                                && !(shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
+                        if ((shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
+                                && !(shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2025,8 +1885,8 @@ __interrupt void TIMER0_B1_ISR(void)
                             Board_ledOff(LED_GREEN1);     // nothing to show
                         }
                         // sdlog only
-                        else if (!(shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
-                                && (shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
+                        else if (!(shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
+                                && (shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2038,8 +1898,8 @@ __interrupt void TIMER0_B1_ISR(void)
                             Board_ledOff(LED_BLUE);       // nothing to show
                         }
                         // btstream & sdlog
-                        else if ((shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady)
-                                && (shimmerStatus.sdlogReady && shimmerStatus.sdlogCmd))
+                        else if ((shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
+                                && (shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
                         {
                             if (!(blinkCnt20 % 10))
                             {
@@ -2285,7 +2145,7 @@ void SampleTimerStart(void)
     TB0Start();
 }
 
-inline void SampleTimerStop(void)
+void SampleTimerStop(void)
 {
     sampleTimerStatus = 0;
     TB0Stop();
@@ -2301,26 +2161,25 @@ __interrupt void TIMER0_B0_ISR(void)
     uint16_t timer_b0 = GetTB0();
     TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-    if (!streamDataInProc)
-    {
-        streamDataInProc = 1;
-        if (firstTsFlag == 1)
-        {
-            firstTs = RTC_get64();
-            firstTsFlag = 2;
-            *(uint32_t*) currentSampleTsTicks = (uint64_t) firstTs;
-        }
-        else
-        {
-            *(uint32_t*) currentSampleTsTicks = RTC_get32();
-        }
-
-        uint8_t *current_buffer_ptr = currentBuffer ? txBuff1 : txBuff0;
-        // The first byte is packet type byte when Bluetooth streaming
-        current_buffer_ptr[1] = currentSampleTsTicks[0];
-        current_buffer_ptr[2] = currentSampleTsTicks[1];
-        current_buffer_ptr[3] = currentSampleTsTicks[2];
-    }
+//    if (!streamDataInProc)
+//    {
+//        streamDataInProc = 1;
+//        if (firstTsFlag == 1)
+//        {
+//            firstTs = RTC_get64();
+//            firstTsFlag = 2;
+//            *(uint32_t*) currentSampleTsTicks = (uint64_t) firstTs;
+//        }
+//        else
+//        {
+//            *(uint32_t*) currentSampleTsTicks = RTC_get32();
+//        }
+//
+//        // The first byte is packet type byte when Bluetooth streaming
+//        sensing.dataBuf[1] = currentSampleTsTicks[0];
+//        sensing.dataBuf[2] = currentSampleTsTicks[1];
+//        sensing.dataBuf[3] = currentSampleTsTicks[2];
+//    }
     //start ADC conversion
     if (sensing.nbrAdcChans)
     {
@@ -2330,7 +2189,7 @@ __interrupt void TIMER0_B0_ISR(void)
     else
     {
         //no analog channels, so go straight to digital
-        ShimTask_set(TASK_STREAMDATA);
+        ShimSens_gatherData();
         __bic_SR_register_on_exit(LPM3_bits);
     }
 }
@@ -2347,148 +2206,19 @@ uint8_t Dma0ConversionDone(void)
     else
     {
         //Destination address for next transfer
-        if (currentBuffer)
-        {
-            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff0 + FIRST_CH_BYTE_IDX),
-                                sensing.nbrAdcChans);
-        }
-        else
-        {
-            DMA0_repeatTransfer(adcStartPtr, (uint16_t*) (txBuff1 + FIRST_CH_BYTE_IDX),
-                                sensing.nbrAdcChans);
-        }
+        DMA0_repeatTransfer(adcStartPtr, (uint16_t*) &sensing.dataBuf[FIRST_CH_BYTE_IDX],
+                            sensing.nbrAdcChans);
         ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
         DMA0_disable();
-        ShimTask_set(TASK_STREAMDATA);
+        ShimSens_gatherData();
+        ShimSens_adcCompleteCb();
     }
     return 1;
 }
 
-//void ProcessCommand(void)
-//{
-//    switch (gAction)
-//    {
-//    case START_STREAMING_COMMAND:
-//        shimmerStatus.btstreamCmd = 1;
-//        if (!shimmerStatus.sensing)
-//        {
-//            ShimTask_set(TASK_CFGCH);
-//            SetStartSensing();
-//        }
-//        break;
-//    case START_SDBT_COMMAND:
-//        if (!shimmerStatus.sensing)
-//        {
-//            ShimTask_set(TASK_CFGCH);
-//            SetStartSensing();
-//        }
-//        shimmerStatus.btstreamCmd = 1;
-//        if (shimmerStatus.sdlogReady && (!shimmerStatus.sdBadFile))
-//        {
-//            shimmerStatus.sdlogCmd = 1;
-//        }
-//        break;
-//    case START_LOGGING_COMMAND:
-//        if (shimmerStatus.sdlogReady && (!shimmerStatus.sdBadFile))
-//        {
-//            shimmerStatus.sdlogCmd = 1;
-//            if (!shimmerStatus.sensing)
-//            {
-//                SetStartSensing();
-//                ShimTask_set(TASK_CFGCH);
-//            }
-//        }
-//        break;
-//
-//}
-
 char *HAL_GetUID(void)
 {
     return dierecord;
-}
-
-void Timestamp0ToFirstFile()
-{
-    UINT bw;
-    uint32_t my_local_time_long;
-//   uint64_t rwc_curr_time_64;
-//   rwc_curr_time_64 = RTC_get64();
-    my_local_time_long = firstTs & 0xffffffff;
-
-    uint8_t *sdHeadTextPtr = ShimSdHead_getSdHeadText();
-
-    sdHeadTextPtr[SDH_MY_LOCALTIME_5TH] = (firstTs >> 32) & 0xff;
-
-    memcpy(sdHeadTextPtr + SDH_MY_LOCALTIME, (uint8_t*) &my_local_time_long, 4);
-//   fileLastHour = rwc_curr_time_64;
-//   fileLastMin = rwc_curr_time_64;
-// Write header to file
-    ff_result = f_write(&dataFile, sdHeadTextPtr, SD_HEAD_SIZE_S3, &bw);
-}
-
-FRESULT WriteFile(uint8_t *text, WORD size)
-{
-// Result code
-    FRESULT rc;
-    UINT bw;
-    uint32_t file_td_h, file_td_m;                //, my_local_time_long32
-    uint64_t local_time_40;
-
-    sensing.inSdWr = 1;
-    sensing.isSdOperating = 1;
-
-    local_time_40 = RTC_get64();
-    f_lseek(&dataFile, dataFile.fsize);                // seek to end of file, no spi op
-    rc = f_write(&dataFile, text, size, &bw);                // Write to file
-
-    file_td_h = local_time_40 - fileLastHour;
-    file_td_m = local_time_40 - fileLastMin;
-
-    //create a new file (from 000 up) every 1h
-    if (file_td_h >= BIN_FILE_SPLIT_TIME_TICKS)
-    {
-        fileLastHour = fileLastMin = local_time_40;
-        rc = f_close(&dataFile);
-        //file number:from 000 up
-        fileNum++;
-
-        //avoid using printf()
-        ShimSd_fileNamePtrGet()[dirLen + 3] = (char) (((int) '0') + fileNum % 10);
-        ShimSd_fileNamePtrGet()[dirLen + 2] = (char) (((int) '0') + (fileNum / 10) % 10);
-        ShimSd_fileNamePtrGet()[dirLen + 1] = (char) (((int) '0') + (fileNum / 100) % 10);
-
-        f_open(&dataFile, (char*) ShimSd_fileNamePtrGet(), FA_WRITE | FA_CREATE_NEW);
-
-        //      my_local_time_long32 = local_time_40 & 0xffffffff;
-        //      sdHeadText[SDH_MY_LOCALTIME_5TH] = (local_time_40>>32) & 0xff;
-        //      memcpy(&sdHeadText[SDH_MY_LOCALTIME], (uint8_t*)&my_local_time_long32, 4);
-        //      fileLastMin = local_time_40;
-        //      f_write(&fil, sdHeadText, SDHEAD_LEN, &bw);        // Write head to file
-        firstTsFlag = 1;
-        streamDataInProc = 0;
-        ShimTask_clear(TASK_STREAMDATA);
-    }
-    // sync data to SD card every 1 min
-    else if (file_td_m >= BIN_FILE_SYNC_TIME_TICKS)
-    {
-        fileLastMin = local_time_40;
-        f_sync(&dataFile);
-    }
-    sensing.isSdOperating = 0;
-
-    ff_result = rc;
-
-    sensing.inSdWr = 0;
-    sensing.inSdWrCnt = 0;
-
-    return rc;
-}
-
-void PrepareSDBuffHead(void)
-{
-    memcpy(sdBuff + sdBuffLen, ShimSdSync_myTimeDiffPtrGet(), SYNC_PACKET_PAYLOAD_SIZE);
-    sdBuffLen += SYNC_PACKET_PAYLOAD_SIZE;
-    ShimSdSync_resetMyTimeDiff();
 }
 
 // GSR
@@ -2504,42 +2234,21 @@ void GsrRange()
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
 // GSR channel will always be last ADC channel
-    if (currentBuffer == 0)
+    ADC_val = *((uint16_t*) &sensing.dataBuf[sensing.ptr.gsr]);
+    if (storedConfigPtr->gsrRange == GSR_AUTORANGE)
     {
-        ADC_val = *((uint16_t*) txBuff0 + (sensing.nbrAdcChans - 1) + 2);
-        if (storedConfigPtr->gsrRange == GSR_AUTORANGE)
+        if (GSR_smoothTransition(
+                &current_active_resistor,
+                storedConfigPtr->samplingRateTicks))
         {
-            if (GSR_smoothTransition(
-                    &current_active_resistor,
-                    storedConfigPtr->samplingRateTicks))
-            {
-                ADC_val = lastGsrVal;
-            }
-            else
-                gsrActiveResistor = GSR_controlRange(ADC_val,
-                                                     gsrActiveResistor);
+            ADC_val = lastGsrVal;
         }
-        *((uint16_t*) txBuff0 + (sensing.nbrAdcChans - 1) + 2) = ADC_val
-                | (current_active_resistor << 14);
+        else
+            gsrActiveResistor = GSR_controlRange(ADC_val,
+                                                 gsrActiveResistor);
     }
-    else
-    {
-        ADC_val = *((uint16_t*) txBuff1 + (sensing.nbrAdcChans - 1) + 2);
-        if (storedConfigPtr->gsrRange == GSR_AUTORANGE)
-        {
-            if (GSR_smoothTransition(
-                    &current_active_resistor,
-                    storedConfigPtr->samplingRateTicks))
-            {
-                ADC_val = lastGsrVal;
-            }
-            else
-                gsrActiveResistor = GSR_controlRange(ADC_val,
-                                                     gsrActiveResistor);
-        }
-        *((uint16_t*) txBuff1 + (sensing.nbrAdcChans - 1) + 2) = ADC_val
-                | (current_active_resistor << 14);
-    }
+    *((uint16_t*) &sensing.dataBuf[sensing.ptr.gsr]) = ADC_val
+            | (current_active_resistor << 14);
 
     lastGsrVal = ADC_val;
 }
@@ -2588,7 +2297,7 @@ void SetupDock()
         }
         if (!shimmerStatus.sensing)
         {
-            UART_activate();
+            DockUart_enable();
         }
         ShimBt_btsdSelfcmd();
     }
@@ -2597,7 +2306,7 @@ void SetupDock()
         ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
         if (!shimmerStatus.sensing)
         {
-            UART_deactivate();
+            DockUart_disable();
         }
         P6OUT |= BIT0;
         ShimBt_btsdSelfcmd();
@@ -2633,19 +2342,19 @@ void RwcCheck(void)
 #endif
 }
 
-void StreamData()
+void ADC_gatherDataStart(void)
 {
     gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-    uint8_t *current_buffer_ptr, *other_buffer_ptr;
 
-    current_buffer_ptr = currentBuffer ? txBuff1 : txBuff0;
-    other_buffer_ptr = currentBuffer ? txBuff0 : txBuff1;
-
-    uint8_t digi_offset = (sensing.nbrAdcChans * 2) + FIRST_CH_BYTE_IDX;
     if (storedConfigPtr->chEnGsr)
     {
         GsrRange();
     }
+}
+
+void I2C_pollSensors(void)
+{
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
     // Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
     if (isIcm20948AccelEn && isIcm20948GyroEn)
@@ -2665,18 +2374,17 @@ void StreamData()
     {
         if (ShimBrd_isGyroInUseIcm20948())
         {
-            current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U + 6U];
-            current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U + 6U];
-            current_buffer_ptr[digi_offset + 2U] = icm20948AccelGyroBuf[2U + 6U];
-            current_buffer_ptr[digi_offset + 3U] = icm20948AccelGyroBuf[3U + 6U];
-            current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U + 6U];
-            current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 0U] = icm20948AccelGyroBuf[0U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 1U] = icm20948AccelGyroBuf[1U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 2U] = icm20948AccelGyroBuf[2U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 3U] = icm20948AccelGyroBuf[3U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 4U] = icm20948AccelGyroBuf[4U + 6U];
+            sensing.dataBuf[sensing.ptr.gyro + 5U] = icm20948AccelGyroBuf[5U + 6U];
         }
         else if (ShimBrd_isGyroInUseMpu9x50())
         {
-            MPU9150_getGyro(current_buffer_ptr + digi_offset);
+            MPU9150_getGyro(&sensing.dataBuf[sensing.ptr.gyro]);
         }
-        digi_offset += 6;
     }
 
     uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = {0};
@@ -2689,9 +2397,9 @@ void StreamData()
             /* This system tries to avoid lock-up scenario in the ICM20948 Mag
              * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
              * if the chip was being read from too often. */
-            if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(*(uint32_t*)currentSampleTsTicks))
+            if(icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(sensing.latestTs))
             {
-                icm20948MagRdy = ICM20948_getMagAndStatus(*(uint32_t*)currentSampleTsTicks, &icm20948MagBuf[0]);
+                icm20948MagRdy = ICM20948_getMagAndStatus(sensing.latestTs, &icm20948MagBuf[0]);
             }
         }
         else
@@ -2712,29 +2420,28 @@ void StreamData()
         if(ShimBrd_isWrAccelInUseIcm20948())
         {
             // Swap byte order to immitate LSM303 chip
-            current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[1U];
-            current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[0U];
+            sensing.dataBuf[sensing.ptr.accel2 + 0U] = icm20948AccelGyroBuf[1U];
+            sensing.dataBuf[sensing.ptr.accel2 + 1U] = icm20948AccelGyroBuf[0U];
 
             //Invert sign of uncalibrated Y-axis to match LSM303 chip placement
             int16_t signInvertBuffer = - ((int16_t)((icm20948AccelGyroBuf[3U] << 8) | icm20948AccelGyroBuf[2U]));
-            current_buffer_ptr[digi_offset + 2U] = (signInvertBuffer >> 8) & 0xFF;
-            current_buffer_ptr[digi_offset + 3U] = signInvertBuffer & 0xFF;
+            sensing.dataBuf[sensing.ptr.accel2 + 2U] = (signInvertBuffer >> 8) & 0xFF;
+            sensing.dataBuf[sensing.ptr.accel2 + 3U] = signInvertBuffer & 0xFF;
 
-            current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[5U];
-            current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[4U];
+            sensing.dataBuf[sensing.ptr.accel2 + 4U] = icm20948AccelGyroBuf[5U];
+            sensing.dataBuf[sensing.ptr.accel2 + 5U] = icm20948AccelGyroBuf[4U];
         }
         else
         {
             if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
-                LSM303DLHC_getAccel(current_buffer_ptr + digi_offset);
+                LSM303DLHC_getAccel(&sensing.dataBuf[sensing.ptr.accel2]);
             }
             else
             {
-                LSM303AHTR_getAccel(current_buffer_ptr + digi_offset);
+                LSM303AHTR_getAccel(&sensing.dataBuf[sensing.ptr.accel2]);
             }
         }
-        digi_offset += 6;
     }
 
     if (storedConfigPtr->chEnMag)
@@ -2743,52 +2450,49 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+                sensing.dataBuf[sensing.ptr.mag1 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                sensing.dataBuf[sensing.ptr.mag1 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
 
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+                sensing.dataBuf[sensing.ptr.mag1 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                sensing.dataBuf[sensing.ptr.mag1 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
 
                 //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
                 int16_t signInvertBuffer = - ((int16_t)((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8) | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
-                current_buffer_ptr[digi_offset + 4U] = signInvertBuffer & 0xFF;
-                current_buffer_ptr[digi_offset + 5U] = (signInvertBuffer >> 8) & 0xFF;
+                sensing.dataBuf[sensing.ptr.mag1 + 4U] = signInvertBuffer & 0xFF;
+                sensing.dataBuf[sensing.ptr.mag1 + 5U] = (signInvertBuffer >> 8) & 0xFF;
             }
             else
             {
                 //Mag not ready, repeat last sample
-                memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
         else
         {
             if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
-                LSM303DLHC_getMag(current_buffer_ptr + digi_offset);
+                LSM303DLHC_getMag(&sensing.dataBuf[sensing.ptr.mag1]);
             }
             else
             {
-                LSM303AHTR_getMag(current_buffer_ptr + digi_offset);
+                LSM303AHTR_getMag(&sensing.dataBuf[sensing.ptr.mag1]);
             }
         }
-        digi_offset += 6;
     }
     if (storedConfigPtr->chEnAltAccel)
     {
         if (ShimBrd_isGyroInUseIcm20948())
         {
-            current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U];
-            current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U];
-            current_buffer_ptr[digi_offset + 2U] = icm20948AccelGyroBuf[2U];
-            current_buffer_ptr[digi_offset + 3U] = icm20948AccelGyroBuf[3U];
-            current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U];
-            current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U];
+            sensing.dataBuf[sensing.ptr.accel3 + 0U] = icm20948AccelGyroBuf[0U];
+            sensing.dataBuf[sensing.ptr.accel3 + 1U] = icm20948AccelGyroBuf[1U];
+            sensing.dataBuf[sensing.ptr.accel3 + 2U] = icm20948AccelGyroBuf[2U];
+            sensing.dataBuf[sensing.ptr.accel3 + 3U] = icm20948AccelGyroBuf[3U];
+            sensing.dataBuf[sensing.ptr.accel3 + 4U] = icm20948AccelGyroBuf[4U];
+            sensing.dataBuf[sensing.ptr.accel3 + 5U] = icm20948AccelGyroBuf[5U];
         }
         else if (ShimBrd_isGyroInUseMpu9x50())
         {
-            MPU9150_getAccel(current_buffer_ptr + digi_offset);
+            MPU9150_getAccel(&sensing.dataBuf[sensing.ptr.accel3]);
         }
-        digi_offset += 6;
     }
     if (storedConfigPtr->chEnAltMag)
     {
@@ -2796,38 +2500,35 @@ void StreamData()
         {
             if(icm20948MagRdy)
             {
-                current_buffer_ptr[digi_offset + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-                current_buffer_ptr[digi_offset + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
-                current_buffer_ptr[digi_offset + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-                current_buffer_ptr[digi_offset + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
-                current_buffer_ptr[digi_offset + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
-                current_buffer_ptr[digi_offset + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
+                sensing.dataBuf[sensing.ptr.mag2 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+                sensing.dataBuf[sensing.ptr.mag2 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+                sensing.dataBuf[sensing.ptr.mag2 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+                sensing.dataBuf[sensing.ptr.mag2 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+                sensing.dataBuf[sensing.ptr.mag2 + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
+                sensing.dataBuf[sensing.ptr.mag2 + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
             }
             else
             {
                 //Mag not ready, repeat last sample
-                memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
         else if (ShimBrd_isGyroInUseMpu9x50())
         {
             if (preSampleMpuMag)
             {
-                MPU9150_getMag(current_buffer_ptr + digi_offset);
+                MPU9150_getMag(&sensing.dataBuf[sensing.ptr.mag2]);
             }
             else if (!mpuMagCount--)
             {
-                MPU9150_getMag(current_buffer_ptr + digi_offset);
+                MPU9150_getMag(&sensing.dataBuf[sensing.ptr.mag2]);
                 mpuMagCount = mpuMagFreq;
                 MPU9150_startMagMeasurement();
             }
             else
             {
                 //Mag not ready, repeat last sample
-                memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
-        digi_offset += 6;
     }
     if (storedConfigPtr->chEnPressureAndTemperature)
     {
@@ -2927,155 +2628,37 @@ void StreamData()
             }
             bmpPressCount = bmpPressFreq;
         }
-        memcpy(current_buffer_ptr + digi_offset, bmpVal, BMPX80_PACKET_SIZE);
-        digi_offset += BMPX80_PACKET_SIZE;
+        memcpy(&sensing.dataBuf[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
     }
+
+    ShimSens_i2cCompleteCb();
+}
+
+void SPI_pollSensors(void)
+{
+    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+
     if (storedConfigPtr->chEnExg1_24Bit)
     {
-        EXG_readData(0, 0, current_buffer_ptr + digi_offset);
-        digi_offset += 7;
+        EXG_readData(0, 0, &sensing.dataBuf[sensing.ptr.exg1]);
     }
     else if (storedConfigPtr->chEnExg1_16Bit)
     {
-        EXG_readData(0, 1, current_buffer_ptr + digi_offset);
-        digi_offset += 5;
+        EXG_readData(0, 1, &sensing.dataBuf[sensing.ptr.exg1]);
     }
     if (storedConfigPtr->chEnExg2_24Bit)
     {
-        EXG_readData(1, 0, current_buffer_ptr + digi_offset);
-        if (!((*(current_buffer_ptr + digi_offset + 1) == 0x00)
-                || (*(current_buffer_ptr + digi_offset + 1) == 0xff)))
+        EXG_readData(1, 0, &sensing.dataBuf[sensing.ptr.exg2]);
+        if (!(sensing.dataBuf[sensing.ptr.exg2 + 1] == 0x00
+                || sensing.dataBuf[sensing.ptr.exg2 + 1] == 0xff))
             _NOP();
-        digi_offset += 7;
     }
     else if (storedConfigPtr->chEnExg2_16Bit)
     {
-        EXG_readData(1, 1, current_buffer_ptr + digi_offset);
-        digi_offset += 5;
+        EXG_readData(1, 1, &sensing.dataBuf[sensing.ptr.exg2]);
     }
 
-    currentBuffer = !currentBuffer;
-
-    shimmerStatus.btStreaming = shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady;
-    shimmerStatus.sdLogging = shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady;
-
-//uint8_t self_stop_sensing = 0;
-    if (stopLogging)
-    {
-        stopLogging = 0;
-        if (shimmerStatus.sdLogging)
-        {
-            if (!shimmerStatus.btStreaming)
-            {
-                setStopSensingFlag(1U);
-            }
-            else
-            {
-                shimmerStatus.sdLogging = 0;
-                sensing.isFileCreated = 0;
-                f_close(&dataFile);
-                _delay_cycles(1200000);
-                SdPowerOff();
-                shimmerStatus.sdlogCmd = 0;
-            }
-        }
-    }
-
-    if (stopStreaming)
-    {
-        stopStreaming = 0;
-        if (shimmerStatus.btStreaming)
-        {
-            shimmerStatus.btstreamCmd = 0;
-            shimmerStatus.btStreaming = 0;
-            if (!shimmerStatus.sdLogging)
-            {
-                setStopSensingFlag(1U);
-            }
-        }
-    }
-
-    if (stopSensing)
-    {
-        setStopSensingFlag(0);
-        StopSensing();
-
-        if (shimmerStatus.sdSyncEnabled)
-        {
-            ShimSdSync_stop();
-        }
-    }
-    else
-    { //here does the log and stream job
-#if SKIP65MS
-        if (Skip65ms())
-        {
-            firstTsFlag = 1; // has to re collect the init_ts
-            return;
-        }
-#endif
-        if (shimmerStatus.sdlogCmd && shimmerStatus.sdlogReady)
-        {
-            if (firstTsFlag == 2)
-            {
-                firstTsFlag = 3;
-                Timestamp0ToFirstFile();
-            }
-
-            memcpy(sdBuff + sdBuffLen, current_buffer_ptr + 1, digi_offset - 1);
-            sdBuffLen += digi_offset - 1;
-        }
-
-        if (shimmerStatus.btstreamCmd && shimmerStatus.btstreamReady
-                && shimmerStatus.btConnected
-                && !shimmerStatus.sdSyncEnabled)
-        {
-            uint8_t crcMode = ShimBt_getCrcMode();
-            if (crcMode != CRC_OFF)
-            {
-                calculateCrcAndInsert(crcMode, current_buffer_ptr, digi_offset);
-                digi_offset += crcMode;
-            }
-            ShimBt_writeToTxBufAndSend(current_buffer_ptr, digi_offset, SENSOR_DATA);
-        }
-    }
-}
-
-uint8_t Skip65ms()
-{
-    if (!skip65ms)
-    {
-        return 0;
-    }
-    if (skip65ms == 1)
-    {
-        startSensingTs64 = RTC_get64();
-        skip65ms = 2;
-    }
-    else
-    {
-        uint64_t ts_64 = RTC_get64();
-        if ((ts_64 - startSensingTs64) > 2130)
-        { // 2130 - 65 ms, 1638 - 50 ms
-            skip65ms = 0;
-            return 0;
-        }
-    }
-    return 1;
-}
-
-void Write2SD()
-{
-    if (sdBuffLen)
-    {
-        WriteFile(sdBuff, sdBuffLen);
-        sdBuffLen = 0;
-    }
-
-    if (shimmerStatus.sdSyncEnabled)
-    {
-        PrepareSDBuffHead();
-    }
+    ShimSens_spiCompleteCb();
 }
 
 void BattBlinkOn()
@@ -3307,17 +2890,6 @@ void manageReadBatt(uint8_t isBlockingRead)
     ShimSens_configureChannels();
 
     saveBatteryVoltageAndUpdateStatus();
-
-    // 10% Battery cutoff point - v0.9.6 onwards
-    if (ShimConfig_getStoredConfig()->lowBatteryAutoStop
-            && (batteryStatus.battStatusRaw.adcBattVal < BATT_CUTOFF_3_65VOLTS))
-    {
-        ShimBatt_incrementBatteryCriticalCount();
-        if (ShimBatt_checkIfBatteryCritical() && shimmerStatus.sensing)
-        {
-            setStopSensingFlag(1U);
-        }
-    }
 }
 
 void saveBatteryVoltageAndUpdateStatus(void)
@@ -3331,13 +2903,13 @@ void saveBatteryVoltageAndUpdateStatus(void)
                         LM3658SD_STAT2 ? 1 : 0);
 }
 
-void StartLogging(void)
-{
-    ShimSd_fileInit();
-    sdBuffLen = 0;
-    firstTsFlag = 1;
-    fileLastHour = fileLastMin = RTC_get64();
-}
+//void StartLogging(void)
+//{
+//    ShimSd_fileInit();
+//    sdBuffLen = 0;
+//    firstTsFlag = 1;
+//    fileLastHour = fileLastMin = RTC_get64();
+//}
 
 void setSamplingClkSource(float samplingClock)
 {
