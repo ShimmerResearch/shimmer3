@@ -185,7 +185,7 @@ void bt_module_test(void)
         send_test_report("BT Module:\r\n");
 
         send_test_report(" - MAC ID: ");
-        ShimBt_macAddressAsciiGet(buffer);
+        memcpy(&buffer[0], ShimBt_macIdStrPtrGet(), 12);
         sprintf(&buffer[12], "\r\n");
         send_test_report(buffer);
 
