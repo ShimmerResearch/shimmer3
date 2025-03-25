@@ -203,11 +203,11 @@ void Board_init(void) {
  * @return none
  ******************************************************************************/
 inline void Board_ledOn(uint8_t ledMask) {
-   if (ledMask & LED_RED)        P7OUT |= BIT2;
-   if (ledMask & LED_GREEN0)     P7OUT |= BIT3;
-   if (ledMask & LED_GREEN1)     P1OUT |= BIT1;
-   if (ledMask & LED_YELLOW)     P8OUT |= BIT0;
-   if (ledMask & LED_BLUE)       P1OUT |= BIT2;
+   if (ledMask & LED_LWR_RED)       P7OUT |= BIT2;
+   if (ledMask & LED_LWR_GREEN)     P7OUT |= BIT3;
+   if (ledMask & LED_UPR_GREEN)     P1OUT |= BIT1;
+   if (ledMask & LED_LWR_YELLOW)    P8OUT |= BIT0;
+   if (ledMask & LED_UPR_BLUE)      P1OUT |= BIT2;
 }
 
 
@@ -217,11 +217,11 @@ inline void Board_ledOn(uint8_t ledMask) {
  * @return none
  ******************************************************************************/
 inline void Board_ledOff(uint8_t ledMask) {
-   if (ledMask & LED_RED)        P7OUT &= ~BIT2;
-   if (ledMask & LED_GREEN0)     P7OUT &= ~BIT3;
-   if (ledMask & LED_GREEN1)     P1OUT &= ~BIT1;
-   if (ledMask & LED_YELLOW)     P8OUT &= ~BIT0;
-   if (ledMask & LED_BLUE)       P1OUT &= ~BIT2;
+   if (ledMask & LED_LWR_RED)       P7OUT &= ~BIT2;
+   if (ledMask & LED_LWR_GREEN)     P7OUT &= ~BIT3;
+   if (ledMask & LED_UPR_GREEN)     P1OUT &= ~BIT1;
+   if (ledMask & LED_LWR_YELLOW)    P8OUT &= ~BIT0;
+   if (ledMask & LED_UPR_BLUE)      P1OUT &= ~BIT2;
 }
 
 
@@ -231,11 +231,11 @@ inline void Board_ledOff(uint8_t ledMask) {
  * @return none
  ******************************************************************************/
 inline void Board_ledToggle(uint8_t ledMask) {
-   if (ledMask & LED_RED)        P7OUT ^= BIT2;
-   if (ledMask & LED_GREEN0)     P7OUT ^= BIT3;
-   if (ledMask & LED_GREEN1)     P1OUT ^= BIT1;
-   if (ledMask & LED_YELLOW)     P8OUT ^= BIT0;
-   if (ledMask & LED_BLUE)       P1OUT ^= BIT2;
+   if (ledMask & LED_LWR_RED)       P7OUT ^= BIT2;
+   if (ledMask & LED_LWR_GREEN)     P7OUT ^= BIT3;
+   if (ledMask & LED_UPR_GREEN)     P1OUT ^= BIT1;
+   if (ledMask & LED_LWR_YELLOW)    P8OUT ^= BIT0;
+   if (ledMask & LED_UPR_BLUE)      P1OUT ^= BIT2;
 }
 
 /***************************************************************************//**

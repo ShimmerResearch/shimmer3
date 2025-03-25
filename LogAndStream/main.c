@@ -69,6 +69,7 @@
 #include "i2c.h"
 #include "spi.h"
 #include "adc.h"
+#include "led.h"
 
 #include "shimmer_btsd.h"
 #include "log_and_stream_globals.h"
@@ -99,11 +100,9 @@ void TB0Start();
 void TB0Stop();
 void ChargeStatusTimerStart(void);
 void ChargeStatusTimerStop(void);
-void BattBlinkOn();
 void ClkAssignment();
 uint16_t FreqProd(uint16_t samplingFreq);
 float samplingClockFreqGet(void);
-void RwcCheck(void);
 void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
@@ -117,18 +116,14 @@ void updateBtDetailsInEeprom(void);
 
 /* should be 0 */
 #define PRESS2UNDOCK        0
-#define RTC_OFF             0
 #define IS_SUPPORTED_TCXO   0
 
-uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash;
+uint8_t btsdSelfCmd;
 
 uint64_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
 uint8_t watchDogWasOnDuringBtStart;
 
-uint16_t blinkCnt10, blinkCnt20, blinkCnt50;
-
-volatile uint8_t fileBadCnt;
 FRESULT ff_result;
 
 /*battery evaluation vars*/
@@ -203,14 +198,12 @@ void Init(void)
     ShimTask_init();
     ShimTask_set(TASK_BATT_READ);
 
-    buttonLastReleaseTs = 0;
-    rwcErrorFlash = 0;
+    LED_varsInit();
 
-    lastLedGroup2 = 0;
+    buttonLastReleaseTs = 0;
+
     btsdSelfCmd = 0;
     battLastTs64 = 0;
-    blinkCnt10 = blinkCnt20 = blinkCnt50 = 0;
-    fileBadCnt = 0;
 
     memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
 
@@ -313,7 +306,7 @@ void handleIfDockedStateOnBoot(void)
     if (0)
     {
 #else
-    if (P2IN & BIT3)
+    if (BOARD_IS_DOCKED)
     {
 #endif
         ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
@@ -350,17 +343,17 @@ void sleepWhenNoTask(void)
 void checkSetupDock(void)
 {
     if (!shimmerStatus.configuring && !sensing.inSdWr
-            && ((P2IN & BIT3)
+            && (BOARD_IS_DOCKED
                     || ((RTC_get64() - time_newUnDockEvent)
                             > TIMEOUT_100_MS)))
     {
-        if (shimmerStatus.docked != ((P2IN & BIT3) >> 3))
+        if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
         {
-            shimmerStatus.docked = ((P2IN & BIT3) >> 3);
+            shimmerStatus.docked = (BOARD_IS_DOCKED >> 3);
             SetupDock();
         }
 
-        if (shimmerStatus.docked != ((P2IN & BIT3) >> 3))
+        if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
         {
             ShimTask_set(TASK_SETUP_DOCK);
         }
@@ -625,13 +618,13 @@ __interrupt void Port1_ISR(void)
 
         //BUTTON_SW1
     case P1IV_P1IFG6:
-        if (!(P1IN & BIT6))
+        if (!BOARD_IS_BTN_RELEASED)
         {   //button pressed
             P1IES &= ~BIT6;   //select rising edge trigger, wait for release
             shimmerStatus.buttonPressed = 1;
             buttonPressTs = RTC_get64();
 
-            Board_ledOn(LED_GREEN0);
+            Board_ledOn(LED_LWR_GREEN);
         }
         else
         { //button released
@@ -735,7 +728,7 @@ __interrupt void Port2_ISR(void)
         ShimBatt_resetBatteryChargingStatus();
         if (!undockEvent)
         {
-            if (!(P2IN & BIT3)) // undocked
+            if (!BOARD_IS_DOCKED) // undocked
             {
                 undockEvent = 1;
                 ShimBatt_setBattCritical(0);
@@ -745,7 +738,7 @@ __interrupt void Port2_ISR(void)
             if (!shimmerStatus.sensing)
                 __bic_SR_register_on_exit(LPM3_bits);
         }
-        if (P2IN & BIT3)
+        if (BOARD_IS_DOCKED)
         {
             P2IES |= BIT3;       //look for falling edge
             shimmerStatus.sdlogReady = 0;
@@ -870,32 +863,17 @@ __interrupt void TIMER0_B1_ISR(void)
         // for LED blink usage details, please check shimmer user manual
         // clk_1000 = 100.0 ms = 0.1s
         TB0CCR3 += clk_1000;
-        if (blinkCnt50++ == 49)
-            blinkCnt50 = 0;
 
-        if (blinkCnt20++ == 19)
-        {
-            blinkCnt20 = 0;
-        }
+        LED_incrementCounters();
 
         if (bootStage != BOOT_STAGE_END)
         {
-            switch (bootStage)
-            {
-            case BOOT_STAGE_I2C:
-                Board_ledToggle(LED_RED);
-                break;
-            case BOOT_STAGE_BLUETOOTH_FAILURE:
-                Board_ledToggle(LED_YELLOW);
-                break;
-            default:
-                break;
-            }
+            LED_controlDuringBoot(bootStage);
             return;
         }
 
         /* SDLog handles auto-stop in TIMER0_A1_VECTOR whereas LogAndStream handles it in TIMER0_B1_VECTOR */
-        if (blinkCnt20 % 10 == 0)
+        if (LED_isBlinkCntTime1s())
         {
             if (ShimConfig_checkAutostopCondition())
             {
@@ -921,252 +899,7 @@ __interrupt void TIMER0_B1_ISR(void)
 
         if (blinkStatus && !shimmerStatus.initialising)
         {
-            // below are settings for green0, yellow and red leds, battery charge status
-            if (shimmerStatus.toggleLedRedCmd)
-            {
-                Board_ledOff(LED_GREEN0 + LED_YELLOW);
-                Board_ledOn(LED_RED);
-            }
-            else if (P2IN & BIT3) // Docked
-            {
-                Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
-                if (batteryStatus.battStatLedCharging != LED_ALL_OFF)
-                {
-                    if (batteryStatus.battStatLedFlash)
-                    {
-                        Board_ledToggle(batteryStatus.battStatLedCharging);
-                    }
-                    else
-                    {
-                        Board_ledOn(batteryStatus.battStatLedCharging);
-                    }
-                }
-            }
-            else
-            {
-                Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
-                if (!blinkCnt50)
-                {
-                    BattBlinkOn();
-                }
-            }
-
-            // code for keeping LED_GREEN0 on when user button pressed
-            if ((!(P1IN & BIT6)))
-            {
-                Board_ledOn(LED_GREEN0);
-            }
-
-            // below are settings for green1, blue, yellow and red leds
-
-            if (!shimmerStatus.docked
-                    && (shimmerStatus.sdBadFile || !shimmerStatus.sdInserted)
-                    && ShimConfig_getStoredConfig()->sdErrorEnable)
-            {   // bad file = yellow/red alternating
-                if (fileBadCnt-- > 0)
-                {
-                    if (fileBadCnt & 0x01)
-                    {
-                        Board_ledOn(LED_YELLOW);
-                        Board_ledOff(LED_RED);
-                    }
-                    else
-                    {
-                        Board_ledOff(LED_YELLOW);
-                        Board_ledOn(LED_RED);
-                    }
-                }
-                else
-                {
-                    fileBadCnt = 255;
-                    Board_ledOn(LED_YELLOW);
-                    Board_ledOff(LED_RED);
-                }
-            }
-            if (rwcErrorFlash && (!shimmerStatus.sensing))
-            {
-                if (!(P1OUT & BIT1))
-                {
-                    Board_ledOn(LED_GREEN1);
-                    Board_ledOff(LED_BLUE);
-                }
-                else
-                {
-                    Board_ledOff(LED_GREEN1);
-                    Board_ledOn(LED_BLUE);
-                }
-            }
-            else
-            {
-                if (shimmerStatus.btSupportEnabled
-                         && !shimmerStatus.sdSyncEnabled)
-                {
-                    if (!shimmerStatus.sensing)
-                    { //standby or configuring
-                        if (shimmerStatus.configuring)
-                        { //configuring
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                        else if (shimmerStatus.btConnected && !shimmerStatus.configuring)
-                        {
-                            Board_ledOn(LED_BLUE);
-                            Board_ledOff(LED_GREEN1);     // nothing to show
-                        }
-                        else if (isRn4678ConnectionEstablished())
-                        {
-                            /* BT connection established but RFComm not open */
-                            if (P1OUT & BIT2)
-                                Board_ledOff(LED_BLUE);
-                            else
-                                Board_ledOn(LED_BLUE);
-                            Board_ledOff(LED_GREEN1);         // nothing to show
-                        }
-                        else
-                        {                           //standby
-                            if (!blinkCnt20)
-                                Board_ledOn(LED_BLUE);
-                            else
-                                Board_ledOff(LED_BLUE);
-                            Board_ledOff(LED_GREEN1);         // nothing to show
-                        }
-                    }
-                    else
-                    {                           //sensing
-                        // shimmerStatus.sdlogReady, shimmerStatus.btstreamReady, enableSdlog, enableBtstream
-                        // btstream only
-                        if ((shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
-                                && !(shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
-                        {
-                            if (!(blinkCnt20 % 10))
-                            {
-                                if (!(P1OUT & BIT2))
-                                    Board_ledOn(LED_BLUE);
-                                else
-                                    Board_ledOff(LED_BLUE);
-                            }
-                            Board_ledOff(LED_GREEN1);     // nothing to show
-                        }
-                        // sdlog only
-                        else if (!(shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
-                                && (shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
-                        {
-                            if (!(blinkCnt20 % 10))
-                            {
-                                if (!(P1OUT & BIT1))
-                                    Board_ledOn(LED_GREEN1);
-                                else
-                                    Board_ledOff(LED_GREEN1);
-                            }
-                            Board_ledOff(LED_BLUE);       // nothing to show
-                        }
-                        // btstream & sdlog
-                        else if ((shimmerStatus.btStreaming && shimmerStatus.btstreamReady)
-                                && (shimmerStatus.sdlogReady && shimmerStatus.sdLogging))
-                        {
-                            if (!(blinkCnt20 % 10))
-                            {
-                                if ((P1OUT & BIT2) || (P1OUT & BIT1))
-                                    Board_ledOff(LED_BLUE + LED_GREEN1);
-                                else
-                                {
-                                    if (lastLedGroup2)
-                                    {
-                                        Board_ledOn(LED_BLUE);
-                                        lastLedGroup2 ^= 1;
-                                    }
-                                    else
-                                    {
-                                        Board_ledOn(LED_GREEN1);
-                                        lastLedGroup2 ^= 1;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Board_ledOff(LED_GREEN1 + LED_BLUE); // nothing to show
-                        }
-                    }
-                }
-                else
-                {
-                    // good file - green1:
-                    if (!shimmerStatus.sensing)
-                    {   //standby or configuring
-                        if (shimmerStatus.configuring)
-                        { //configuring
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                        else
-                        {                            //standby
-                            if (!blinkCnt20)
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                    }
-                    else
-                    {                              //sensing
-                        if (blinkCnt20 < 10)
-                            Board_ledOn(LED_GREEN1);
-                        else
-                            Board_ledOff(LED_GREEN1);
-                    }
-
-                    // good file - blue:
-                    /* Toggle blue LED while a connection is established */
-                    if (shimmerStatus.btPowerOn && shimmerStatus.btConnected)
-                    {
-                        Board_ledToggle(LED_BLUE);
-                    }
-                    /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
-                    else if (!ShimSdSync_rcFirstOffsetRxedGet()
-                            && shimmerStatus.sensing
-                            && shimmerStatus.sdSyncEnabled
-                            && !(ShimSdHead_sdHeadTextGetByte(SDH_TRIAL_CONFIG0) & SDH_IAMMASTER))
-                    {
-                        Board_ledOn(LED_BLUE);
-                    }
-                    else
-                    {
-                        /* Flash if BT is on */
-                        if (shimmerStatus.btPowerOn
-                                && (blinkCnt20 == 12 || blinkCnt20 == 14))
-                        {
-                            Board_ledOn(LED_BLUE);
-                        }
-                        else
-                        {
-                            Board_ledOff(LED_BLUE);
-                        }
-
-//                        /* Flash twice if sync is not successfull */
-//                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
-//                                && !shimmerStatus.docked
-//                                && shimmerStatus.sensing
-//                                && shimmerStatus.sdSyncEnabled
-//                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-//                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
-//                        {
-//                            if (getSyncCnt() > 3)
-//                            {
-//                                Board_ledOn(LED_BLUE);
-//                            }
-//                            //TODO should there be an else here?
-//                        }
-//                        else
-//                        {
-//                            Board_ledOff(LED_BLUE);
-//                        }
-                    }
-                }
-            }
+            LED_control();
         }
         break;
     case 8:
@@ -1319,7 +1052,6 @@ void SampleTimerStop(void)
     TB0CCTL2 &= ~CCIE;
 }
 
-uint8_t timeStampLen;
 #pragma vector=TIMER0_B0_VECTOR
 __interrupt void TIMER0_B0_ISR(void)
 {
@@ -1424,33 +1156,6 @@ uint8_t CheckSdInslot(void)
     shimmerStatus.sdInserted = (P4IN & BIT1) ? 0 : 1;
     ff_result = ShimSd_mount(shimmerStatus.sdInserted);
     return shimmerStatus.sdInserted;
-}
-
-void RwcCheck(void)
-{
-#if RTC_OFF
-    rwcErrorFlash = 0;
-#else
-    rwcErrorFlash = ((!getRwcTimeDiff()) && ShimConfig_getStoredConfig()->rtcErrorEnable) ? 1 : 0;
-#endif
-}
-
-void BattBlinkOn()
-{
-    switch (batteryStatus.battStat)
-    {
-    case BATT_HIGH:
-        Board_ledOn(LED_GREEN0);
-        break;
-    case BATT_MID:
-        Board_ledOn(LED_YELLOW);
-        break;
-    case BATT_LOW:
-        Board_ledOn(LED_RED);
-        break;
-    default:
-        break;
-    }
 }
 
 void TB0Start()
@@ -1599,13 +1304,13 @@ void triggerShimmerErrorState(void)
   {
     Board_ledOff(LED_ALL);
     _delay_cycles(24000000);
-    Board_ledOn(LED_YELLOW);
+    Board_ledOn(LED_LWR_YELLOW);
     _delay_cycles(12000000);
-    Board_ledOn(LED_RED);
+    Board_ledOn(LED_LWR_RED);
     _delay_cycles(12000000);
-    Board_ledOn(LED_BLUE);
+    Board_ledOn(LED_UPR_BLUE);
     _delay_cycles(12000000);
-    Board_ledOn(LED_GREEN1);
+    Board_ledOn(LED_UPR_GREEN);
     _delay_cycles(12000000);
   }
 }

@@ -97,27 +97,27 @@ void led_test(void)
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
 
     send_test_report(" - Lower Green LED on\r\n");
-    Board_ledOn(LED_GREEN0);
+    Board_ledOn(LED_LWR_GREEN);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
     send_test_report(" - Lower Yellow LED on\r\n");
-    Board_ledOn(LED_YELLOW);
+    Board_ledOn(LED_LWR_YELLOW);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
     send_test_report(" - Lower Red LED on\r\n");
-    Board_ledOn(LED_RED);
+    Board_ledOn(LED_LWR_RED);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
     send_test_report(" - Upper Green LED on\r\n");
-    Board_ledOn(LED_GREEN1);
+    Board_ledOn(LED_UPR_GREEN);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 
     send_test_report(" - Upper Blue LED on\r\n");
-    Board_ledOn(LED_BLUE);
+    Board_ledOn(LED_UPR_BLUE);
     __delay_cycles(DELAY_BETWEEN_LED_CHANGES_TICKS);
     Board_ledOff(LED_ALL);
 

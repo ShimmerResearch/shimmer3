@@ -42,16 +42,22 @@
 
 #include "msp430.h"
 
-#define LED_RED 	0x01
-#define LED_GREEN0	0x02
-#define LED_GREEN1	0x04
-#define LED_YELLOW	0x08
-#define LED_BLUE	0x10
+#define LED_LWR_RED 	0x01
+#define LED_LWR_GREEN	0x02
+#define LED_UPR_GREEN	0x04
+#define LED_LWR_YELLOW	0x08
+#define LED_UPR_BLUE	0x10
 #define LED_ALL		0xFF
 #define LED_ALL_OFF 0x00
 
-#define LM3658SD_STAT2 (P2IN & 0x80)
-#define LM3658SD_STAT1 (P2IN & 0x40)
+#define LM3658SD_STAT2 (P2IN & BIT7)
+#define LM3658SD_STAT1 (P2IN & BIT6)
+
+#define BOARD_IS_DOCKED (P2IN & BIT3)
+#define BOARD_IS_BTN_RELEASED (P1IN & BIT6)
+
+#define BOARD_IS_LED_GREEN1_ON (P1OUT & BIT1)
+#define BOARD_IS_LED_BLUE_ON (P1OUT & BIT2)
 
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
