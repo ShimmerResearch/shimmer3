@@ -1326,28 +1326,10 @@ __interrupt void TIMER0_B0_ISR(void)
     uint16_t timer_b0 = GetTB0();
     TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-//    if (!streamDataInProc)
-//    {
-//        streamDataInProc = 1;
-//        if (firstTsFlag == 1)
-//        {
-//            firstTs = RTC_get64();
-//            firstTsFlag = 2;
-//            *(uint32_t*) currentSampleTsTicks = (uint64_t) firstTs;
-//        }
-//        else
-//        {
-//            *(uint32_t*) currentSampleTsTicks = RTC_get32();
-//        }
-//
-//        // The first byte is packet type byte when Bluetooth streaming
-//        sensing.dataBuf[1] = currentSampleTsTicks[0];
-//        sensing.dataBuf[2] = currentSampleTsTicks[1];
-//        sensing.dataBuf[3] = currentSampleTsTicks[2];
-//    }
     //start ADC conversion
     if (sensing.nbrAdcChans)
     {
+        ShimSens_saveTimestampToPacket();
         DMA0_enable();
         ADC_startConversion();
     }

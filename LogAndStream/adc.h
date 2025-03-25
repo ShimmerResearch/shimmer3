@@ -16,8 +16,6 @@ void ADC_stopSensing(void);
 void ADC_configureChannels(void);
 void ADC_gatherDataStart(void);
 
-inline void GsrRange(void);
-
 uint8_t Dma0ConversionDone(void);
 uint8_t Dma0BatteryRead(void);
 void SetBattDma(void);

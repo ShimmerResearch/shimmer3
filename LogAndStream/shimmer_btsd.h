@@ -209,9 +209,6 @@ typedef uint8_t error_t;
 #define BMPX80_OSS_4                0x02
 #define BMPX80_OSS_8                0x03
 
-//BtStream specific extension to range values : should SDLog keep it?
-#define GSR_AUTORANGE               0x04
-
 #define CALIB_SYNC_SOURCE_STORECCONFIG       1
 #define CALIB_SYNC_SOURCE_INFOMEM            2
 #define CALIB_SYNC_SOURCE_SD_FILE            3

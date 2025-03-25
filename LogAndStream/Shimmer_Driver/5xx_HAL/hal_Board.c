@@ -290,12 +290,9 @@ void Board_initForRevision(void)
     if (expBrd->exp_brd_id == EXP_BRD_GSR
             || expBrd->exp_brd_id == EXP_BRD_GSR_UNIFIED)
     {
-        if(ShimBrd_areGsrControlsPinsReversed())
-        {
-            setGsrRangePinsAreReversed(1);
-        }
+        setGsrRangePinsAreReversed(ShimBrd_areGsrControlsPinsReversed());
 
-        GSR_init();
+        GSR_setActiveResistor(HW_RES_40K);
 
         //A0
         P1SEL &= ~BIT4;

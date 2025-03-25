@@ -13,10 +13,6 @@
 
 #include "Shimmer_Driver/shimmer_driver_include.h"
 
-/*GSR*/
-uint8_t gsrActiveResistor;
-uint16_t lastGsrVal;
-
 uint16_t *adcStartPtr;
 
 /*battery evaluation vars*/
@@ -25,9 +21,6 @@ uint8_t battWait;
 
 void ADC_varsInit(void)
 {
-    lastGsrVal = 0;
-    setGsrRangePinsAreReversed(0);
-
     battWait = 0;
 }
 
@@ -50,17 +43,7 @@ void ADC_startSensing(void)
 
     if (storedConfigPtr->chEnGsr)
     {
-        GSR_init();
-        if (storedConfigPtr->gsrRange <= HW_RES_3M3)
-        {
-            GSR_setRange(storedConfigPtr->gsrRange);
-            gsrActiveResistor = storedConfigPtr->gsrRange;
-        }
-        else
-        {
-            GSR_setRange(HW_RES_40K);
-            gsrActiveResistor = HW_RES_40K;
-        }
+        GSR_init(storedConfigPtr->gsrRange, storedConfigPtr->samplingRateTicks);
     }
 }
 
@@ -207,40 +190,8 @@ void ADC_gatherDataStart(void)
 
     if (storedConfigPtr->chEnGsr)
     {
-        GsrRange();
+        GSR_range(&sensing.dataBuf[sensing.ptr.gsr]);
     }
-}
-
-// GSR
-void GsrRange(void)
-{
-// Fill the current active resistor into the upper two bits of the GSR value
-// if autorange is enabled, switch active resistor if required
-// If during resistor transition period use old ADC and resistor values
-// as determined by GSR_smoothTransition()
-
-    uint8_t current_active_resistor = gsrActiveResistor;
-    uint16_t ADC_val;
-    gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-
-// GSR channel will always be last ADC channel
-    ADC_val = *((uint16_t*) &sensing.dataBuf[sensing.ptr.gsr]);
-    if (storedConfigPtr->gsrRange == GSR_AUTORANGE)
-    {
-        if (GSR_smoothTransition(
-                &current_active_resistor,
-                storedConfigPtr->samplingRateTicks))
-        {
-            ADC_val = lastGsrVal;
-        }
-        else
-            gsrActiveResistor = GSR_controlRange(ADC_val,
-                                                 gsrActiveResistor);
-    }
-    *((uint16_t*) &sensing.dataBuf[sensing.ptr.gsr]) = ADC_val
-            | (current_active_resistor << 14);
-
-    lastGsrVal = ADC_val;
 }
 
 uint8_t Dma0ConversionDone(void)
