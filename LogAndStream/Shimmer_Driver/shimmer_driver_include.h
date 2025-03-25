@@ -21,7 +21,6 @@
 #include "EXG/exg.h"
 #include "EXG/ads1292.h"
 #include "FatFs/ff.h"
-#include <GSR/gsr.h>
 #include "LSM303DLHC/lsm303dlhc.h"
 #include "LSM303AHTR/lsm303ahtr.h"
 #include "MPU9150/mpu9150.h"
