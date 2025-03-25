@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 
+#include "../../i2c.h"
 #include "../../shimmer_btsd.h"
 
 #include "msp430.h"
@@ -211,6 +212,8 @@ void I2C_test(void)
 {
     send_test_report("I2C:\r\n");
 
+    I2C_start(1);
+
     uint8_t eeprom_result = CAT24C16_test();
     sprintf(buffer, " - %s: CAT24C16\r\n", eeprom_result ? "FAIL" : "PASS");
     send_test_report(buffer);
@@ -242,6 +245,8 @@ void I2C_test(void)
     {
         send_test_report(" - BMP280 detected (self-test not implemented yet)\r\n");
     }
+
+    I2C_stop(1);
 }
 
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)

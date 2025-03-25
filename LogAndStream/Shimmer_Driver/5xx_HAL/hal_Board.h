@@ -57,7 +57,7 @@ extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
 extern void Board_ledOff(uint8_t ledMask);
 extern void Board_ledToggle(uint8_t ledMask);
-void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAndCmdModeSupport);
+void Board_initForRevision(void);
 
 void SdPowerOff(void);
 void SdPowerOn(void);

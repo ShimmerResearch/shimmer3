@@ -113,23 +113,27 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW);
 void updateBtDetailsInEeprom(void);
 
-uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash;
-uint32_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
+#define TIMEOUT_100_MS          (3277)
 
-uint64_t buttonPressTs64, buttonReleaseTs64, buttonLastReleaseTs64;
+/* should be 0 */
+#define PRESS2UNDOCK        0
+#define RTC_OFF             0
+#define IS_SUPPORTED_TCXO   0
+
+uint8_t btsdSelfCmd, lastLedGroup2, rwcErrorFlash;
+
+uint64_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
 uint8_t watchDogWasOnDuringBtStart;
 
-uint16_t blinkCnt10, blinkCnt20,
-        blinkCnt50;
+uint16_t blinkCnt10, blinkCnt20, blinkCnt50;
 
 volatile uint8_t fileBadCnt;
-
 FRESULT ff_result;
 
 /*battery evaluation vars*/
 uint32_t battLastTs64;
-uint8_t waitpress, initializing, sampleTimerStatus, blinkStatus;
+uint8_t sampleTimerStatus, blinkStatus;
 float clockFreq;
 uint16_t clk_30, clk_45, clk_55, clk_64, clk_75, clk_133, clk_90, clk_120,
         clk_135, clk_225, clk_255, clk_432, clk_1000, clk_2500,
@@ -143,13 +147,6 @@ char *dierecord;
 /* variables used for delayed undock-start */
 uint8_t undockEvent;
 uint64_t time_newUnDockEvent;
-
-#define TIMEOUT_100_MS          (3277)
-
-/* should be 0 */
-#define PRESS2UNDOCK        0
-#define RTC_OFF             0
-#define IS_SUPPORTED_TCXO   0
 
 // bluetooth variables
 uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
@@ -206,7 +203,7 @@ void Init(void)
     ShimTask_init();
     ShimTask_set(TASK_BATT_READ);
 
-    buttonLastReleaseTs64 = 0;
+    buttonLastReleaseTs = 0;
     rwcErrorFlash = 0;
 
     lastLedGroup2 = 0;
@@ -217,11 +214,6 @@ void Init(void)
 
     memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
 
-    // sd file system initiate.
-//    memset(sdBuff, 0, SD_WRITE_BUF_SIZE);
-    ShimSdHead_reset();
-//    sdBuffLen = 0;
-
     setSamplingClkSource((float) MSP430_CLOCK);
 
     sampleTimerStatus = 0;
@@ -231,6 +223,7 @@ void Init(void)
 
     ShimConfig_reset();
     ShimSd_init();
+    ShimSdHead_reset();
     ShimSens_init();
 
     I2C_varsInit();
@@ -271,7 +264,6 @@ void Init(void)
     // enable switch1 interrupt
     Button_init();
     Button_interruptEnable();
-    waitpress = 1;
 
     dierecord = (char*) 0x01A0A;
 
@@ -279,7 +271,8 @@ void Init(void)
     I2C_start(1);
     detectI2cSlaves();
     I2C_stop(1);
-    /* I2C slave discover leaves the I2C bus configuration in the wrong state so just reinitialising here. */
+    /* I2C slave discover leaves the I2C bus configuration in the wrong state so
+     * just reinitialising here. */
     I2C_start(0);
     loadBmpCalibration();
     I2C_stop(0);
@@ -288,7 +281,6 @@ void Init(void)
     ShimBrd_resetDaughterCardId();
     eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, ShimBrd_getDaughtCardIdPtr());
     ProcessHwRevision();
-    Board_init_for_revision(ShimBrd_isAds1292Present(), ShimBrd_isRn4678PresentAndCmdModeSupport());
 
     /* Used to flash green LED on boot but no longer serves that purpose */
     shimmerStatus.configuring = 1;
@@ -406,11 +398,6 @@ void ProcessHwRevision(void)
                 expBrd->exp_brd_minor = 171;
             }
         }
-
-        if(ShimBrd_areGsrControlsPinsReversed())
-        {
-            setGsrRangePinsAreReversed(1);
-        }
     }
     else
     {
@@ -423,6 +410,8 @@ void ProcessHwRevision(void)
             expBrd->exp_brd_minor = 0;
         }
     }
+
+    Board_initForRevision();
 }
 
 void InitialiseBt(void)
@@ -640,7 +629,7 @@ __interrupt void Port1_ISR(void)
         {   //button pressed
             P1IES &= ~BIT6;   //select rising edge trigger, wait for release
             shimmerStatus.buttonPressed = 1;
-            buttonPressTs64 = RTC_get64();
+            buttonPressTs = RTC_get64();
 
             Board_ledOn(LED_GREEN0);
         }
@@ -648,16 +637,16 @@ __interrupt void Port1_ISR(void)
         { //button released
             P1IES |= BIT6; //select fall edge trigger, wait for press
             shimmerStatus.buttonPressed = 0;
-            buttonReleaseTs64 = RTC_get64();
-            button_press_release_td64 = buttonReleaseTs64 - buttonPressTs64;
-            button_two_release_td64 = buttonReleaseTs64 - buttonLastReleaseTs64;
+            buttonReleaseTs = RTC_get64();
+            button_press_release_td64 = buttonReleaseTs - buttonPressTs;
+            button_two_release_td64 = buttonReleaseTs - buttonLastReleaseTs;
             if (button_press_release_td64 >= 163840)
             { // long button press: 5s
             }
             else if ((button_two_release_td64 > 16384) && !shimmerStatus.configuring
                     && !shimmerStatus.btConnected)
             { //  && (button_press_release_td64>327)
-                buttonLastReleaseTs64 = buttonReleaseTs64;
+                buttonLastReleaseTs = buttonReleaseTs;
 #if PRESS2UNDOCK
                     if(shimmerStatus.docked)
                     {

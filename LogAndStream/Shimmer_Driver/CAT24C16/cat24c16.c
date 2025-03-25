@@ -34,11 +34,13 @@ void CAT24C16_powerOff(void)
     I2C_stop(1);
 }
 
-void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
+int32_t CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
 {
     if ((!length) || (length > EEPROM_MAX_SIZE_IN_BYTES)
             || (address + length > EEPROM_MAX_SIZE_IN_BYTES))
-        return;
+    {
+        return CAT24C16_OUT_OF_BOUNDS_ERROR;
+    }
 
     I2C_Set_Slave_Address(CAT24C16_ADDR | (address >> 8));
     *outBuffer = (uint8_t) (address & 0xFF);
@@ -48,7 +50,9 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
         //read failed, set buffer to all 0xFF
         while (length--)
             *(outBuffer++) = 0xFF;
+        return 1;
     }
+    return 0;
 }
 
 //testing features:
@@ -57,12 +61,15 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
 //16 bytes writing: 5.7 ms (cross pages)
 //waiting time between two page writes: 5 ms (as suggested by the CAT24 user manual)
 //1024 bytes writing: 351 ms
-void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
+int32_t CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
 {
     if ((!length) || (length > EEPROM_MAX_SIZE_IN_BYTES)
             || (address + length > EEPROM_MAX_SIZE_IN_BYTES))
-        return;
+    {
+        return CAT24C16_OUT_OF_BOUNDS_ERROR;
+    }
 
+    int32_t result = 0;
     uint8_t final_addr;
     uint8_t buf[17], margin, this_write, inc_addr; //17 = PAGE_SIZE+1
     uint16_t mem_ptr, buf_offset;
@@ -94,33 +101,38 @@ void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
         // data copy
         memcpy(buf + 1, data + buf_offset, this_write);
 
-        I2C_Write_Packet_To_Sensor(buf, this_write + 1);
+        result = I2C_Write_Packet_To_Sensor(buf, this_write + 1)? 0:1;
+        if (result)
+        {
+          break;
+        }
 
         mem_ptr += this_write;
         buf_offset += this_write;
 
         //if reaches edge of flash mem, reassign the slave address
         if (!(mem_ptr % CAT24C16_BLOCK_SIZE))
+        {
             inc_addr = 1;
+        }
     }
+    return result;
 }
 
 //returns 0 if successful, 1 if failure
 uint8_t CAT24C16_test(void)
 {
+    int32_t result = 0;
     uint16_t i, j = 0;
-    uint8_t ret_val = 0;
     uint8_t test_eeprom_backup[CAT24C16_TEST_SIZE];
     uint8_t test_eeprom_wr[CAT24C16_TEST_SIZE];
     uint8_t test_eeprom_rd[CAT24C16_TEST_SIZE];
 
-    CAT24C16_init();
-
-//    memset(test_eeprom_wr, 0xFF, CAT24C16_TEST_SIZE);
-//    CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_wr);
-//    __delay_cycles(120000); //5ms
-
-    CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
+    result = CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
+    if (result)
+    {
+      return EEPROM_TEST_FAIL_INITIAL_BACKUP;
+    }
 
     while (j++ < 3)
     {
@@ -138,21 +150,31 @@ uint8_t CAT24C16_test(void)
         }
 
         memset(test_eeprom_rd, 0, CAT24C16_TEST_SIZE);
-        CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_wr);
+        result = CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_wr);
         __delay_cycles(120000); //5ms
-        CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_rd);
-
-        ret_val = memcmp(test_eeprom_wr, test_eeprom_rd, CAT24C16_TEST_SIZE);
-        if (ret_val)
+        if (result)
         {
-            break;
+          return EEPROM_TEST_FAIL_WRITING_BUF;
+        }
+        result = CAT24C16_read(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_rd);
+        if (result)
+        {
+          return EEPROM_TEST_FAIL_READING_BUF;
+        }
+
+        if (memcmp(test_eeprom_wr, test_eeprom_rd, CAT24C16_TEST_SIZE))
+        {
+          return EEPROM_TEST_FAIL_BUF_COMPARISON;
         }
     }
 
-    CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
+    result = CAT24C16_write(CAT24C16_TEST_OFFSET, CAT24C16_TEST_SIZE, test_eeprom_backup);
     __delay_cycles(120000); //5ms
 
-    CAT24C16_powerOff();
+    if (result)
+    {
+      return EEPROM_TEST_FAIL_RESTORING_BACKUP;
+    }
 
-    return ret_val;
+    return EEPROM_TEST_PASS;
 }

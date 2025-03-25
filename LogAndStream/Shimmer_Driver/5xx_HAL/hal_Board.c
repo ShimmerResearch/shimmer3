@@ -39,6 +39,8 @@
 #include "hal_Board.h"
 
 #include "log_and_stream_externs.h"
+#include "Boards/shimmer_boards.h"
+#include "GSR/gsr.h"
 
 #define XT1_PORT_DIR             P7DIR
 #define XT1_PORT_OUT             P7OUT
@@ -240,14 +242,16 @@ inline void Board_ledToggle(uint8_t ledMask) {
  * @}
  ******************************************************************************/
 
-void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAndCmdModeSupport)
+void Board_initForRevision(void)
 {
+    shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
+
     /*
      * ADS1292R chip issue workaround
      * Requires GPIO_INTERNAL1 to be an input (default is output)
      * Issues affects boards SR37, SR47 & SR59 at present.
      */
-    if (ads1292IsPresent)
+    if (ShimBrd_isAds1292Present())
     {
         P2DIR &= ~BIT0;            //EXG_DRDY as input
     }
@@ -259,7 +263,7 @@ void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAn
     }
 
     // RN4678 Operational mode pins
-    if (rn4678IsPresentAndCmdModeSupport)
+    if (ShimBrd_isRn4678PresentAndCmdModeSupport())
     {
         // RN4678_OP_MODE_DISABLE
         P4OUT &= ~BIT6; // P2_0
@@ -281,6 +285,25 @@ void Board_init_for_revision(uint8_t ads1292IsPresent, uint8_t rn4678IsPresentAn
         //Not connected
         P8OUT &= ~BIT5;           //set low
         P8DIR |= BIT5;            //set as output
+    }
+
+    if (expBrd->exp_brd_id == EXP_BRD_GSR
+            || expBrd->exp_brd_id == EXP_BRD_GSR_UNIFIED)
+    {
+        if(ShimBrd_areGsrControlsPinsReversed())
+        {
+            setGsrRangePinsAreReversed(1);
+        }
+
+        GSR_init();
+
+        //A0
+        P1SEL &= ~BIT4;
+        P1DIR |= BIT4;
+
+        //A1
+        P2SEL &= ~BIT1;
+        P2DIR |= BIT1;
     }
 }
 

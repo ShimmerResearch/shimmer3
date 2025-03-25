@@ -21,10 +21,22 @@
 #define DAUGHT_CARD_REV          (0x01)
 #define DAUGHT_CARD_SPECIAL_REV  (0x02)
 
+#define CAT24C16_OUT_OF_BOUNDS_ERROR 1000
+
 enum EEPROM_RW
 {
     EEPROM_READ = 0,
     EEPROM_WRITE = 1,
+};
+
+enum CAT24C16_TEST
+{
+  EEPROM_TEST_PASS = 0,
+  EEPROM_TEST_FAIL_INITIAL_BACKUP,
+  EEPROM_TEST_FAIL_WRITING_BUF,
+  EEPROM_TEST_FAIL_READING_BUF,
+  EEPROM_TEST_FAIL_BUF_COMPARISON,
+  EEPROM_TEST_FAIL_RESTORING_BACKUP,
 };
 
 //initialise the I2C for use with the CAT24C16
@@ -43,7 +55,7 @@ void CAT24C16_powerOff(void);
 //outBuffer = location to put read bytes
 //Note the CAT24C16 had 2048 bytes of storage
 //So address + length must be <= 2048
-void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer);
+int32_t CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer);
 
 //Write to the CAT24C16 EEPROM
 //address = starting address to write to
@@ -55,7 +67,7 @@ void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer);
 //Each write cycle can write up to 16bytes of data
 //but only within a 16-byte page (of which there are
 //128 in the CAT24C16)
-void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data);
+int32_t CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data);
 
 uint8_t CAT24C16_test(void);
 
