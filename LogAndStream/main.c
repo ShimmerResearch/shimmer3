@@ -215,7 +215,8 @@ void Init(void)
     ShimConfig_experimentLengthCntReset();
 
     ShimConfig_reset();
-    ShimSd_init();
+    ShimSdDataFile_init();
+    ShimSdCfgFile_init();
     ShimSdHead_reset();
     ShimSens_init();
 
@@ -1140,11 +1141,11 @@ void SetupDock()
         {
             _delay_cycles(2880000);
             SdPowerOn();
-            ShimSd_sdInfoSync();
+            ShimSdCfgFile_sync();
         }
         else
         {
-            ShimSd_setSdInfoSyncDelayed(1);
+            ShimSdCfgFile_setSdInfoSyncDelayed(1);
         }
     }
     shimmerStatus.configuring = 0;
