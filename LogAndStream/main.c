@@ -85,7 +85,6 @@ void InitialiseBtAfterBoot(void);
 void stopSensingWrapup(void);
 void BlinkTimerStart(void);
 void BlinkTimerStop(void);
-void setBootStage(boot_stage_t bootStageNew);
 void SampleTimerStart(void);
 void SampleTimerStop(void);
 char *HAL_GetUID(void);
@@ -118,8 +117,6 @@ void updateBtDetailsInEeprom(void);
 #define PRESS2UNDOCK        0
 #define IS_SUPPORTED_TCXO   0
 
-uint8_t btsdSelfCmd;
-
 uint64_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
 uint8_t watchDogWasOnDuringBtStart;
@@ -128,7 +125,6 @@ FRESULT ff_result;
 
 /*battery evaluation vars*/
 uint32_t battLastTs64;
-uint8_t sampleTimerStatus, blinkStatus;
 float clockFreq;
 uint16_t clk_30, clk_45, clk_55, clk_64, clk_75, clk_133, clk_90, clk_120,
         clk_135, clk_225, clk_255, clk_432, clk_1000, clk_2500,
@@ -145,8 +141,6 @@ uint64_t time_newUnDockEvent;
 
 // bluetooth variables
 uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
-
-boot_stage_t bootStage;
 
 void main(void)
 {
@@ -188,13 +182,9 @@ void Init(void)
 
     buttonLastReleaseTs = 0;
 
-    btsdSelfCmd = 0;
     battLastTs64 = 0;
 
     setSamplingClkSource((float) MSP430_CLOCK);
-
-    sampleTimerStatus = 0;
-    blinkStatus = 0;
 
     I2C_varsInit();
     SPI_varsInit();
@@ -640,7 +630,7 @@ __interrupt void Port1_ISR(void)
                     {
                         shimmerStatus.sdlogCmd = SD_LOG_CMD_STATE_STOP;
                         ShimTask_setStopSensing();
-                        btsdSelfCmd = 1;
+                        ShimBt_instreamStatusRespPendingSet(1);
                     }
                     else
                     {
@@ -651,7 +641,7 @@ __interrupt void Port1_ISR(void)
                         }
 
                         shimmerStatus.sensing = 1;
-                        ShimBt_btsdSelfcmd(); //only send cmd, not starting yet till START_BTSD_CMD received
+                        ShimBt_instreamStatusRespSend(); //only send cmd, not starting yet till START_BTSD_CMD received
                         shimmerStatus.sensing = 0;
                         __bic_SR_register_on_exit(LPM3_bits);
                     }
@@ -771,7 +761,7 @@ void ChargeStatusTimerStop(void)
 //USING TB0 with CCR1
 void BlinkTimerStart(void)
 {
-    blinkStatus = 1;
+    shimmerStatus.timerBlinkEnabled = 1;
     TB0Start();
     TB0CCTL3 = CCIE;
     // clk_1000 = 100.0 ms = 0.1s
@@ -780,38 +770,8 @@ void BlinkTimerStart(void)
 
 void BlinkTimerStop(void)
 {
-    blinkStatus = 0;
+    shimmerStatus.timerBlinkEnabled = 0;
     TB0CCTL3 &= ~CCIE;
-}
-
-void setBootStage(boot_stage_t bootStageNew)
-{
-    bootStage = bootStageNew;
-
-    switch (bootStage)
-    {
-    case BOOT_STAGE_START:
-        Board_ledOn(LED_ALL);
-        break;
-    case BOOT_STAGE_I2C:
-        Board_ledOff(LED_ALL);
-        break;
-    case BOOT_STAGE_BLUETOOTH:
-        Board_ledOn(LED_ALL);
-        break;
-    case BOOT_STAGE_BLUETOOTH_FAILURE:
-        Board_ledOff(LED_ALL);
-        break;
-    case BOOT_STAGE_CONFIGURATION:
-        Board_ledOn(LED_ALL);
-        break;
-    case BOOT_STAGE_END:
-        Board_ledOff(LED_ALL);
-        break;
-    default:
-        break;
-    }
-    return;
 }
 
 #pragma vector=TIMER0_B1_VECTOR
@@ -844,29 +804,11 @@ __interrupt void TIMER0_B1_ISR(void)
         // clk_1000 = 100.0 ms = 0.1s
         TB0CCR3 += clk_1000;
 
-        ShimLeds_incrementCounters();
+        LogAndStream_blinkTimerCommon();
 
-        if (bootStage != BOOT_STAGE_END)
+        if (!shimmerStatus.initialising && checkIfBattReadNeeded())
         {
-            ShimLeds_controlDuringBoot(bootStage);
-        }
-        else
-        {
-          if (ShimLeds_isBlinkCntTime1s() && ShimConfig_checkAutostopCondition())
-          {
-            ShimTask_setStopSensing();
-            btsdSelfCmd = 1;
-          }
-
-          if (checkIfBattReadNeeded())
-          {
-            __bic_SR_register_on_exit(LPM3_bits);
-          }
-
-          if (blinkStatus && !shimmerStatus.initialising)
-          {
-              ShimLeds_blink();
-          }
+	        __bic_SR_register_on_exit(LPM3_bits);
         }
 
         break;
@@ -1024,13 +966,13 @@ void SampleTimerStart(void)
         TB0CCR0 = baseClockOffset;
     }
     TB0CCTL0 = CCIE;
-    sampleTimerStatus = 1;
+    shimmerStatus.timerSamplingEnabled = 1;
     TB0Start();
 }
 
 void SampleTimerStop(void)
 {
-    sampleTimerStatus = 0;
+    shimmerStatus.timerSamplingEnabled = 0;
     TB0Stop();
     TB0CCTL0 &= ~CCIE;
     TB0CCTL1 &= ~CCIE;
@@ -1109,7 +1051,7 @@ void SetupDock()
         {
             DockUart_enable();
         }
-        ShimBt_btsdSelfcmd();
+        ShimBt_instreamStatusRespSend();
     }
     else
     {
@@ -1119,7 +1061,7 @@ void SetupDock()
             DockUart_disable();
         }
         P6OUT |= BIT0;
-        ShimBt_btsdSelfcmd();
+        ShimBt_instreamStatusRespSend();
         SdPowerOff();
         if (CheckSdInslot() && !shimmerStatus.sensing && !shimmerStatus.sdBadFile)
         {
@@ -1145,7 +1087,7 @@ uint8_t CheckSdInslot(void)
 
 void TB0Start()
 {
-    if (sampleTimerStatus + blinkStatus >= 1)
+    if (shimmerStatus.timerSamplingEnabled || shimmerStatus.timerBlinkEnabled)
     {
         if (clockFreq == (float) MSP430_CLOCK)
         {
@@ -1164,7 +1106,7 @@ void TB0Start()
 
 void TB0Stop()
 {
-    if (!sampleTimerStatus && !blinkStatus)
+    if (!shimmerStatus.timerSamplingEnabled && !shimmerStatus.timerBlinkEnabled)
     {
         TB0CTL = MC_0; // StopTb0()
     }
