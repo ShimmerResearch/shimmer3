@@ -42,14 +42,6 @@
 
 #include "msp430.h"
 
-#define LED_LWR_RED 	0x01
-#define LED_LWR_GREEN	0x02
-#define LED_UPR_GREEN	0x04
-#define LED_LWR_YELLOW	0x08
-#define LED_UPR_BLUE	0x10
-#define LED_ALL		0xFF
-#define LED_ALL_OFF 0x00
-
 #define LM3658SD_STAT2 (P2IN & BIT7)
 #define LM3658SD_STAT1 (P2IN & BIT6)
 

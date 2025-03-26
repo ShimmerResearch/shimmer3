@@ -69,7 +69,6 @@
 #include "i2c.h"
 #include "spi.h"
 #include "adc.h"
-#include "led.h"
 
 #include "shimmer_btsd.h"
 #include "log_and_stream_globals.h"
@@ -93,9 +92,10 @@ char *HAL_GetUID(void);
 void DockSdPowerCycle();
 void SetupDock(void);
 uint8_t CheckSdInslot(void);
-void BtStop(uint8_t isCalledFromMain);
-void BtStart(void);
+uint8_t checkIfBattReadNeeded(void);
 void BtStartDone();
+void BtStart(void);
+void BtStop(uint8_t isCalledFromMain);
 void TB0Start();
 void TB0Stop();
 void ChargeStatusTimerStart(void);
@@ -185,8 +185,6 @@ void Init(void)
 
     SFRIFG1 = 0;                  // clear interrupt flag register
     SFRIE1 |= OFIE;               // enable oscillator fault interrupt enable
-
-    LED_varsInit();
 
     buttonLastReleaseTs = 0;
 
@@ -846,43 +844,31 @@ __interrupt void TIMER0_B1_ISR(void)
         // clk_1000 = 100.0 ms = 0.1s
         TB0CCR3 += clk_1000;
 
-        LED_incrementCounters();
+        ShimLeds_incrementCounters();
 
         if (bootStage != BOOT_STAGE_END)
         {
-            LED_controlDuringBoot(bootStage);
-            return;
+            ShimLeds_controlDuringBoot(bootStage);
         }
-
-        /* SDLog handles auto-stop in TIMER0_A1_VECTOR whereas LogAndStream handles it in TIMER0_B1_VECTOR */
-        if (LED_isBlinkCntTime1s())
+        else
         {
-            if (ShimConfig_checkAutostopCondition())
-            {
-                ShimTask_setStopSensing();
-                btsdSelfCmd = 1;
-            }
+          if (ShimLeds_isBlinkCntTime1s() && ShimConfig_checkAutostopCondition())
+          {
+            ShimTask_setStopSensing();
+            btsdSelfCmd = 1;
+          }
+
+          if (checkIfBattReadNeeded())
+          {
+            __bic_SR_register_on_exit(LPM3_bits);
+          }
+
+          if (blinkStatus && !shimmerStatus.initialising)
+          {
+              ShimLeds_blink();
+          }
         }
 
-        uint64_t batt_td, batt_my_local_time_64;
-        batt_my_local_time_64 = RTC_get64();
-        batt_td = batt_my_local_time_64 - battLastTs64;
-
-        if ((batt_td > ShimBatt_getBatteryIntervalTicks()))
-        {              //10 mins = 19660800
-            if (!shimmerStatus.sensing && ShimTask_set(TASK_BATT_READ))
-                __bic_SR_register_on_exit(LPM3_bits);
-            battLastTs64 = batt_my_local_time_64;
-        }
-
-        if (!shimmerStatus.initialising)
-            if (ShimTask_getList() & TASK_BATT_READ)
-                __bic_SR_register_on_exit(LPM3_bits);
-
-        if (blinkStatus && !shimmerStatus.initialising)
-        {
-            LED_control();
-        }
         break;
     case 8:
         break;                       // TB0CCR4
@@ -893,6 +879,23 @@ __interrupt void TIMER0_B1_ISR(void)
     case 14:
         break;                       // TBIFG overflow handler
     }
+}
+
+uint8_t checkIfBattReadNeeded(void)
+{
+  uint64_t batt_td, batt_my_local_time_64;
+  batt_my_local_time_64 = RTC_get64();
+  batt_td = batt_my_local_time_64 - battLastTs64;
+
+  if ((batt_td > ShimBatt_getBatteryIntervalTicks()))
+  {              //10 mins = 19660800
+      battLastTs64 = batt_my_local_time_64;
+      if (!shimmerStatus.sensing && ShimTask_set(TASK_BATT_READ))
+      {
+       return 1;
+      }
+  }
+  return 0;
 }
 
 // BT start Timer
