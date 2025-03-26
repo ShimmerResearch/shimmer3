@@ -128,7 +128,6 @@ void EXG_writeRegs(uint8_t chip, uint8_t startaddress, uint8_t size, uint8_t *wd
 //If data is valid MSB of status byte for each chip is 1, else 0
 void EXG_readData(uint8_t chip, uint8_t size, uint8_t *buf);
 
-
 //Tell the driver that the data is ready to be read from chipX
 void EXG_dataReadyChip1();
 void EXG_dataReadyChip2();

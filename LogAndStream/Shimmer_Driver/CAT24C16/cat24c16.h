@@ -5,28 +5,28 @@
 
 //7 bit address I2C address
 //lower 3 bits are highest order bits of memory address
-#define CAT24C16_ADDR        0x50
+#define CAT24C16_ADDR                0x50
 
-#define CAT24C16_PAGE_SIZE   16
-#define CAT24C16_BLOCK_SIZE  256
-#define CAT24C16_READ_SIZE   128
-#define CAT24C16_TOTAL_SIZE  2048
-#define CAT24C16_TEST_OFFSET 16
-#define CAT24C16_TEST_SIZE   (8*CAT24C16_PAGE_SIZE)
+#define CAT24C16_PAGE_SIZE           16
+#define CAT24C16_BLOCK_SIZE          256
+#define CAT24C16_READ_SIZE           128
+#define CAT24C16_TOTAL_SIZE          2048
+#define CAT24C16_TEST_OFFSET         16
+#define CAT24C16_TEST_SIZE           (8 * CAT24C16_PAGE_SIZE)
 
-#define EEPROM_MAX_SIZE_IN_BYTES (2048U)
+#define EEPROM_MAX_SIZE_IN_BYTES     (2048U)
 
-// Indices of important daughter card information
-#define DAUGHT_CARD_ID           (0x00)
-#define DAUGHT_CARD_REV          (0x01)
-#define DAUGHT_CARD_SPECIAL_REV  (0x02)
+//Indices of important daughter card information
+#define DAUGHT_CARD_ID               (0x00)
+#define DAUGHT_CARD_REV              (0x01)
+#define DAUGHT_CARD_SPECIAL_REV      (0x02)
 
 #define CAT24C16_OUT_OF_BOUNDS_ERROR 1000
 
 enum EEPROM_RW
 {
-    EEPROM_READ = 0,
-    EEPROM_WRITE = 1,
+  EEPROM_READ = 0,
+  EEPROM_WRITE = 1,
 };
 
 enum CAT24C16_TEST

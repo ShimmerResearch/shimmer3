@@ -51,84 +51,85 @@
 
 #include <stdint.h>
 
-// 7 bit address I2C address of the ICM20948 accel and gyro
-// NOTE: 0x68 when AD0 is low , 0x69 when AD1 is high - change as required
-#define ICM20948_ADDR           (0x69)
-#define AK09916_MAG_ADDR	    (0x0C)
-#define ICM20948_WHO_AM_I_VAL   (0xEA)
+//7 bit address I2C address of the ICM20948 accel and gyro
+//NOTE: 0x68 when AD0 is low , 0x69 when AD1 is high - change as required
+#define ICM20948_ADDR               (0x69)
+#define AK09916_MAG_ADDR            (0x0C)
+#define ICM20948_WHO_AM_I_VAL       (0xEA)
 
 //user banks
-#define USER_BANK_SEL	(0x7F)
-#define USER_BANK_0		(0x00)
-#define USER_BANK_1		(0x10)
-#define USER_BANK_2		(0x20)
-#define USER_BANK_3		(0x30)
+#define USER_BANK_SEL               (0x7F)
+#define USER_BANK_0                 (0x00)
+#define USER_BANK_1                 (0x10)
+#define USER_BANK_2                 (0x20)
+#define USER_BANK_3                 (0x30)
 
 //registers
-#define ICM20948_GYRO_SMPLRT_DIV        0x00
-#define ICM20948_ACCEL_SMPLRT_DIV_1     0x10
-#define ICM20948_ACCEL_SMPLRT_DIV_2     0x11
+#define ICM20948_GYRO_SMPLRT_DIV    0x00
+#define ICM20948_ACCEL_SMPLRT_DIV_1 0x10
+#define ICM20948_ACCEL_SMPLRT_DIV_2 0x11
 
-#define GYRO_CONFIG_1           0x01
-#define GYRO_CONFIG_2           0x02
-#define ICM_ACCEL_CONFIG        0x14
-#define ICM_INT_PIN_CFG         0x0F
-#define ICM_USER_CTRL           0x03
-#define ICM_ACCEL_XOUT_H        0x2D
-#define ICM_ACCEL_XOUT_L        0x2E
-#define ICM_ACCEL_YOUT_H        0x2F
-#define ICM_ACCEL_YOUT_L        0x30
-#define ICM_ACCEL_ZOUT_H        0x31
-#define ICM_ACCEL_ZOUT_L        0x32
+#define GYRO_CONFIG_1               0x01
+#define GYRO_CONFIG_2               0x02
+#define ICM_ACCEL_CONFIG            0x14
+#define ICM_INT_PIN_CFG             0x0F
+#define ICM_USER_CTRL               0x03
+#define ICM_ACCEL_XOUT_H            0x2D
+#define ICM_ACCEL_XOUT_L            0x2E
+#define ICM_ACCEL_YOUT_H            0x2F
+#define ICM_ACCEL_YOUT_L            0x30
+#define ICM_ACCEL_ZOUT_H            0x31
+#define ICM_ACCEL_ZOUT_L            0x32
 
-#define ICM_GYRO_XOUT_H         0x33
-#define ICM_GYRO_XOUT_L         0x34
-#define ICM_GYRO_YOUT_H         0x35
-#define ICM_GYRO_YOUT_L         0x36
-#define ICM_GYRO_ZOUT_H         0x37
-#define ICM_GYRO_ZOUT_L         0x38
+#define ICM_GYRO_XOUT_H             0x33
+#define ICM_GYRO_XOUT_L             0x34
+#define ICM_GYRO_YOUT_H             0x35
+#define ICM_GYRO_YOUT_L             0x36
+#define ICM_GYRO_ZOUT_H             0x37
+#define ICM_GYRO_ZOUT_L             0x38
 
-#define ICM20948_PWR_MGMT_1     0x06
-#define ICM20948_WHO_AM_I_REG   0x00
+#define ICM20948_PWR_MGMT_1         0x06
+#define ICM20948_WHO_AM_I_REG       0x00
 
 //mag registers
-#define WIA2                    0x01
-#define ICM_ST1                 0x10
-#define ICM_MAG_XOUT_L          0x11
-#define ICM_MAG_XOUT_H          0x12
-#define ICM_MAG_YOUT_L          0x13
-#define ICM_MAG_YOUT_H          0x14
-#define ICM_MAG_ZOUT_L          0x15
-#define ICM_MAG_ZOUT_H          0x16
-#define ICM_ST2                 0x18
-#define CNTL2                   0x31
-#define CNTL3                   0x32
+#define WIA2                        0x01
+#define ICM_ST1                     0x10
+#define ICM_MAG_XOUT_L              0x11
+#define ICM_MAG_XOUT_H              0x12
+#define ICM_MAG_YOUT_L              0x13
+#define ICM_MAG_YOUT_H              0x14
+#define ICM_MAG_ZOUT_L              0x15
+#define ICM_MAG_ZOUT_H              0x16
+#define ICM_ST2                     0x18
+#define CNTL2                       0x31
+#define CNTL3                       0x32
 
-#define SAMPLING_TIMER_TICKS_100Hz   328 // ceil(32768/100Hz) = 328. i.e., 99.90244Hz
-#define SAMPLING_TIMER_TICKS_512Hz   64 // 32768/512Hz = 64
+#define SAMPLING_TIMER_TICKS_100Hz \
+  328 //ceil(32768/100Hz) = 328. i.e., 99.90244Hz
+#define SAMPLING_TIMER_TICKS_512Hz 64 //32768/512Hz = 64
 
 enum ICM_MAG_ALTERNATIVE_READ_IDX
 {
-    ICM_MAG_IDX_ST1,
-    ICM_MAG_IDX_XOUT_L,
-    ICM_MAG_IDX_XOUT_H,
-    ICM_MAG_IDX_YOUT_L,
-    ICM_MAG_IDX_YOUT_H,
-    ICM_MAG_IDX_ZOUT_L,
-    ICM_MAG_IDX_ZOUT_H,
-    ICM_MAG_IDX_TMPS,
-    ICM_MAG_IDX_ST2,
-    ICM_MAG_RD_SIZE
+  ICM_MAG_IDX_ST1,
+  ICM_MAG_IDX_XOUT_L,
+  ICM_MAG_IDX_XOUT_H,
+  ICM_MAG_IDX_YOUT_L,
+  ICM_MAG_IDX_YOUT_H,
+  ICM_MAG_IDX_ZOUT_L,
+  ICM_MAG_IDX_ZOUT_H,
+  ICM_MAG_IDX_TMPS,
+  ICM_MAG_IDX_ST2,
+  ICM_MAG_RD_SIZE
 };
 
 typedef enum AK09916_OP_MODE
 {
-    AK09916_PWR_DOWN           = 0x00,
-    AK09916_TRIGGER_MODE       = 0x01,
-    AK09916_CONT_MODE_10HZ     = 0x02,
-    AK09916_CONT_MODE_20HZ     = 0x04,
-    AK09916_CONT_MODE_50HZ     = 0x06,
-    AK09916_CONT_MODE_100HZ    = 0x08
+  AK09916_PWR_DOWN = 0x00,
+  AK09916_TRIGGER_MODE = 0x01,
+  AK09916_CONT_MODE_10HZ = 0x02,
+  AK09916_CONT_MODE_20HZ = 0x04,
+  AK09916_CONT_MODE_50HZ = 0x06,
+  AK09916_CONT_MODE_100HZ = 0x08
 } AK09916_opMode;
 
 void ICM20948_init(void);
@@ -166,8 +167,7 @@ void ICM20948_setGyroSensitivity(uint8_t val);
 //else 2G
 void ICM20948_setAccelRange(uint8_t val);
 
-uint8_t ICM20948_convertSampleRateDivFromMPU9X50(uint8_t sampleRateDivider,
-                                                 uint8_t lpfState);
+uint8_t ICM20948_convertSampleRateDivFromMPU9X50(uint8_t sampleRateDivider, uint8_t lpfState);
 //Set the sampling rate for the gyro
 //Sampling Rate (Hz) = 8000/(sampleRateDiv+1)
 //Note, max output rate for accel is 1kHz

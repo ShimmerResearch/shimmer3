@@ -46,274 +46,275 @@
  * @date December, 2021
  */
 
-#include "msp430.h"
-#include "../5xx_HAL/hal_I2C.h"
 #include "ICM20948.h"
+#include "../5xx_HAL/hal_I2C.h"
 #include "math.h"
+#include "msp430.h"
 
 uint8_t magSampleSkipEnabled;
 uint32_t lastMagSampleTsTicks;
 
 void ICM20948_bankSelect(uint8_t addr, uint8_t val)
 {
-    uint8_t selectBank[2];
-    selectBank[0] = addr;
-    selectBank[1] = val;    //select user bank
-    I2C_Write_Packet_To_Sensor(selectBank, 2);
+  uint8_t selectBank[2];
+  selectBank[0] = addr;
+  selectBank[1] = val; //select user bank
+  I2C_Write_Packet_To_Sensor(selectBank, 2);
 }
 
 //configure I2C
 void ICM20948_init(void)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    //put in I2C pass through mode so that mag can be accessed
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  //put in I2C pass through mode so that mag can be accessed
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0);   //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    buf[0] = ICM_USER_CTRL;
-    buf[1] = 0x00; //Default value is 0 anyway but just to ensure I2C_MST_EN is 0
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  buf[0] = ICM_USER_CTRL;
+  buf[1] = 0x00; //Default value is 0 anyway but just to ensure I2C_MST_EN is 0
+  I2C_Write_Packet_To_Sensor(buf, 2);
 
-    buf[0] = ICM_INT_PIN_CFG;
-    buf[1] = 0x02; //set BYPASS_EN to 1
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  buf[0] = ICM_INT_PIN_CFG;
+  buf[1] = 0x02; //set BYPASS_EN to 1
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 uint8_t ICM20948_getId(void)
 {
-    uint8_t buf;
+  uint8_t buf;
 
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    buf = ICM20948_WHO_AM_I_REG;
-    I2C_Read_Packet_From_Sensor(&buf, 1);
-    return buf;
+  buf = ICM20948_WHO_AM_I_REG;
+  I2C_Read_Packet_From_Sensor(&buf, 1);
+  return buf;
 }
 
 void ICM20948_wake(uint8_t wakeup)
 {
-    uint8_t buf[2];
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  uint8_t buf[2];
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    buf[0] = ICM20948_PWR_MGMT_1;
-    I2C_Read_Packet_From_Sensor(buf, 1); // buf[0] now contains sensors register values
+  buf[0] = ICM20948_PWR_MGMT_1;
+  I2C_Read_Packet_From_Sensor(buf, 1); //buf[0] now contains sensors register values
 
-    if(wakeup)
-    {
-       //wakeup - De-assert bit 6, SLEEP
-       buf[1] = buf[0] & 0xBF;
-    } else
-    {
-       //go back to sleep - Assert bit 6, SLEEP
-       buf[1] = buf[0] | 0x40;
-    }
+  if (wakeup)
+  {
+    //wakeup - De-assert bit 6, SLEEP
+    buf[1] = buf[0] & 0xBF;
+  }
+  else
+  {
+    //go back to sleep - Assert bit 6, SLEEP
+    buf[1] = buf[0] | 0x40;
+  }
 
-    buf[1] |= 0x08; //Disable temperature sensor (to possibly save power)
+  buf[1] |= 0x08; //Disable temperature sensor (to possibly save power)
 
-    buf[0] = ICM20948_PWR_MGMT_1;
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  buf[0] = ICM20948_PWR_MGMT_1;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 void ICM20948_getGyro(uint8_t *buf)
 {
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    *buf = ICM_GYRO_XOUT_H;
-    I2C_Read_Packet_From_Sensor(buf, 6);
+  *buf = ICM_GYRO_XOUT_H;
+  I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
 void ICM20948_getAccelAndGyro(uint8_t *buf)
 {
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    *buf = ICM_ACCEL_XOUT_H;
-    I2C_Read_Packet_From_Sensor(buf, 12);
+  *buf = ICM_ACCEL_XOUT_H;
+  I2C_Read_Packet_From_Sensor(buf, 12);
 }
 
 void ICM20948_getAccel(uint8_t *buf)
 {
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_0); //select user bank 0
 
-    *buf = ICM_ACCEL_XOUT_H;
-    I2C_Read_Packet_From_Sensor(buf, 6);
+  *buf = ICM_ACCEL_XOUT_H;
+  I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
 void ICM20948_setGyroSensitivity(uint8_t val)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    I2C_Set_Slave_Address(ICM20948_ADDR);
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
-    buf[0] = GYRO_CONFIG_1;
-    I2C_Read_Packet_From_Sensor(buf, 1);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
+  buf[0] = GYRO_CONFIG_1;
+  I2C_Read_Packet_From_Sensor(buf, 1);
 
-    //Mask out the GYRO_FS_SEL bits and replace
-    buf[1] = (buf[0] & 0xF9) | ((val & 0x03) << 1);
-    buf[0] = GYRO_CONFIG_1;
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  //Mask out the GYRO_FS_SEL bits and replace
+  buf[1] = (buf[0] & 0xF9) | ((val & 0x03) << 1);
+  buf[0] = GYRO_CONFIG_1;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 void ICM20948_setAccelRange(uint8_t val)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    I2C_Set_Slave_Address(ICM20948_ADDR);
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
-    buf[0] = ICM_ACCEL_CONFIG;
-    I2C_Read_Packet_From_Sensor(buf, 1);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
+  buf[0] = ICM_ACCEL_CONFIG;
+  I2C_Read_Packet_From_Sensor(buf, 1);
 
-    //Mask out the ACCEL_FS_SEL bits and replace
-    buf[1] = (buf[0] & 0xF9) | ((val & 0x03) << 1);
-    buf[0] = ICM_ACCEL_CONFIG;
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  //Mask out the ACCEL_FS_SEL bits and replace
+  buf[1] = (buf[0] & 0xF9) | ((val & 0x03) << 1);
+  buf[0] = ICM_ACCEL_CONFIG;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-uint8_t ICM20948_convertSampleRateDivFromMPU9X50(uint8_t mpuSampleRateDivider,
-                                                 uint8_t lpfState)
+uint8_t ICM20948_convertSampleRateDivFromMPU9X50(uint8_t mpuSampleRateDivider, uint8_t lpfState)
 {
-    uint8_t sampleRateDiv;
-    uint16_t internalSamplingClockFreq;
-    float mpuSamplingFreq;
+  uint8_t sampleRateDiv;
+  uint16_t internalSamplingClockFreq;
+  float mpuSamplingFreq;
 
-    /* MPU9250:
-     * SAMPLE_RATE= Internal_Sample_Rate / (1 + SMPLRT_DIV)
-     * (Internal_Sample_Rate = 8kHz when the DLPF (Digital Low-pass filter) is
-     * disabled (DLPF_CFG = 0 or 7), and 1kHz when the DLPF is enabled).
-     */
+  /* MPU9250:
+   * SAMPLE_RATE= Internal_Sample_Rate / (1 + SMPLRT_DIV)
+   * (Internal_Sample_Rate = 8kHz when the DLPF (Digital Low-pass filter) is
+   * disabled (DLPF_CFG = 0 or 7), and 1kHz when the DLPF is enabled).
+   */
 
-    internalSamplingClockFreq = (lpfState == 0) ? 8000U : 1000U;
-    mpuSamplingFreq = (float) (internalSamplingClockFreq
-            / (1.0f + mpuSampleRateDivider)); // example: @51.2Hz, rate=8000/(1+155)
+  internalSamplingClockFreq = (lpfState == 0) ? 8000U : 1000U;
+  mpuSamplingFreq = (float) (internalSamplingClockFreq
+      / (1.0f + mpuSampleRateDivider)); //example: @51.2Hz, rate=8000/(1+155)
 
-    /* ICM-20948:
-     * 1.125 kHz / (1+GYRO_SMPLRT_DIV[7:0])
-     */
+  /* ICM-20948:
+   * 1.125 kHz / (1+GYRO_SMPLRT_DIV[7:0])
+   */
 
-    // ensure we don't divide by zero
-    if (mpuSamplingFreq == 0.0f)
-    {
-        mpuSamplingFreq = 1.0f; // Set to 1 Hz
-    }
+  //ensure we don't divide by zero
+  if (mpuSamplingFreq == 0.0f)
+  {
+    mpuSamplingFreq = 1.0f; //Set to 1 Hz
+  }
 
-    /*
-     * ICM-20948 sample rate divider conversion from calculated sampleRate in Hz.
-     * We floor the output value of sampleRateDiv such that:
-     * (1125 / sampleRateDiv) >= mpuSamplingFreq
-     */
+  /*
+   * ICM-20948 sample rate divider conversion from calculated sampleRate in Hz.
+   * We floor the output value of sampleRateDiv such that:
+   * (1125 / sampleRateDiv) >= mpuSamplingFreq
+   */
 
-    sampleRateDiv = (uint8_t) (floorf((float) (1125.0f / mpuSamplingFreq)));
+  sampleRateDiv = (uint8_t) (floorf((float) (1125.0f / mpuSamplingFreq)));
 
-    return sampleRateDiv;
+  return sampleRateDiv;
 }
 
 void ICM20948_setGyroSamplingRate(uint8_t sampleRateDiv)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    I2C_Set_Slave_Address(ICM20948_ADDR);
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
-    buf[0] = ICM20948_GYRO_SMPLRT_DIV;
-    buf[1] = sampleRateDiv;
+  I2C_Set_Slave_Address(ICM20948_ADDR);
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
+  buf[0] = ICM20948_GYRO_SMPLRT_DIV;
+  buf[1] = sampleRateDiv;
 
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
+
 void ICM20948_setAccelSamplingRate(uint16_t sampleRateDiv)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    I2C_Set_Slave_Address(ICM20948_ADDR);
+  I2C_Set_Slave_Address(ICM20948_ADDR);
 
-    ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
+  ICM20948_bankSelect(USER_BANK_SEL, USER_BANK_2); //select user bank 2
 
-    buf[0] = ICM20948_ACCEL_SMPLRT_DIV_1;
-    buf[1] = (uint8_t) ((sampleRateDiv >> 8) & 0x0F);
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  buf[0] = ICM20948_ACCEL_SMPLRT_DIV_1;
+  buf[1] = (uint8_t) ((sampleRateDiv >> 8) & 0x0F);
+  I2C_Write_Packet_To_Sensor(buf, 2);
 
-    buf[0] = ICM20948_ACCEL_SMPLRT_DIV_2;
-    buf[1] = (uint8_t) (sampleRateDiv & 0xFF);
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  buf[0] = ICM20948_ACCEL_SMPLRT_DIV_2;
+  buf[1] = (uint8_t) (sampleRateDiv & 0xFF);
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 uint8_t ICM20948_getMagId(void)
 {
-    uint8_t buf;
-    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
-    buf = WIA2;
-    I2C_Read_Packet_From_Sensor(&buf, 1);
+  uint8_t buf;
+  I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+  buf = WIA2;
+  I2C_Read_Packet_From_Sensor(&buf, 1);
 
-    // Need to check that this returns 0x09
-    return buf;
+  //Need to check that this returns 0x09
+  return buf;
 }
 
 void ICM20948_setMagSamplingRateFromShimmerRate(uint16_t samplingRateTicks)
 {
-    magSampleSkipEnabled = 0;
-    lastMagSampleTsTicks = 0;
+  magSampleSkipEnabled = 0;
+  lastMagSampleTsTicks = 0;
 
-    AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
-    /* Choose the next highest sampling rate to the if Shimmer's sampling rate
-     * (e.g., if Shimmer's sampling rate is 9Hz, choose 10Hz). Note, choosing
-     * '>=' here as the comparison values are all floored. */
-    if (samplingRateTicks >= 3277) // ceil(32768/10Hz) = 3277. i.e., if <= 9.9994 Hz
+  AK09916_opMode opMode = AK09916_CONT_MODE_100HZ;
+  /* Choose the next highest sampling rate to the if Shimmer's sampling rate
+   * (e.g., if Shimmer's sampling rate is 9Hz, choose 10Hz). Note, choosing
+   * '>=' here as the comparison values are all floored. */
+  if (samplingRateTicks >= 3277) //ceil(32768/10Hz) = 3277. i.e., if <= 9.9994 Hz
+  {
+    opMode = AK09916_CONT_MODE_10HZ;
+  }
+  else if (samplingRateTicks >= 1639) //ceil(32768/20Hz) = 1639. i.e., if <= 19.9927 Hz
+  {
+    opMode = AK09916_CONT_MODE_20HZ;
+  }
+  else if (samplingRateTicks >= 656) //ceil(32768/50Hz) = 656. i.e., if <= 49.9512 Hz
+  {
+    opMode = AK09916_CONT_MODE_50HZ;
+  }
+  else
+  {
+    opMode = AK09916_CONT_MODE_100HZ;
+    /* If Shimmer sampling rate is >threshold, enable sample skip feature to
+     * avoid locking up AK09916 Magnetometer. */
+    //if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz)
+    if (samplingRateTicks < SAMPLING_TIMER_TICKS_512Hz)
     {
-        opMode = AK09916_CONT_MODE_10HZ;
+      magSampleSkipEnabled = 1;
     }
-    else if (samplingRateTicks >= 1639) // ceil(32768/20Hz) = 1639. i.e., if <= 19.9927 Hz
-    {
-        opMode = AK09916_CONT_MODE_20HZ;
-    }
-    else if (samplingRateTicks >= 656) // ceil(32768/50Hz) = 656. i.e., if <= 49.9512 Hz
-    {
-        opMode = AK09916_CONT_MODE_50HZ;
-    }
-    else
-    {
-        opMode = AK09916_CONT_MODE_100HZ;
-        /* If Shimmer sampling rate is >threshold, enable sample skip feature to
-         * avoid locking up AK09916 Magnetometer. */
-//        if (samplingRateTicks < SAMPLING_TIMER_TICKS_100Hz)
-        if (samplingRateTicks < SAMPLING_TIMER_TICKS_512Hz)
-        {
-            magSampleSkipEnabled = 1;
-        }
-    }
+  }
 
-    ICM20948_setMagMode(opMode);
+  ICM20948_setMagMode(opMode);
 }
 
 void ICM20948_setMagMode(AK09916_opMode opMode)
 {
-    uint8_t buf[2];
+  uint8_t buf[2];
 
-    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
-    buf[0] = CNTL2;
-    buf[1] = opMode;
+  I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+  buf[0] = CNTL2;
+  buf[1] = opMode;
 
-    I2C_Write_Packet_To_Sensor(buf, 2);
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 uint8_t ICM20948_isMagDataRdy(void)
 {
-    uint8_t status;
+  uint8_t status;
 
-    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+  I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
-    //check status register
-    status = ICM_ST1;
-    I2C_Read_Packet_From_Sensor(&status, 1);
-    return (status&0x01);
+  //check status register
+  status = ICM_ST1;
+  I2C_Read_Packet_From_Sensor(&status, 1);
+  return (status & 0x01);
 }
 
 //put x, y and z mag values in buf (little endian)
@@ -322,80 +323,80 @@ uint8_t ICM20948_isMagDataRdy(void)
 //either due to data read error or magnetic sensor overflow
 void ICM20948_getMag(uint8_t *buf)
 {
-    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+  I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
-    *buf = ICM_MAG_XOUT_L;
-    /* -1 here because we aren't reading the status 1 register in this read operation */
-    I2C_Read_Packet_From_Sensor(buf, (ICM_MAG_RD_SIZE-1));
+  *buf = ICM_MAG_XOUT_L;
+  /* -1 here because we aren't reading the status 1 register in this read operation */
+  I2C_Read_Packet_From_Sensor(buf, (ICM_MAG_RD_SIZE - 1));
 
-    //check Status 2 register
-    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
-    {
-        //either a read error or mag sensor overflow occurred
-        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
-        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
-        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
-    }
+  //check Status 2 register
+  if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
+  {
+    //either a read error or mag sensor overflow occurred
+    buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+    buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+    buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
+  }
 }
 
 uint8_t ICM20948_isMagSampleSkipEnabled(void)
 {
-    return magSampleSkipEnabled;
+  return magSampleSkipEnabled;
 }
 
 uint8_t ICM20948_hasTimeoutPeriodPassed(uint64_t currentSampleTsTicks)
 {
-    //TODO make more efficient
+  //TODO make more efficient
 
-    /* Mask to 16-bit to simplify calculations */
-    uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
-    uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
+  /* Mask to 16-bit to simplify calculations */
+  uint32_t currentSampleTsTicksMasked = currentSampleTsTicks & 0xFFFF;
+  uint32_t lastMagSampleTsTicksMasked = lastMagSampleTsTicks & 0xFFFF;
 
-    // Check if roll-over has occurred
-    if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
-    {
-        currentSampleTsTicksMasked |= 0x10000;
-    }
+  //Check if roll-over has occurred
+  if (lastMagSampleTsTicksMasked > currentSampleTsTicksMasked)
+  {
+    currentSampleTsTicksMasked |= 0x10000;
+  }
 
-    uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
-    if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
-    {
-        /* Mag won't have new sample ready yet so don't read from it */
-        return 0;
-    }
+  uint32_t magSampleTsDiffTicks = currentSampleTsTicksMasked - lastMagSampleTsTicksMasked;
+  if (magSampleTsDiffTicks < SAMPLING_TIMER_TICKS_100Hz)
+  {
+    /* Mag won't have new sample ready yet so don't read from it */
+    return 0;
+  }
 
-    // Mag should have new sample ready
-    return 1;
+  //Mag should have new sample ready
+  return 1;
 }
 
 uint8_t ICM20948_getMagAndStatus(uint64_t currentSampleTsTicks, uint8_t *buf)
 {
-    I2C_Set_Slave_Address(AK09916_MAG_ADDR);
+  I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
-    *buf = ICM_ST1;
-    I2C_Read_Packet_From_Sensor(buf, ICM_MAG_RD_SIZE);
+  *buf = ICM_ST1;
+  I2C_Read_Packet_From_Sensor(buf, ICM_MAG_RD_SIZE);
 
-    // Check Status 1 if Data not ready
-    if (!(*(buf + ICM_MAG_IDX_ST1) & 0x01))
-    {
-        return 0;
-    }
+  //Check Status 1 if Data not ready
+  if (!(*(buf + ICM_MAG_IDX_ST1) & 0x01))
+  {
+    return 0;
+  }
 
-    lastMagSampleTsTicks = currentSampleTsTicks & 0xFFFFFFFF;
+  lastMagSampleTsTicks = currentSampleTsTicks & 0xFFFFFFFF;
 
-    //check Status 2 register
-    if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
-    {
-        //either a read error or mag sensor overflow occurred
-        buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
-        buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
-        buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
-        buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
-    }
-    return 1;
+  //check Status 2 register
+  if (*(buf + ICM_MAG_IDX_ST2) & 0x08)
+  {
+    //either a read error or mag sensor overflow occurred
+    buf[ICM_MAG_IDX_XOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_XOUT_H] = 0x7F;
+    buf[ICM_MAG_IDX_YOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_YOUT_H] = 0x7F;
+    buf[ICM_MAG_IDX_ZOUT_L] = 0xFF;
+    buf[ICM_MAG_IDX_ZOUT_H] = 0x7F;
+  }
+  return 1;
 }

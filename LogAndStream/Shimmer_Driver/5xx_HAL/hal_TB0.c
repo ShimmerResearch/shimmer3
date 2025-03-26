@@ -40,39 +40,51 @@
  * @date August, 2014
  */
 
-#include "msp430.h"
 #include "hal_TB0.h"
+#include "msp430.h"
 
-inline void StartTB0(void) {
-   TB0CTL = TBSSEL_1 + MC_2 + TBCLR;   //ACLK, continuous mode, clear TBR
+inline void StartTB0(void)
+{
+  TB0CTL = TBSSEL_1 + MC_2 + TBCLR; //ACLK, continuous mode, clear TBR
 }
 
-inline void ResetTB0(void) {
-   TB0CTL += TBCLR;
+inline void ResetTB0(void)
+{
+  TB0CTL += TBCLR;
 }
 
-inline void StopTB0(void) {
-   TB0CTL = MC_0;
+inline void StopTB0(void)
+{
+  TB0CTL = MC_0;
 }
 
 //read TB0 counter while timer is running
-inline uint16_t GetTB0(void) {
-   register uint16_t t0, t1;
-//   uint8_t ie;
-//    if (ie = (__get_SR_register() & GIE)) //interrupts enabled?
-//      __disable_interrupt();
-   t1 = TB0R;
-   do {t0=t1; t1=TB0R;} while(t0!=t1);
-//   if(ie)
-//      __enable_interrupt();
-   return t1;
+inline uint16_t GetTB0(void)
+{
+  register uint16_t t0, t1;
+  //uint8_t ie;
+  // if (ie = (__get_SR_register() & GIE)) //interrupts enabled?
+  //   __disable_interrupt();
+  t1 = TB0R;
+  do
+  {
+    t0 = t1;
+    t1 = TB0R;
+  } while (t0 != t1);
+  //if(ie)
+  //   __enable_interrupt();
+  return t1;
 }
 
-
 //Check if timer is running
-inline uint8_t IsRunningTB0(void) {
-   if (TB0CTL & 0x0030) {
-      return 1;
-   } else
-      return 0;
+inline uint8_t IsRunningTB0(void)
+{
+  if (TB0CTL & 0x0030)
+  {
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
 }

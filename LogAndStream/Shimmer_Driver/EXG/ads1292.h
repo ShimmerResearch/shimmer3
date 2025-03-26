@@ -83,8 +83,8 @@ void ADS1292_offsetCal(void);
 //and chip select must be enabled
 void ADS1292_enableInternalReference(void);
 
-#define ADS1292_DRDY_INT_CHIP1   0x01
-#define ADS1292_DRDY_INT_CHIP2   0x02
+#define ADS1292_DRDY_INT_CHIP1 0x01
+#define ADS1292_DRDY_INT_CHIP2 0x02
 //If bit0 of mask is 1 then data ready interrupt for chip 1 is enabled (P2.0)
 //If bit1 of mask is 1 then data ready interrupt for chip 2 is enabled (P1.4)
 void ADS1292_enableDrdyInterrupts(uint8_t mask);
@@ -105,32 +105,35 @@ uint8_t ADS1292_readDataChip2(uint8_t *data);
 void ADS1292_dataReadyChip1();
 void ADS1292_dataReadyChip2();
 
-#define ADS1292_DATA_PACKET_LENGTH     9
+#define ADS1292_DATA_PACKET_LENGTH 9
 /****************************************************************/
 /* ADS1x9x COMMAND DESCRIPTION and definitions */
 /****************************************************************/
- // System Commands
-#define WAKEUP    0x02     //Wake-up from standby mode
-#define STANDBY   0x04     //Enter standby mode
+//System Commands
+#define WAKEUP                     0x02 //Wake-up from standby mode
+#define STANDBY                    0x04 //Enter standby mode
 
-#define RESET     0x06     //Reset the device registers
-#define START     0x08     //Start/restart (synchronize) conversions
-#define STOP      0x0A     //Stop conversion
-#define OFFSETCAL 0x1A     //Channel offset calibration
-                           //needs to be sent every time there is a change to the PGA gain
+#define RESET                      0x06 //Reset the device registers
+#define START                      0x08 //Start/restart (synchronize) conversions
+#define STOP                       0x0A //Stop conversion
+#define OFFSETCAL \
+  0x1A //Channel offset calibration
+       //needs to be sent every time there is a change to the PGA gain
 
-// Data Read Commands
-#define RDATAC    0x10     //Enable Read Data Continuous mode.
-                           //This mode is the default mode at power-up.
-#define SDATAC    0x11     //Stop Read Data Continuously mode
-#define RDATA     0x12     //Read data by command; supports multiple read back.
+//Data Read Commands
+#define RDATAC \
+  0x10              //Enable Read Data Continuous mode.
+                    //This mode is the default mode at power-up.
+#define SDATAC 0x11 //Stop Read Data Continuously mode
+#define RDATA  0x12 //Read data by command; supports multiple read back.
 
-// Register Read Commands
-#define RREG      0x20     //Read n nnnn registers starting at address r rrrr
-                           //first byte 001r rrrr (2xh)(2) - second byte 000n nnnn(2)
-#define WREG      0x40     //Write n nnnn registers starting at address r rrrr
-                           //first byte 010r rrrr (2xh)(2) - second byte 000n nnnn(2)
-
+//Register Read Commands
+#define RREG \
+  0x20 //Read n nnnn registers starting at address r rrrr
+       //first byte 001r rrrr (2xh)(2) - second byte 000n nnnn(2)
+#define WREG \
+  0x40 //Write n nnnn registers starting at address r rrrr
+       //first byte 010r rrrr (2xh)(2) - second byte 000n nnnn(2)
 
 /****************************************************************/
 /* ADS1x9x register addresses                                   */
@@ -162,7 +165,7 @@ void ADS1292_dataReadyChip2();
 //    01 = ADS1192
 //    10 = ADS1291
 //    11 = ADS1292/2R
-#define ADS1x9x_REG_DEVID         (0x0000u)
+#define ADS1x9x_REG_DEVID     (0x0000u)
 
 //CONFIG1: Configuration Register 1
 //Address = 01h
@@ -193,12 +196,12 @@ void ADS1292_dataReadyChip2();
 //          110   |  Do Not Use           |  Do Not Use     |
 //          111   |  Do Not Use           |  Do Not Use     |
 // ----------------------------------------------------------
-#define ADS1x9x_REG_CONFIG1       (0x0001u)
+#define ADS1x9x_REG_CONFIG1   (0x0001u)
 
 //CONFIG2: Configuration Register 2
 //Address = 02h
 // ----------------------------------------------------------------------------------
-// |BIT 7  |BIT 6         |BIT 5     | BIT 4   |  BIT 3 |BIT 2  |BIT 1    |BIT 0    |
+// |BIT 7  |BIT 6         |BIT 5     | BIT 4   |  BIT 3 |BIT 2  |BIT 1    |BIT 0 |
 // |-------|--------------|----------|---------|--------|-------|---------|---------|
 // |   1   |PDB_LOFF_COMP |PDB_REFBUF| VREF_4V | CLK_EN |   0   |INT_TEST |TEST_FREQ|
 // ----------------------------------------------------------------------------------
@@ -237,14 +240,14 @@ void ADS1292_dataReadyChip2();
 //    This bit determines the test signal frequency.
 //       0 = At dc (default)
 //       1 = Square wave at 1 Hz
-#define ADS1x9x_REG_CONFIG2       (0x0002u)
+#define ADS1x9x_REG_CONFIG2   (0x0002u)
 
 //LOFF: Lead-Off Control Register
 //Address = 03h
 // -----------------------------------------------------------------------------------------------
-// | BIT 7    |BIT 6    |BIT 5    |BIT 4     | BIT 3      |BIT 2       |BIT 1         | BIT 0    |
-// |----------|-------  |-------  |----------|----------- |---------   |--------------|----------|
-// |COMP_TH2  |COMP_TH1 |COMP_TH0 | 0        | ILEAD_OFF1 | ILEAD_OFF0 |0             | FLEAD_OFF|
+// | BIT 7    |BIT 6    |BIT 5    |BIT 4     | BIT 3      |BIT 2       |BIT 1 | BIT 0    |
+// |----------|-------  |-------  |----------|----------- |--------- |--------------|----------|
+// |COMP_TH2  |COMP_TH1 |COMP_TH0 | 0        | ILEAD_OFF1 | ILEAD_OFF0 |0 | FLEAD_OFF|
 // -----------------------------------------------------------------------------------------------
 //
 //The Lead-Off Control Register configures the Lead-Off detection operation.
@@ -285,14 +288,14 @@ void ADS1292_dataReadyChip2();
 //    This bit generates the LEAD_OFF_CLK signal. It also generates AC_LEAD_OFF, which is '1' when FLEAD_OFF is '1'.
 //       0 = At dc lead-off detect (default)
 //       1 = At ac lead-off detect at DECICLK/4 (500 Hz for an 2-kHz output rate)
-#define ADS1x9x_REG_LOFF       (0x0003u)
+#define ADS1x9x_REG_LOFF      (0x0003u)
 
 //CHnSET: Individual Channel Settings
 //Address = 04h
 // ------------------------------------------------------------------------------
-// | BIT 7    |BIT 6   |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0   |
+// | BIT 7    |BIT 6   |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0 |
 // |----------|--------|--------|---------|--------|--------|---------|---------|
-// |   PD1    |GAIN1_1 |GAIN1_0 |  0      |  MUX1_3| MUX1_2 |  MUX1_1 | MUX1_0  |
+// |   PD1    |GAIN1_1 |GAIN1_0 |  0      |  MUX1_3| MUX1_2 |  MUX1_1 | MUX1_0 |
 // ------------------------------------------------------------------------------
 //
 //The CH1SET Control Register configures the power mode, PGA gain, and multiplexer settings channels.
@@ -324,14 +327,14 @@ void ADS1292_dataReadyChip2();
 //       1000 = Reserved
 //       1001 = MUX RESPP/RESPN to INP/INM
 //       1010 = Reserved
-#define ADS1x9x_REG_CH1SET        (0x0004u)
+#define ADS1x9x_REG_CH1SET    (0x0004u)
 
 //CHnSET: Individual Channel Settings
 //Address = 05h
 // ------------------------------------------------------------------------------
-// | BIT 7    |BIT 6   |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0   |
+// | BIT 7    |BIT 6   |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0 |
 // |----------|--------|--------|---------|--------|--------|---------|---------|
-// |   PD2    |GAIN2_1 |GAIN2_0 |  0      |  MUX2_3| MUX2_2 |  MUX2_1 | MUX2_0  |
+// |   PD2    |GAIN2_1 |GAIN2_0 |  0      |  MUX2_3| MUX2_2 |  MUX2_1 | MUX2_0 |
 // ------------------------------------------------------------------------------
 //
 //The CH1SET Control Register configures the power mode, PGA gain, and multiplexer settings channels.
@@ -363,14 +366,14 @@ void ADS1292_dataReadyChip2();
 //       1000 = Reserved
 //       1001 = MUX RESPP/RESPN to INP/INM
 //       1010 = Reserved
-#define ADS1x9x_REG_CH2SET        (0x0005u)
+#define ADS1x9x_REG_CH2SET    (0x0005u)
 
 //RLD_SENSP
 //Address = 06h
 // -----------------------------------------------------------------------------------
 // | BIT 7  | BIT 6 |BIT 5   |  BIT 4          | BIT 3  | BIT 2  |  BIT 1  | BIT 0   |
 // |--------|-------|--------|-----------------|--------|--------|---------|---------|
-// |  CHOP1 | CHOP0 |PD_RLD  |  RLD_LOFF_SENS  | RLDN2  | RLDP2  |  RLDN1  | RLDP1   |
+// |  CHOP1 | CHOP0 |PD_RLD  |  RLD_LOFF_SENS  | RLDN2  | RLDP2  |  RLDN1  | RLDP1 |
 // -----------------------------------------------------------------------------------
 //
 //This register controls the selection of the positive and negative signals from each channel for right leg drive
@@ -413,14 +416,14 @@ void ADS1292_dataReadyChip2();
 //    This bit controls the selection of positive inputs from channel 1 for right leg drive derivation.
 //       0 = Not connected (default)
 //       1 = RLD connected to IN1P
-#define ADS1x9x_REG_RLD_SENS      (0x0006u)
+#define ADS1x9x_REG_RLD_SENS  (0x0006u)
 
 //LOFF_SENS
 //Address = 07h
 // -------------------------------------------------------------------------------
-// | BIT 7    |BIT 6    |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0   |
+// | BIT 7    |BIT 6    |BIT 5   |  BIT 4  | BIT 3  | BIT 2  |  BIT 1  | BIT 0 |
 // |----------|---------|--------|---------|--------|--------|---------|---------|
-// | 0        |   0     |FLIP2   |  FLIP1  | LOFFN2 | LOFFP2 |  LOFFN1 | LOFFP1  |
+// | 0        |   0     |FLIP2   |  FLIP1  | LOFFN2 | LOFFP2 |  LOFFN1 | LOFFP1 |
 // -------------------------------------------------------------------------------
 //
 //This register selects the positive and negative side from each channel for lead-off detection. See the Lead-Off
@@ -458,14 +461,14 @@ void ADS1292_dataReadyChip2();
 //    This bit controls the selection of positive input from channel 1 for lead off detection.
 //       0 = Disabled (default)
 //       1 = Enabled
-#define ADS1x9x_REG_LOFF_SENS     (0x0007u)
+#define ADS1x9x_REG_LOFF_SENS (0x0007u)
 
 //LOFF_STAT
 //Address = 08h
 // -----------------------------------------------------------------------------------------
-// | BIT 7    |BIT 6    |BIT 5   |  BIT 4     | BIT 3    | BIT 2    |  BIT 1    | BIT 0    |
+// | BIT 7    |BIT 6    |BIT 5   |  BIT 4     | BIT 3    | BIT 2    |  BIT 1 | BIT 0    |
 // |----------|---------|--------|------------|----------|----------|-----------|----------|
-// |  0       |MOD_FREQ |0       |  RLD_STAT  | IN2N_OFF | IN2P_OFF | IN1N_OFF  | IN1P_OFF |
+// |  0       |MOD_FREQ |0       |  RLD_STAT  | IN2N_OFF | IN2P_OFF | IN1N_OFF | IN1P_OFF |
 // -----------------------------------------------------------------------------------------
 //
 //This register stores the status of whether the positive or negative electrode on each channel is on or off. See the
@@ -508,14 +511,14 @@ void ADS1292_dataReadyChip2();
 //    This bit determines if the channel 1 positive electrode is connected or not.
 //       0 = Connected (default)
 //       1 = Not connected
-#define ADS1x9x_REG_LOFF_STAT      (0x0008u)
+#define ADS1x9x_REG_LOFF_STAT (0x0008u)
 
 //RESP1: Respiration Control Register 1
 //Address = 09h
 // --------------------------------------------------------------------------------------------
 // | BIT 7       |  BIT 6       |BIT 5    |  BIT 4  | BIT 3    | BIT 2    |  BIT 1  | BIT 0   |
 // |-------------|--------------|---------|---------|----------|----------|---------|---------|
-// | RESP_MOD_EN |  RESP_MOD_EN |RESP_PH3 |RESP_PH2 | RESP_PH1 | RESP_PH0 |  1      | REP_CTL |
+// | RESP_MOD_EN |  RESP_MOD_EN |RESP_PH3 |RESP_PH2 | RESP_PH1 | RESP_PH0 |  1 | REP_CTL |
 // --------------------------------------------------------------------------------------------
 //
 //This register controls the respiration functionality.
@@ -563,7 +566,7 @@ void ADS1292_dataReadyChip2();
 //RESP2: Respiration Control Register 2
 //Address = 0Ah
 // -------------------------------------------------------------------------------------------
-// | BIT 7    |BIT 6     | BIT 5    |   BIT 4  |  BIT 3   |  BIT 2   |   BIT 1    | BIT 0    |
+// | BIT 7    |BIT 6     | BIT 5    |   BIT 4  |  BIT 3   |  BIT 2   |   BIT 1 | BIT 0    |
 // |----------|----------|----------|----------|----------|----------|------------|----------|
 // |CALIB_ON  |0         |   0      |     0    |     0    | RESP_FREQ| RLDREF_INT |  1       |
 // -------------------------------------------------------------------------------------------
@@ -588,8 +591,7 @@ void ADS1292_dataReadyChip2();
 //       1 = RLDREF signal (AVDD – AVSS)/2 generated internally (default)
 //
 //Bit 0 Must be set to '1;
-#define ADS1x9x_REG_RESP2      (0x00Au)
-
+#define ADS1x9x_REG_RESP2     (0x00Au)
 
 //void ADS1292_reg2Uca0();
 //void ADS1292_activate();

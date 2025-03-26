@@ -55,9 +55,9 @@
 #define MASK_INT_A12 0x0040
 #define MASK_INT_A13 0x0080
 #define MASK_INT_A14 0x0100
-#define MASK_GSR     0x0020   //uses ADC1
+#define MASK_GSR     0x0020 //uses ADC1
 
-extern uint16_t* ADC_init(uint16_t mask);
+extern uint16_t *ADC_init(uint16_t mask);
 extern void ADC_startConversion(void);
 extern void ADC_disable(void);
 extern void ADC_setInterrupts(uint16_t mask);

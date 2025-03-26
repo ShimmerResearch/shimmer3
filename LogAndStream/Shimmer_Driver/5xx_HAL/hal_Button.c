@@ -37,54 +37,60 @@
  *
  ******************************************************************************/
 
-#include "msp430.h"
 #include "hal_Button.h"
 #include "../msp430_clock/msp430_clock.h"
+#include "msp430.h"
 
-
-/***************************************************************************//**
- * @brief  Initialise port for button SW1 as active low inputs
- * @param  none
- * @return none
- ******************************************************************************/
-void Button_init() {
-   P1OUT |= BIT6;  //button is active low
-   P1REN |= BIT6;  //pullup resistor
-   P1SEL &= ~BIT6;
+/***************************************************************************/ /**
+                                                                               * @brief  Initialise port for button SW1 as active low inputs
+                                                                               * @param  none
+                                                                               * @return none
+                                                                               ******************************************************************************/
+void Button_init()
+{
+  P1OUT |= BIT6; //button is active low
+  P1REN |= BIT6; //pullup resistor
+  P1SEL &= ~BIT6;
 }
 
-/***************************************************************************//**
- * @brief  Enable button interrupts for selected buttons
- * @param  none
- * @return none
- ******************************************************************************/
-void Button_interruptEnable() {
-   P1IES |= BIT6;    //select fall edge trigger
-   P1IFG &= ~BIT6;   //clear flags
-   P1IE |= BIT6;     //enable interrupts
+/***************************************************************************/ /**
+                                                                               * @brief  Enable button interrupts for selected buttons
+                                                                               * @param  none
+                                                                               * @return none
+                                                                               ******************************************************************************/
+void Button_interruptEnable()
+{
+  P1IES |= BIT6;  //select fall edge trigger
+  P1IFG &= ~BIT6; //clear flags
+  P1IE |= BIT6;   //enable interrupts
 }
 
-/***************************************************************************//**
- * @brief  Disable button interrupts for selected buttons
- * @param  none
- * @return none
- ******************************************************************************/
-void Button_interruptDisable() {
-   P1IE &= ~BIT6;
+/***************************************************************************/ /**
+                                                                               * @brief  Disable button interrupts for selected buttons
+                                                                               * @param  none
+                                                                               * @return none
+                                                                               ******************************************************************************/
+void Button_interruptDisable()
+{
+  P1IE &= ~BIT6;
 }
 
-// note that shimmer3 has a user_n
-void Button_waitpress() {
-   P1IES |= BIT6; //select fall edge trigger
-}
-void Button_waitrelease() {
-   P1IES &= ~BIT6; //select rising edge trigger
+//note that shimmer3 has a user_n
+void Button_waitpress()
+{
+  P1IES |= BIT6; //select fall edge trigger
 }
 
-void Button_debounce() {
-   //disable switch interrupts
-   Button_interruptDisable();
-   //start timer to reenable switch after 250ms
-   msp430_clock_init();
-   msp430_register_timer_cb(Button_interruptEnable, 500, 0);
+void Button_waitrelease()
+{
+  P1IES &= ~BIT6; //select rising edge trigger
+}
+
+void Button_debounce()
+{
+  //disable switch interrupts
+  Button_interruptDisable();
+  //start timer to reenable switch after 250ms
+  msp430_clock_init();
+  msp430_register_timer_cb(Button_interruptEnable, 500, 0);
 }

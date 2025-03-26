@@ -48,15 +48,15 @@
 
 #include <stdint.h>
 
-#define INFOMEM_SEG_D 0x01
-#define INFOMEM_SEG_C 0x02
-#define INFOMEM_SEG_B 0x04
-#define INFOMEM_SEG_A 0x08
-#define INFOMEM_SEG_ALL 0x0F
+#define INFOMEM_SEG_D             0x01
+#define INFOMEM_SEG_C             0x02
+#define INFOMEM_SEG_B             0x04
+#define INFOMEM_SEG_A             0x08
+#define INFOMEM_SEG_ALL           0x0F
 
-#define INFOMEM_OFFSET_MSP430 0x1800
-#define INFOMEM_SIZE     512
-#define INFOMEM_SEG_SIZE 128
+#define INFOMEM_OFFSET_MSP430     0x1800
+#define INFOMEM_SIZE              512
+#define INFOMEM_SEG_SIZE          128
 #define INFOMEM_SEG_A_ADDR_MSP430 0x1980
 #define INFOMEM_SEG_B_ADDR_MSP430 0x1900
 #define INFOMEM_SEG_C_ADDR_MSP430 0x1880

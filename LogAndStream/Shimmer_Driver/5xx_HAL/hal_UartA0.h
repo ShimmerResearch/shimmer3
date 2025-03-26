@@ -45,35 +45,36 @@
 
 #include <stdint.h>
 //============================== below is the UART part ===============================
-#define UARTSEL         P3SEL
-#define UARTTXD         BIT4
-#define UARTRXD         BIT5
+#define UARTSEL          P3SEL
+#define UARTTXD          BIT4
+#define UARTRXD          BIT5
 
-#define UARTCTL0        UCA0CTL0
-#define UARTCTL1        UCA0CTL1
-#define UARTBR0         UCA0BR0
-#define UARTBR1         UCA0BR1
-#define UARTMCTL        UCA0MCTL
-#define UARTIFG         UCA0IFG
-#define UARTIE          UCA0IE
-#define UARTTXBUF       UCA0TXBUF
-#define UARTRXBUF       UCA0RXBUF
-#define UART_VECTOR     USCI_A0_VECTOR
-#define UCIV            UCA0IV
+#define UARTCTL0         UCA0CTL0
+#define UARTCTL1         UCA0CTL1
+#define UARTBR0          UCA0BR0
+#define UARTBR1          UCA0BR1
+#define UARTMCTL         UCA0MCTL
+#define UARTIFG          UCA0IFG
+#define UARTIE           UCA0IE
+#define UARTTXBUF        UCA0TXBUF
+#define UARTRXBUF        UCA0RXBUF
+#define UART_VECTOR      USCI_A0_VECTOR
+#define UCIV             UCA0IV
 
-#define DOCK_TX_BUF_SIZE                  256U              /* serial buffer in bytes (power 2)  */
-#define DOCK_TX_BUF_MASK                  (DOCK_TX_BUF_SIZE-1UL)
+#define DOCK_TX_BUF_SIZE 256U /* serial buffer in bytes (power 2)  */
+#define DOCK_TX_BUF_MASK (DOCK_TX_BUF_SIZE - 1UL)
 
-typedef struct{
-    uint8_t data[DOCK_TX_BUF_SIZE];
-    // tail points to the buffer index for the oldest byte that was added to it
-    uint16_t rdIdx;
-    // head points to the index of the next empty byte in the buffer
-    uint16_t wrIdx;
+typedef struct
+{
+  uint8_t data[DOCK_TX_BUF_SIZE];
+  //tail points to the buffer index for the oldest byte that was added to it
+  uint16_t rdIdx;
+  //head points to the index of the next empty byte in the buffer
+  uint16_t wrIdx;
 } RingFifoDockTx_t;
 
-// registers the uart to usci_a0
-// must run only once before using the uart for the first time
+//registers the uart to usci_a0
+//must run only once before using the uart for the first time
 
 //extern void UART_reg2Uca0();
 
@@ -84,24 +85,24 @@ void DockUart_writeText(char *str);
 //initializes the uart_num_registered_cmds value
 void UART_init(uint8_t (*uart_cb)(uint8_t data));
 
-// configures the pin settings
-// run this every time before using UART
+//configures the pin settings
+//run this every time before using UART
 void UART_config();
 
-// register commands
-// usage: on receiving 'cmd_buff' through uart0_rx,
-// return 'response_buf' through uart0_tx
-// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
+//register commands
+//usage: on receiving 'cmd_buff' through uart0_rx,
+//return 'response_buf' through uart0_tx
+//cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
 //extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
 //extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
-//      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
-// to switch between uart_isr and other isrs
-// the last activated one works
+//     uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
+//to switch between uart_isr and other isrs
+//the last activated one works
 void DockUart_enable(void);
 
 void UART_setState(uint8_t state);
 
-// reset p6.1 and p7.6 back to sel+input
+//reset p6.1 and p7.6 back to sel+input
 void DockUart_disable(void);
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len);
@@ -109,7 +110,5 @@ uint16_t getUsedSpaceInDockTxBuf(void);
 uint16_t getSpaceInDockTxBuf(void);
 
 //============================== above is the UART part ===============================
-
-
 
 #endif /* HAL_UARTA0_H_ */

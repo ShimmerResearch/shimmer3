@@ -71,7 +71,7 @@ int msp430_delay_ms(unsigned long num_ms);
  *  @return     0 if successful.
  */
 int msp430_register_timer_cb(void (*timer_cb)(void), unsigned long num_ms, uint8_t exit_lpm);
-#endif  /* _MSP430_CLOCK_H_ */
+#endif /* _MSP430_CLOCK_H_ */
 
 /**
  *  @brief      Acquire current value of TA1.

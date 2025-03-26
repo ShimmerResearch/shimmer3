@@ -40,178 +40,199 @@
  * @date December, 2013
  */
 
-#include "msp430.h"
-#include "../5xx_HAL/hal_I2C.h"
 #include "mpu9150.h"
+#include "../5xx_HAL/hal_I2C.h"
+#include "msp430.h"
 
 //configure I2C
-void MPU9150_init(void) {
-   uint8_t buf[2];
+void MPU9150_init(void)
+{
+  uint8_t buf[2];
 
-   //put in I2C pass through mode so that mag can be accessed
-   I2C_Set_Slave_Address(MPU9150_ADDR);
+  //put in I2C pass through mode so that mag can be accessed
+  I2C_Set_Slave_Address(MPU9150_ADDR);
 
-   *buf = USER_CTRL;
-   buf[1] = 0;    //ensure I2C_MST_EN is 0
-   I2C_Write_Packet_To_Sensor(buf, 2);
+  *buf = USER_CTRL;
+  buf[1] = 0; //ensure I2C_MST_EN is 0
+  I2C_Write_Packet_To_Sensor(buf, 2);
 
-   *buf = INT_PIN_CFG;
-   buf[1] = 0x02; //set I2C_BYPASS_EN to 1
-   I2C_Write_Packet_To_Sensor(buf, 2);
+  *buf = INT_PIN_CFG;
+  buf[1] = 0x02; //set I2C_BYPASS_EN to 1
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-uint8_t MPU9150_getId(void) {
-   uint8_t buf;
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   buf = MPU9X50_WHO_AM_I_REG;
-   I2C_Read_Packet_From_Sensor(&buf, 1);
-   return buf;
+uint8_t MPU9150_getId(void)
+{
+  uint8_t buf;
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  buf = MPU9X50_WHO_AM_I_REG;
+  I2C_Read_Packet_From_Sensor(&buf, 1);
+  return buf;
 }
 
-void MPU9150_wake(uint8_t wakeup) {
-   uint8_t buf[2];
+void MPU9150_wake(uint8_t wakeup)
+{
+  uint8_t buf[2];
 
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = MPU9150_PWR_MGMT_1;
-   I2C_Read_Packet_From_Sensor(buf, 1);
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = MPU9150_PWR_MGMT_1;
+  I2C_Read_Packet_From_Sensor(buf, 1);
 
-   if(wakeup) {
-      //wakeup
-      buf[1] = buf[0] & 0xBF;
-   } else {
-      //go back to sleep
-      buf[1] = buf[0] | 0x40;
-   }
-   *buf = MPU9150_PWR_MGMT_1;
-   I2C_Write_Packet_To_Sensor(buf,2);
+  if (wakeup)
+  {
+    //wakeup
+    buf[1] = buf[0] & 0xBF;
+  }
+  else
+  {
+    //go back to sleep
+    buf[1] = buf[0] | 0x40;
+  }
+  *buf = MPU9150_PWR_MGMT_1;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-void MPU9150_getGyro(uint8_t *buf) {
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = GYRO_XOUT_H;
-   I2C_Read_Packet_From_Sensor(buf, 6);
+void MPU9150_getGyro(uint8_t *buf)
+{
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = GYRO_XOUT_H;
+  I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
-void MPU9150_getAccel(uint8_t *buf) {
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = ACCEL_XOUT_H;
-   I2C_Read_Packet_From_Sensor(buf, 6);
+void MPU9150_getAccel(uint8_t *buf)
+{
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = ACCEL_XOUT_H;
+  I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
-void MPU9150_setGyroSensitivity(uint8_t val) {
-   uint8_t buf[2];
+void MPU9150_setGyroSensitivity(uint8_t val)
+{
+  uint8_t buf[2];
 
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = GYRO_CONFIG;
-   I2C_Read_Packet_From_Sensor(buf, 1);
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = GYRO_CONFIG;
+  I2C_Read_Packet_From_Sensor(buf, 1);
 
-   if(val>0 && val<4) {
-      buf[1] = (buf[0]&0xE7) | (val<<3);
-   } else {
-      buf[1] = (buf[0]&0xE7);
-   }
+  if (val > 0 && val < 4)
+  {
+    buf[1] = (buf[0] & 0xE7) | (val << 3);
+  }
+  else
+  {
+    buf[1] = (buf[0] & 0xE7);
+  }
 
-   *buf = GYRO_CONFIG;
-   I2C_Write_Packet_To_Sensor(buf,2);
+  *buf = GYRO_CONFIG;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-void MPU9150_setAccelRange(uint8_t val) {
-   uint8_t buf[2];
+void MPU9150_setAccelRange(uint8_t val)
+{
+  uint8_t buf[2];
 
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = ACCEL_CONFIG;
-   I2C_Read_Packet_From_Sensor(buf, 1);
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = ACCEL_CONFIG;
+  I2C_Read_Packet_From_Sensor(buf, 1);
 
-   if(val>0 && val<4) {
-      buf[1] = (buf[0]&0xE7) | (val<<3);
-   } else {
-      buf[1] = (buf[0]&0xE7);
-   }
+  if (val > 0 && val < 4)
+  {
+    buf[1] = (buf[0] & 0xE7) | (val << 3);
+  }
+  else
+  {
+    buf[1] = (buf[0] & 0xE7);
+  }
 
-   *buf = ACCEL_CONFIG;
-   I2C_Write_Packet_To_Sensor(buf,2);
+  *buf = ACCEL_CONFIG;
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-void MPU9150_setSamplingRate(uint8_t sampleRateDiv) {
-   uint8_t buf[2];
+void MPU9150_setSamplingRate(uint8_t sampleRateDiv)
+{
+  uint8_t buf[2];
 
-   I2C_Set_Slave_Address(MPU9150_ADDR);
-   *buf = MPU9150_SMPLRT_DIV;
+  I2C_Set_Slave_Address(MPU9150_ADDR);
+  *buf = MPU9150_SMPLRT_DIV;
 
-   buf[1] = sampleRateDiv;
+  buf[1] = sampleRateDiv;
 
-   I2C_Write_Packet_To_Sensor(buf,2);
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-uint8_t MPU9150_getMagId(void) {
-   uint8_t buf;
-   I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
-   buf = WIA;
-   I2C_Read_Packet_From_Sensor(&buf, 1);
-   return buf;
+uint8_t MPU9150_getMagId(void)
+{
+  uint8_t buf;
+  I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
+  buf = WIA;
+  I2C_Read_Packet_From_Sensor(&buf, 1);
+  return buf;
 }
 
 //Set the mag to single measurement mode
 //can take between 7.3ms to 9ms before data is ready
-void MPU9150_startMagMeasurement(void) {
-   uint8_t buf[2];
+void MPU9150_startMagMeasurement(void)
+{
+  uint8_t buf[2];
 
-   I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
-   *buf = CNTL;
-   buf[1] = 0x01;    //single measurement mode
-   I2C_Write_Packet_To_Sensor(buf,2);
+  I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
+  *buf = CNTL;
+  buf[1] = 0x01; //single measurement mode
+  I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
 //put x, y and z mag values in buf (little endian)
 //-4096 to 4095
 //if values are 32767 they are not valid
 //either due to data read error or magnetic sensor overflow
-void MPU9150_getMag(uint8_t *buf) {
-   uint8_t status;
+void MPU9150_getMag(uint8_t *buf)
+{
+  uint8_t status;
 
-   I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
-   *buf = MAG_XOUT_L;
-   I2C_Read_Packet_From_Sensor(buf, 6);
+  I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
+  *buf = MAG_XOUT_L;
+  I2C_Read_Packet_From_Sensor(buf, 6);
 
-   //check status register
-   status = ST2;
-   I2C_Read_Packet_From_Sensor(&status, 1);
-   if(status) {
-      //either a read error or mag sensor overflow occurred
-      buf[0] = 0xFF;
-      buf[1] = 0x7F;
-      buf[2] = 0xFF;
-      buf[3] = 0x7F;
-      buf[4] = 0xFF;
-      buf[5] = 0x7F;
-   }
-
+  //check status register
+  status = ST2;
+  I2C_Read_Packet_From_Sensor(&status, 1);
+  if (status)
+  {
+    //either a read error or mag sensor overflow occurred
+    buf[0] = 0xFF;
+    buf[1] = 0x7F;
+    buf[2] = 0xFF;
+    buf[3] = 0x7F;
+    buf[4] = 0xFF;
+    buf[5] = 0x7F;
+  }
 }
 
 //read the x, y and z mag sensitivity adjustment values
-void MPU9150_getMagSensitivityAdj(uint8_t *buf) {
-   uint8_t localbuf[2];
+void MPU9150_getMagSensitivityAdj(uint8_t *buf)
+{
+  uint8_t localbuf[2];
 
-   //ensure starting from power down mode
-   I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
-   *localbuf = CNTL;
-   localbuf[1] = 0x00;    //powerdown mode
-   I2C_Write_Packet_To_Sensor(localbuf,2);
-   __delay_cycles(2400);   //100us (assuming 24MHz clock)
+  //ensure starting from power down mode
+  I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
+  *localbuf = CNTL;
+  localbuf[1] = 0x00; //powerdown mode
+  I2C_Write_Packet_To_Sensor(localbuf, 2);
+  __delay_cycles(2400); //100us (assuming 24MHz clock)
 
-   //set to fuse ROM mode
-   *localbuf = CNTL;
-   localbuf[1] = 0x0F;     //Fuse ROM mode
-   I2C_Write_Packet_To_Sensor(localbuf,2);
+  //set to fuse ROM mode
+  *localbuf = CNTL;
+  localbuf[1] = 0x0F; //Fuse ROM mode
+  I2C_Write_Packet_To_Sensor(localbuf, 2);
 
-   //read sensitivity adjustment data for the 3 axes
-   *buf = ASAX;
-   I2C_Read_Packet_From_Sensor(buf, 3);
+  //read sensitivity adjustment data for the 3 axes
+  *buf = ASAX;
+  I2C_Read_Packet_From_Sensor(buf, 3);
 
-   //return to power down mode
-   I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
-   *localbuf = CNTL;
-   localbuf[1] = 0x00;     //powerdown mode
-   I2C_Write_Packet_To_Sensor(localbuf,2);
-   __delay_cycles(2400);   //100us (assuming 24MHz clock)
+  //return to power down mode
+  I2C_Set_Slave_Address(MPU9150_MAG_ADDR);
+  *localbuf = CNTL;
+  localbuf[1] = 0x00; //powerdown mode
+  I2C_Write_Packet_To_Sensor(localbuf, 2);
+  __delay_cycles(2400); //100us (assuming 24MHz clock)
 }

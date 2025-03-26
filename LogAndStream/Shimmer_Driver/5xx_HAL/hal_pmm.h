@@ -51,43 +51,42 @@
 //    V1.2  Added return values
 //****************************************************************************////====================================================================
 
-
 #ifndef HAL_PMM_H
 #define HAL_PMM_H
 
-#define PMM_STATUS_OK     0
-#define PMM_STATUS_ERROR  1
+#define PMM_STATUS_OK    0
+#define PMM_STATUS_ERROR 1
 
 //====================================================================
 /**
-  * Set the VCore to a new level if it is possible and return a
-  * error - value.
-  *
-  * \param      level       PMM level ID
-  * \return int       1: error / 0: done
-  */
-unsigned int SetVCore (unsigned char level);
+ * Set the VCore to a new level if it is possible and return a
+ * error - value.
+ *
+ * \param      level       PMM level ID
+ * \return int       1: error / 0: done
+ */
+unsigned int SetVCore(unsigned char level);
 
 //====================================================================
 /**
-  * Set the VCore to a higher level, if it is possible.
-  * Return a 1 if voltage at highside (Vcc) is to low
-  * for the selected Level (level).
-  *
-  * \param      level       PMM level ID
-  * \return int       1: error / 0: done
-  */
-unsigned int SetVCoreUp (unsigned char level);
+ * Set the VCore to a higher level, if it is possible.
+ * Return a 1 if voltage at highside (Vcc) is to low
+ * for the selected Level (level).
+ *
+ * \param      level       PMM level ID
+ * \return int       1: error / 0: done
+ */
+unsigned int SetVCoreUp(unsigned char level);
 
 //====================================================================
 /**
-  * Set the VCore to a lower level.
-  * Return a 1 if voltage at highside (Vcc) is still to low
-  * for the selected Level (level).
-  *
-  * \param      level       PMM level ID
-  * \return int       1: done with error / 0: done without error
-  */
-unsigned int SetVCoreDown (unsigned char level);
+ * Set the VCore to a lower level.
+ * Return a 1 if voltage at highside (Vcc) is still to low
+ * for the selected Level (level).
+ *
+ * \param      level       PMM level ID
+ * \return int       1: done with error / 0: done without error
+ */
+unsigned int SetVCoreDown(unsigned char level);
 
 #endif /* HAL_PMM_H */
