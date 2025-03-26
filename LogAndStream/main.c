@@ -150,17 +150,7 @@ boot_stage_t bootStage;
 
 void main(void)
 {
-    shimmerStatus.initialising = 1; /* led flag, in initialisation period */
     Init();
-
-    if (!shimmerStatus.configuring && !sensing.inSdWr)
-    {
-        SetupDock();
-    }
-    manageReadBatt(1);
-
-    /* Initialise Watchdog status timer */
-    ChargeStatusTimerStart();
 
     while (1)
     {
@@ -174,12 +164,13 @@ void Init(void)
     // previously configured port settings
 //     PM5CTL0 &= ~LOCKLPM5;
 
-    // Need to reset battery critical alarm before LED functions are called:
-    ShimBatt_init();
+    LogAndStream_init();
+    shimmerStatus.initialising = 1; /* led flag, in initialisation period */
 
     Board_init();
 
     setBootStage(BOOT_STAGE_START);
+
     ShimBrd_setHwId(DEVICE_VER);
 
     // Set Vcore to accommodate for max. allowed system speed
@@ -195,9 +186,6 @@ void Init(void)
     SFRIFG1 = 0;                  // clear interrupt flag register
     SFRIE1 |= OFIE;               // enable oscillator fault interrupt enable
 
-    ShimTask_init();
-    ShimTask_set(TASK_BATT_READ);
-
     LED_varsInit();
 
     buttonLastReleaseTs = 0;
@@ -205,20 +193,10 @@ void Init(void)
     btsdSelfCmd = 0;
     battLastTs64 = 0;
 
-    memset((uint8_t *) &shimmerStatus, 0, sizeof(STATTypeDef));
-
     setSamplingClkSource((float) MSP430_CLOCK);
 
     sampleTimerStatus = 0;
     blinkStatus = 0;
-
-    ShimConfig_experimentLengthCntReset();
-
-    ShimConfig_reset();
-    ShimSdDataFile_init();
-    ShimSdCfgFile_init();
-    ShimSdHead_reset();
-    ShimSens_init();
 
     I2C_varsInit();
     SPI_varsInit();
@@ -241,7 +219,7 @@ void Init(void)
 
     BlinkTimerStart();
 
-    ShimDock_resetVariables();
+    /* Dock uart setup */
     UCA0_isrInit();
     UART_init(ShimDock_rxCallback);
 
@@ -272,12 +250,9 @@ void Init(void)
     I2C_stop(0);
     ShimSdHead_saveBmpCalibrationToSdHeader();
 
-    ShimBrd_resetDaughterCardId();
+    /* Read Daughter card ID*/
     eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, ShimBrd_getDaughtCardIdPtr());
     ProcessHwRevision();
-
-    /* Used to flash green LED on boot but no longer serves that purpose */
-    shimmerStatus.configuring = 1;
 
     ShimSens_checkOnDefault();
 
@@ -295,9 +270,15 @@ void Init(void)
 
     RwcCheck();
 
-    shimmerStatus.initialising = 0;
-    shimmerStatus.configuring = 0;
+    SetupDock();
 
+    /* Take initial measurement to update LED state */
+    manageReadBatt(1);
+
+    /* Initialise Watchdog status timer */
+    ChargeStatusTimerStart();
+
+    shimmerStatus.initialising = 0;
     setBootStage(BOOT_STAGE_END);
 }
 
@@ -1141,11 +1122,11 @@ void SetupDock()
         {
             _delay_cycles(2880000);
             SdPowerOn();
-            ShimSdCfgFile_sync();
+            LogAndStream_syncConfigAndCalibOnSd();
         }
         else
         {
-            ShimSdCfgFile_setSdInfoSyncDelayed(1);
+            LogAndStream_setSdInfoSyncDelayed(1);
         }
     }
     shimmerStatus.configuring = 0;
