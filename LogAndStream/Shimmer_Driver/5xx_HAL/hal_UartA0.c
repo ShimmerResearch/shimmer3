@@ -39,12 +39,19 @@
  * @author Weibo Pan
  * @date June, 2014
  */
+
 #include "hal_UartA0.h"
+
+#include <string.h>
+
 #include "hal_Board.h"
 #include "hal_CRC.h"
 #include "hal_UCA0.h"
 #include "msp430.h"
-#include <string.h>
+
+#include <Util/shimmer_util.h>
+
+#define DOCK_TX_FIFO_IS_VOLATILE 1
 
 /* Buffer read / write macros                                                 */
 #define RINGFIFO_RESET(ringFifo)         \
@@ -97,7 +104,11 @@ void UART_init(uint8_t (*uart_cb)(uint8_t data))
   //uart_num_registered_cmds=0;
 
   RINGFIFO_RESET(gDockTxFifo);
+#if DOCK_TX_FIFO_IS_VOLATILE
+  ShimUtil_memset_v(gDockTxFifo.data, 0x00, sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
+#else
   memset(gDockTxFifo.data, 0x00, sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
+#endif
 }
 
 void UART_config()
@@ -238,6 +249,13 @@ void DockUart_enable(void)
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)
 {
+#if DOCK_TX_FIFO_IS_VOLATILE
+  uint8_t i;
+  for(i=0;i<len;i++)
+  {
+    RINGFIFO_WR(gDockTxFifo, buf[i], DOCK_TX_BUF_MASK);
+  }
+#else
   /* if enough space at after head, copy it in */
   uint16_t spaceAfterHead = DOCK_TX_BUF_SIZE - (gDockTxFifo.wrIdx & DOCK_TX_BUF_MASK);
   if (spaceAfterHead > len)
@@ -259,6 +277,7 @@ void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)
         buf + spaceAfterHead, remaining);
     gDockTxFifo.wrIdx += remaining;
   }
+#endif
 }
 
 uint16_t getUsedSpaceInDockTxBuf(void)

@@ -8,6 +8,8 @@
 #ifndef HAL_RTC_H_
 #define HAL_RTC_H_
 
+#include <stdint.h>
+
 //initiate Real Time Clock with an int64 value
 extern void RTC_init(uint64_t rtc_val);
 
