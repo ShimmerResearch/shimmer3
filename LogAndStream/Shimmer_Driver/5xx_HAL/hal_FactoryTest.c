@@ -45,6 +45,7 @@ void run_factory_test(void)
     send_test_report("\r\n");
 
     I2C_test();
+    send_test_report("\r\n");
 
     SPI_test();
 
@@ -273,10 +274,10 @@ void SPI_test(void)
 
       ads1292RTestResult = EXG_self_test();
 
-      sprintf(buffer, " - %s: ADS1292R Chip1\r\n", (ads1292RTestResult & 0x01) ? "FAIL" : "PASS");
+      sprintf(buffer, " - %s: ADS1292R Chip1 detect\r\n", (ads1292RTestResult & 0x01) ? "FAIL" : "PASS");
       send_test_report(buffer);
 
-      sprintf(buffer, " - %s: ADS1292R Chip2\r\n", (ads1292RTestResult & 0x02) ? "FAIL" : "PASS");
+      sprintf(buffer, " - %s: ADS1292R Chip2 detect\r\n", (ads1292RTestResult & 0x02) ? "FAIL" : "PASS");
       send_test_report(buffer);
 
       EXG_powerOff();
