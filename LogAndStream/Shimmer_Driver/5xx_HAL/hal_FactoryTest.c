@@ -46,6 +46,8 @@ void run_factory_test(void)
 
     I2C_test();
 
+    SPI_test();
+
     if (factoryTestToRun == FACTORY_TEST_MAIN)
     {
       send_test_report("\r\n");
@@ -246,6 +248,51 @@ void I2C_test(void)
   }
 
   I2C_stop(1);
+}
+
+void SPI_test(void)
+{
+  uint8_t ads1292RTestResult = 0;
+
+  send_test_report("SPI:\r\n");
+
+  if(ShimBrd_isAds1292Present())
+  {
+    if(factoryTestTarget == PRINT_TO_DOCK_UART)
+    {
+      send_test_report("- FAIL: ADS1292R test will not work from dock\r\n");
+    }
+    else
+    {
+      if(shimmerStatus.docked)
+      {
+        DockUart_disable();
+      }
+
+      EXG_init();
+
+      ads1292RTestResult = EXG_self_test();
+
+      sprintf(buffer, " - %s: ADS1292R Chip1\r\n", (ads1292RTestResult & 0x01) ? "FAIL" : "PASS");
+      send_test_report(buffer);
+
+      sprintf(buffer, " - %s: ADS1292R Chip2\r\n", (ads1292RTestResult & 0x02) ? "FAIL" : "PASS");
+      send_test_report(buffer);
+
+      EXG_powerOff();
+
+      if(shimmerStatus.docked)
+      {
+        DockUart_enable();
+      }
+    }
+
+  }
+  else
+  {
+    send_test_report("- ADS1292R test not applicable for this model\r\n");
+  }
+
 }
 
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)

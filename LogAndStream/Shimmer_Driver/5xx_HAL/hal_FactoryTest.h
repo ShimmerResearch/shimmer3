@@ -33,6 +33,7 @@ void led_test(void);
 void sd_card_test(void);
 void bt_module_test(void);
 void I2C_test(void);
+void SPI_test(void);
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun);
 void send_test_report(char *str);
 

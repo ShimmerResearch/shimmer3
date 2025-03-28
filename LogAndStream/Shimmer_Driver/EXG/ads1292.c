@@ -46,8 +46,6 @@
 #include "msp430.h"
 #include <string.h>
 
-//uint8_t exgOrUart;
-
 uint8_t ads1292Uca0RxIsr();
 uint8_t ads1292Uca0TxIsr();
 
@@ -60,19 +58,14 @@ uint8_t rxCount, chip1ReadPending, chip2ReadPending;
 
 void ADS1292_init(void)
 {
-  //exgOrUart = 0;
-
   Board_setExpansionBrdPower(1);
 
-  P1DIR &= ~BIT4; //RESP_DRDY as input
-  P2DIR &= ~BIT0; //EXG_DRDY as input
-
   P7SEL &= ~BIT6;
-  P7OUT |= BIT6; //SA_CS_RESP set high
+  ADS1292_chip2CsEnable(0);
   P7DIR |= BIT6; //SA_CS_RESP as output
 
   P6SEL &= ~BIT1;
-  P6OUT |= BIT1; //SA_CS_ECG set high
+  ADS1292_chip1CsEnable(0);
   P6DIR |= BIT1; //SA_CS_ECG as output
 
   activeBuffer = chip1Buffer1;
@@ -112,8 +105,8 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
 
   __disable_interrupt(); //Make this operation atomic
 
-  __delay_cycles(
-      144); //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be
+//  __delay_cycles(
+//      144); //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be
             //4 T_clk needed to ensure previous byte was not sent within this
             //time period this value was determined experimentally
 
@@ -124,7 +117,7 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
   UCA0TXBUF = startaddress | RREG;
-  __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+//  __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
                        //this value was determined experimentally
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
@@ -139,7 +132,7 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
   //Clock the actual data transfer and receive the bytes
   while (size--)
   {
-    __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+//    __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
     while (!(UCA0IFG & UCTXIFG))
       ;               //Wait while not ready for TX
     UCA0TXBUF = 0xff; //Write dummy byte
@@ -195,6 +188,9 @@ void ADS1292_powerOn(void)
 
 void ADS1292_powerOff(void)
 {
+  P7DIR &= ~BIT6; //SA_CS_RESP as input
+  P6DIR &= ~BIT1; //SA_CS_ECG as input
+
   Board_setExpansionBrdPower(0);
 }
 
@@ -216,7 +212,7 @@ void ADS1292_chip1CsEnable(uint8_t enable)
   if (enable)
   {
     //Ensure chip 2 is not enabled
-    if (!(P7IN & BIT6))
+    if (!(P7OUT & BIT6))
     {
       //Disable chip 2
       __delay_cycles(141); //wait 5.875us (assuming 24MHz clock)
@@ -240,7 +236,7 @@ void ADS1292_chip2CsEnable(uint8_t enable)
   if (enable)
   {
     //Ensure chip 1 is not enabled
-    if (!(P6IN & BIT1))
+    if (!(P6OUT & BIT1))
     {
       //Disable chip 2
       __delay_cycles(141); //wait 5.875us (assuming 24MHz clock)
@@ -382,7 +378,7 @@ void ADS1292_offsetCal(void)
 
 void ADS1292_enableInternalReference(void)
 {
-  uint8_t data[] = { 0xA0 };
+  uint8_t data[] = { 0x88 };
 
   ADS1292_regWrite(ADS1x9x_REG_CONFIG2, 1, data);
 

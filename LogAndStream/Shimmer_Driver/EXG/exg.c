@@ -43,6 +43,8 @@
 #include "exg.h"
 #include "ads1292.h"
 
+#include <Boards/shimmer_boards.h>
+
 uint8_t data[9];
 
 void EXG_init(void)
@@ -52,6 +54,10 @@ void EXG_init(void)
 
   ADS1292_chip1CsEnable(1);
   ADS1292_readDataContinuousMode(0);
+  if (ShimBrd_areADS1292RClockLinesTied())
+  {
+    ADS1292_enableInternalReference();
+  }
 
   ADS1292_chip2CsEnable(1);
   ADS1292_readDataContinuousMode(0);
@@ -284,4 +290,24 @@ void EXG_dataReadyChip1()
 void EXG_dataReadyChip2()
 {
   ADS1292_dataReadyChip2();
+}
+
+uint8_t EXG_self_test(void)
+{
+  uint8_t temp_buf = 0, ret_val = 0;
+
+  EXG_readRegs(0, ADS1292R_DEVID, 1, &temp_buf);
+  if (temp_buf != (uint8_t) 0x73)
+  {
+    ret_val |= 0x01;
+  }
+
+  temp_buf = 0;
+  EXG_readRegs(1, ADS1292R_DEVID, 1, &temp_buf);
+  if (temp_buf != (uint8_t) 0x73)
+  {
+    ret_val |= 0x02;
+  }
+
+  return ret_val;
 }

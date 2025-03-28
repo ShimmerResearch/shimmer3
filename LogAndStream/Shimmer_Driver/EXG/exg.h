@@ -132,4 +132,6 @@ void EXG_readData(uint8_t chip, uint8_t size, uint8_t *buf);
 void EXG_dataReadyChip1();
 void EXG_dataReadyChip2();
 
+uint8_t EXG_self_test(void);
+
 #endif //EXG_H

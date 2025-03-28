@@ -292,14 +292,13 @@ void Board_initForRevision(void)
 {
   shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
 
-  /*
-   * ADS1292R chip issue workaround
-   * Requires GPIO_INTERNAL1 to be an input (default is output)
-   * Issues affects boards SR37, SR47 & SR59 at present.
-   */
   if (ShimBrd_isAds1292Present())
   {
+    P1DIR &= ~BIT4; //RESP_DRDY as input
     P2DIR &= ~BIT0; //EXG_DRDY as input
+
+    P7DIR &= ~BIT6; //SA_CS_RESP as input
+    P6DIR &= ~BIT1; //SA_CS_ECG as input
   }
   else
   {
