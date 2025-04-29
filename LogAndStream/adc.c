@@ -169,7 +169,7 @@ void ADC_configureChannels(void)
     sensing.dataLen += 2;
   }
 
-  sensing.nbrAdcChans += nbr_adc_chans;
+  sensing.nbrMcuAdcChans += nbr_adc_chans;
   sensing.ccLen += nbr_adc_chans;
 
   if (mask)
@@ -179,7 +179,7 @@ void ADC_configureChannels(void)
     if (adcStartPtr)
     {
       DMA0_init(adcStartPtr, (uint16_t *) &sensing.dataBuf[FIRST_CH_BYTE_IDX],
-          sensing.nbrAdcChans);
+          sensing.nbrMcuAdcChans);
     }
   }
 }
@@ -207,7 +207,7 @@ uint8_t Dma0ConversionDone(void)
   {
     //Destination address for next transfer
     DMA0_repeatTransfer(adcStartPtr,
-        (uint16_t *) &sensing.dataBuf[FIRST_CH_BYTE_IDX], sensing.nbrAdcChans);
+        (uint16_t *) &sensing.dataBuf[FIRST_CH_BYTE_IDX], sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
     ShimSens_gatherData();

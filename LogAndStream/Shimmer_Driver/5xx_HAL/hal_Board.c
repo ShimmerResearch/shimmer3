@@ -397,3 +397,13 @@ void Board_setI2cPower(uint8_t state)
   }
   shimmerStatus.pinPvI2c = state;
 }
+
+uint8_t Board_isLedOnUprBlue(void)
+{
+  return (P1OUT & BIT2);
+}
+
+uint8_t Board_isLedOnUprGreen(void)
+{
+  return (P1OUT & BIT1);
+}

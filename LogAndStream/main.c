@@ -999,7 +999,7 @@ __interrupt void TIMER0_B0_ISR(void)
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
   //start ADC conversion
-  if (sensing.nbrAdcChans)
+  if (sensing.nbrMcuAdcChans)
   {
     ShimSens_saveTimestampToPacket();
     DMA0_enable();

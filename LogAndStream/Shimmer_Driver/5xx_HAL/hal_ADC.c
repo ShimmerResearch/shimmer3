@@ -69,7 +69,7 @@ uint16_t *ADC_init(uint16_t mask)
 
   ADC12CTL0 &= ~ADC12ENC; //ensure is off so all ADC12CTL0 and ADC12CTL1 fields can be modified
   ADC12CTL0 = ADC12SHT1_8 + ADC12SHT0_8;
-  if (sensing.nbrAdcChans > 1)
+  if (sensing.nbrMcuAdcChans > 1)
   {
     ADC12CTL0 += ADC12MSC; //enable multiple sample and conversion
     ADC12CTL1 = ADC12SHP
@@ -125,7 +125,7 @@ uint16_t *ADC_init(uint16_t mask)
     *(++memCtrlReg) = ADC12INCH_1;
   }
 
-  if (sensing.nbrAdcChans > 1)
+  if (sensing.nbrMcuAdcChans > 1)
   {
     *memCtrlReg += ADC12EOS;
   }

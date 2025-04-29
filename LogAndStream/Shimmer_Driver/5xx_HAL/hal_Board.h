@@ -48,9 +48,6 @@
 #define BOARD_IS_DOCKED        (P2IN & BIT3)
 #define BOARD_IS_BTN_RELEASED  (P1IN & BIT6)
 
-#define BOARD_IS_LED_GREEN1_ON (P1OUT & BIT1)
-#define BOARD_IS_LED_BLUE_ON   (P1OUT & BIT2)
-
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
 extern void Board_ledOff(uint8_t ledMask);
@@ -62,5 +59,8 @@ void SdPowerOn(void);
 void Board_setSdPower(uint8_t state);
 void Board_setExpansionBrdPower(uint8_t state);
 void Board_setI2cPower(uint8_t state);
+
+uint8_t Board_isLedOnUprBlue(void);
+uint8_t Board_isLedOnUprGreen(void);
 
 #endif /* HAL_BOARD_H */
