@@ -229,12 +229,12 @@ void I2C_startSensing(void)
     {
       if (ShimBrd_isWrAccelInUseLsm303dlhc())
       {
-        LSM303DLHC_magInit(storedConfigPtr->magRateLsb, //sampling rate
+        LSM303DLHC_magInit(storedConfigPtr->magRate, //sampling rate
             storedConfigPtr->magRange);                 //gain
       }
       else
       {
-        LSM303AHTR_magInit(storedConfigPtr->magRateLsb); //sampling rate
+        LSM303AHTR_magInit(storedConfigPtr->magRate); //sampling rate
       }
     }
   }
