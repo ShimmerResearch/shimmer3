@@ -56,7 +56,7 @@ void ADC_stopSensing(void)
   //P8REN |= BIT6;      //enable pull down resistor
   //P8DIR &= ~BIT6;     //SW_ACCEL set as input
 
-  P2OUT &= ~BIT0;                //set GPIO_INTERNAL1 low (strain)
+  P2OUT &= ~BIT0; //set GPIO_INTERNAL1 low (strain)
 }
 
 void ADC_configureChannels(void)

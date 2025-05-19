@@ -223,7 +223,7 @@ void EXG_readData(uint8_t chip, uint8_t size, uint8_t *buf)
       /*
        * Computing status byte
        * Output of ADS1292R - from the datasheet:
-       * For the ADS1292R, the number of data outputs is (24 status bits + 24 bits × 2 channels) = 72 bits.
+       * For the ADS1292R, the number of data outputs is (24 status bits + 24 bits ï¿½ 2 channels) = 72 bits.
        * The format of the 24 status bits is: (1100 + LOFF_STAT[4:0] + GPIO[1:0] + 13 '0's).
        *
        * This data is broken up and concatenated into one byte such that GPIO bits are omitted

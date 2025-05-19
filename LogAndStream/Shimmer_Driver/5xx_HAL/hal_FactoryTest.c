@@ -257,15 +257,15 @@ void SPI_test(void)
 
   send_test_report("SPI:\r\n");
 
-  if(ShimBrd_isAds1292Present())
+  if (ShimBrd_isAds1292Present())
   {
-    if(factoryTestTarget == PRINT_TO_DOCK_UART)
+    if (factoryTestTarget == PRINT_TO_DOCK_UART)
     {
       send_test_report("- FAIL: ADS1292R test will not work from dock\r\n");
     }
     else
     {
-      if(shimmerStatus.docked)
+      if (shimmerStatus.docked)
       {
         DockUart_disable();
       }
@@ -274,26 +274,26 @@ void SPI_test(void)
 
       ads1292RTestResult = EXG_self_test();
 
-      sprintf(buffer, " - %s: ADS1292R Chip1 detect\r\n", (ads1292RTestResult & 0x01) ? "FAIL" : "PASS");
+      sprintf(buffer, " - %s: ADS1292R Chip1 detect\r\n",
+          (ads1292RTestResult & 0x01) ? "FAIL" : "PASS");
       send_test_report(buffer);
 
-      sprintf(buffer, " - %s: ADS1292R Chip2 detect\r\n", (ads1292RTestResult & 0x02) ? "FAIL" : "PASS");
+      sprintf(buffer, " - %s: ADS1292R Chip2 detect\r\n",
+          (ads1292RTestResult & 0x02) ? "FAIL" : "PASS");
       send_test_report(buffer);
 
       EXG_powerOff();
 
-      if(shimmerStatus.docked)
+      if (shimmerStatus.docked)
       {
         DockUart_enable();
       }
     }
-
   }
   else
   {
     send_test_report("- ADS1292R test not applicable for this model\r\n");
   }
-
 }
 
 void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)

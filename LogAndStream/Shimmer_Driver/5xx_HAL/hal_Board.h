@@ -42,11 +42,11 @@
 
 #include "msp430.h"
 
-#define LM3658SD_STAT2         (P2IN & BIT7)
-#define LM3658SD_STAT1         (P2IN & BIT6)
+#define LM3658SD_STAT2        (P2IN & BIT7)
+#define LM3658SD_STAT1        (P2IN & BIT6)
 
-#define BOARD_IS_DOCKED        (P2IN & BIT3)
-#define BOARD_IS_BTN_RELEASED  (P1IN & BIT6)
+#define BOARD_IS_DOCKED       (P2IN & BIT3)
+#define BOARD_IS_BTN_RELEASED (P1IN & BIT6)
 
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
