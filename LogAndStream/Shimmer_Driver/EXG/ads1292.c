@@ -117,8 +117,8 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
   UCA0TXBUF = startaddress | RREG;
-  //__delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
-  //this value was determined experimentally
+  //__delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow
+  //t_sdecode to be 4 T_clk this value was determined experimentally
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
   UCA0TXBUF = size - 1;
