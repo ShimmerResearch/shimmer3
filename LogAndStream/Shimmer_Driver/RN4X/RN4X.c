@@ -1546,8 +1546,8 @@ void BT_init(void)
   //to save power only leave inquiry on for approx 40msec (every 1.28 secs)
   BT_setInquiryScanWindow("0040");
 
-  //to save power only leave paging on for approx 80msec. Default Roving Network setting is 0x0100 (160ms)
-  //BT_setPagingTime("0080"); // 80ms
+  //to save power only leave paging on for approx 80msec. Default Roving Network
+  //setting is 0x0100 (160ms) BT_setPagingTime("0080"); // 80ms
   BT_setPagingTime("0100"); //160ms
 
   if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)

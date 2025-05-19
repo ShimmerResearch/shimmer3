@@ -315,9 +315,8 @@ void Init_FLL(unsigned int fsystem, const unsigned int ratio)
  */
 void Init_FLL_Settle(unsigned int fsystem, const unsigned int ratio)
 {
-  volatile unsigned int x
-      = ratio * 10; //we have 32 steps in the DCO / loop takes at least three
-                    //cycles (int)(32/3) = 10
+  volatile unsigned int x = ratio * 10; //we have 32 steps in the DCO / loop takes at least three
+                                        //cycles (int)(32/3) = 10
   Init_FLL(fsystem, ratio);
   while (x--)
     ;

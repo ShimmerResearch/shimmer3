@@ -105,10 +105,10 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
 
   __disable_interrupt(); //Make this operation atomic
 
-//  __delay_cycles(
-//      144); //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be
-            //4 T_clk needed to ensure previous byte was not sent within this
-            //time period this value was determined experimentally
+  //__delay_cycles(
+  //    144); //Wait 6us (assuming 24MHz MCLK), required to allow t_sdecode to be
+  //4 T_clk needed to ensure previous byte was not sent within this
+  //time period this value was determined experimentally
 
   //Clock the actual data transfer and send the bytes. Note that we
   //intentionally do not read out the receive buffer during frame transmission
@@ -117,8 +117,8 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
   UCA0TXBUF = startaddress | RREG;
-//  __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
-                       //this value was determined experimentally
+  //__delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+  //this value was determined experimentally
   while (!(UCA0IFG & UCTXIFG))
     ; //Wait while not ready for TX
   UCA0TXBUF = size - 1;
@@ -132,7 +132,7 @@ void ADS1292_regRead(uint8_t startaddress, uint8_t size, uint8_t *rdata)
   //Clock the actual data transfer and receive the bytes
   while (size--)
   {
-//    __delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
+    //__delay_cycles(180); //Wait 7.5us (assuming 24MHz MCLK), required to allow t_sdecode to be 4 T_clk
     while (!(UCA0IFG & UCTXIFG))
       ;               //Wait while not ready for TX
     UCA0TXBUF = 0xff; //Write dummy byte

@@ -105,7 +105,8 @@ void UART_init(uint8_t (*uart_cb)(uint8_t data))
 
   RINGFIFO_RESET(gDockTxFifo);
 #if DOCK_TX_FIFO_IS_VOLATILE
-  ShimUtil_memset_v(gDockTxFifo.data, 0x00, sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
+  ShimUtil_memset_v(gDockTxFifo.data, 0x00,
+      sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
 #else
   memset(gDockTxFifo.data, 0x00, sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
 #endif
@@ -251,7 +252,7 @@ void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)
 {
 #if DOCK_TX_FIFO_IS_VOLATILE
   uint8_t i;
-  for(i=0;i<len;i++)
+  for (i = 0; i < len; i++)
   {
     RINGFIFO_WR(gDockTxFifo, buf[i], DOCK_TX_BUF_MASK);
   }
