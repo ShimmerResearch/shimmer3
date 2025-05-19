@@ -122,7 +122,7 @@ void EXG_writeRegs(uint8_t chip, uint8_t startaddress, uint8_t size, uint8_t *wd
 //size = 24-bit or 16-bit data
 // 0 for 24bit
 // 1 for 16bit (drops 7 least significant bits and most significant bit)
-//Format: x00 + 5 LOFF_STAT bits + 24-bits/16-bits × 2 channels per chip
+//Format: x00 + 5 LOFF_STAT bits + 24-bits/16-bits ï¿½ 2 channels per chip
 //so returns 5 or 7 bytes in total, depending on size setting
 //The data format for each channel data is twos complement, MSB first.
 //If data is valid MSB of status byte for each chip is 1, else 0
