@@ -8,7 +8,7 @@
 #include "i2c.h"
 
 #include <stdint.h>
-
+#include <math.h>
 #include "Shimmer_Driver/shimmer_driver_include.h"
 
 #define PRES_TS_EN 0
@@ -270,7 +270,7 @@ void I2C_startSensing(void)
     else
     {
       sampleBmpTemp = sampleBmpTempFreq
-          = (uint8_t) ((ShimConfig_freqDiv(storedConfigPtr->samplingRateTicks) - 1) / bmpPressFreq);
+          = (uint8_t) ((round(ShimConfig_freqDiv(storedConfigPtr->samplingRateTicks)) - 1) / bmpPressFreq);
     }
 #if PRES_TS_EN
     bmpPresInterval = bmpX80SamplingTimeTicks;
