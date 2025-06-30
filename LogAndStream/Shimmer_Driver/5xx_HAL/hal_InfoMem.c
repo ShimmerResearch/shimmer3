@@ -249,3 +249,13 @@ void InfoMem_erase(uint8_t segments)
     FCTL3 = FWKEY + LOCK + LOCKA; //Set LOCK and LOCKA bits
   }
 }
+
+void InfoMem_update(uint8_t *configBytePtr)
+{
+  InfoMem_write(INFOMEM_SEG_D_ADDR_MSP430 - INFOMEM_OFFSET_MSP430,
+      configBytePtr, INFOMEM_SEG_SIZE);
+  InfoMem_write(INFOMEM_SEG_C_ADDR_MSP430 - INFOMEM_OFFSET_MSP430,
+      configBytePtr + INFOMEM_SEG_SIZE, INFOMEM_SEG_SIZE);
+  InfoMem_write(INFOMEM_SEG_B_ADDR_MSP430 - INFOMEM_OFFSET_MSP430,
+      configBytePtr + INFOMEM_SEG_SIZE + INFOMEM_SEG_SIZE, INFOMEM_SEG_SIZE);
+}

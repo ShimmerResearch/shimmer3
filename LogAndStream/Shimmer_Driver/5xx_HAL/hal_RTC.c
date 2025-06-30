@@ -9,10 +9,12 @@
 #include "msp430.h"
 #include <stdint.h>
 
+#include <log_and_stream_includes.h>
+
 uint32_t rtcLocalTime32h; //rtcLocalTime32l from get() functions
 
+/* Stored the time difference between the MCU boot time and the RWC */
 uint64_t rwcTimeDiff64;
-uint64_t rwcConfigTime64;
 
 void RTC_init(uint64_t rtc_val)
 {
@@ -23,7 +25,6 @@ void RTC_init(uint64_t rtc_val)
   RTCCTL01 &= ~RTCHOLD; //start
 
   rwcTimeDiff64 = 0;
-  rwcConfigTime64 = 0;
 }
 
 uint32_t RTC_get32(void)
@@ -71,20 +72,13 @@ uint64_t getRwcTime(void)
   return rwcTimeDiff64 + RTC_get64();
 }
 
-void setRwcTime(uint8_t *args)
+void RTC_setTimeFromTicksPtr(uint8_t *ticksPtr)
 {
-  memcpy((uint8_t *) (&rwcConfigTime64), args, 8); //64bits = 8bytes
-  rwcTimeDiff64 = rwcConfigTime64 - RTC_get64(); //this is the offset to be stored int the sd header
-}
+  uint64_t time64 = 0;
+  memcpy((uint8_t *) (&time64), ticksPtr, 8); //64bits = 8bytes
+  ShimRtc_setRwcConfigTime(time64);
 
-uint64_t getRwcConfigTime(void)
-{
-  return rwcConfigTime64;
-}
-
-uint64_t *getRwcConfigTimePtr(void)
-{
-  return &rwcConfigTime64;
+  rwcTimeDiff64 = time64 - RTC_get64(); //this is the offset to be stored int the sd header
 }
 
 uint64_t getRwcTimeDiff(void)
@@ -97,9 +91,9 @@ uint64_t *getRwcTimeDiffPtr(void)
   return &rwcTimeDiff64;
 }
 
-uint8_t isRwcTimeSet(void)
+uint8_t RTC_isRwcTimeSet(void)
 {
-  return ((rwcConfigTime64 > 0) ? 1 : 0);
+  return rwcTimeDiff64 != 0;
 }
 
 #pragma vector = RTC_VECTOR

@@ -70,4 +70,6 @@ uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size);
 
 void InfoMem_erase(uint8_t segments);
 
+void InfoMem_update(uint8_t *configBytePtr);
+
 #endif /* HAL_INFOMEM_H */
