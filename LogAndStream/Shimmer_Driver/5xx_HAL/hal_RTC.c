@@ -27,7 +27,7 @@ void RTC_init(uint64_t rtc_val)
   rwcTimeDiff64 = 0;
 }
 
-// For Shimmer3, this returns time since boot in ticks
+//For Shimmer3, this returns time since boot in ticks
 uint32_t RTC_get32(void)
 {
   register uint16_t t0, rtc0, rtc1;
@@ -61,7 +61,7 @@ uint32_t RTC_get32(void)
   return rtc_my_local_time_32;
 }
 
-// For Shimmer3, this returns time since boot in ticks
+//For Shimmer3, this returns time since boot in ticks
 uint64_t RTC_get64(void)
 {
   uint64_t rtc_my_local_time_64;
@@ -69,7 +69,7 @@ uint64_t RTC_get64(void)
   return rtc_my_local_time_64;
 }
 
-// For Shimmer3, this returns time since boot in ticks + RWC offset
+//For Shimmer3, this returns time since boot in ticks + RWC offset
 uint64_t RTC_getRwcTime(void)
 {
   return rwcTimeDiff64 + RTC_get64();
@@ -81,7 +81,7 @@ void RTC_setTimeFromTicksPtr(uint8_t *ticksPtr)
   memcpy((uint8_t *) (&time64), ticksPtr, 8); //64bits = 8bytes
   ShimRtc_setRwcConfigTime(time64);
 
-  // Calculate RWC offset
+  //Calculate RWC offset
   rwcTimeDiff64 = time64 - RTC_get64();
 }
 
