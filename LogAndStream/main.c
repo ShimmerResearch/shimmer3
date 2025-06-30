@@ -111,8 +111,6 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW);
 void updateBtDetailsInEeprom(void);
 
-#define TIMEOUT_100_MS    (3277)
-
 /* should be 0 */
 #define IS_SUPPORTED_TCXO 0
 
