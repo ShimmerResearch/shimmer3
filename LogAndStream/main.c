@@ -73,6 +73,7 @@
 #include "Shimmer_Driver/5xx_HAL/hal_FactoryTest.h"
 #include "Shimmer_Driver/shimmer_driver_include.h"
 #include "log_and_stream_globals.h"
+#include "log_and_stream_includes.h"
 #include "shimmer_btsd.h"
 
 void Init(void);
