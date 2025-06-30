@@ -46,7 +46,7 @@
 #define LM3658SD_STAT1       (P2IN & BIT6)
 
 #define BOARD_IS_DOCKED      (P2IN & BIT3)
-// BTN is active low for Shimmer3
+//BTN is active low for Shimmer3
 #define BOARD_IS_BTN_PRESSED (!(P1IN & BIT6))
 
 extern void Board_init(void);
