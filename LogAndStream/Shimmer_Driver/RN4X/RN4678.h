@@ -12,6 +12,6 @@
 
 void RN4678_resetStatusString(void);
 void RN4678_startOfNewStatusString(void);
-uint8_t Rn4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr);
+uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr);
 
 #endif /* SHIMMER_DRIVER_RN4X_RN4678_H_ */

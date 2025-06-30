@@ -158,7 +158,7 @@ void Init(void)
 
   Board_init();
 
-  setBootStage(BOOT_STAGE_START);
+  LogAndStream_setBootStage(BOOT_STAGE_START);
 
   ShimBrd_setHwId(DEVICE_VER);
 
@@ -220,7 +220,7 @@ void Init(void)
 
   dierecord = (char *) 0x01A0A;
 
-  setBootStage(BOOT_STAGE_I2C);
+  LogAndStream_setBootStage(BOOT_STAGE_I2C);
   I2C_start(1);
   detectI2cSlaves();
   I2C_stop(1);
@@ -237,10 +237,10 @@ void Init(void)
 
   ShimSens_startLoggingIfUndockStartEnabled();
 
-  setBootStage(BOOT_STAGE_BLUETOOTH);
+  LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
 
-  setBootStage(BOOT_STAGE_CONFIGURATION);
+  LogAndStream_setBootStage(BOOT_STAGE_CONFIGURATION);
   /* Calibration needs to be loaded after the chips have been detected in
    * order to know which default calib to set for attached chips.
    * It also needs to be loaded after the BT is initialised so that the
@@ -260,7 +260,7 @@ void Init(void)
   ChargeStatusTimerStart();
 
   shimmerStatus.initialising = 0;
-  setBootStage(BOOT_STAGE_END);
+  LogAndStream_setBootStage(BOOT_STAGE_END);
 }
 
 void handleIfDockedStateOnBoot(void)
@@ -442,7 +442,7 @@ void InitialiseBt(void)
         //// software POR reset
         //PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
 
-        setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
+        LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
         while (1)
         {
           __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
