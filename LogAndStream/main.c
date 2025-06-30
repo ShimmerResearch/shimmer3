@@ -580,12 +580,12 @@ __interrupt void Port1_ISR(void)
 
       //BUTTON_SW1
     case P1IV_P1IFG6:
-      if(ShimBtn_pressReleaseAction())
+      if (ShimBtn_pressReleaseAction())
       {
         __bic_SR_register_on_exit(LPM3_bits);
       }
 
-      if(shimmerStatus.buttonPressed)
+      if (shimmerStatus.buttonPressed)
       {
         Button_waitrelease();
       }
