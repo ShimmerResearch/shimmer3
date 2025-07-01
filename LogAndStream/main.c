@@ -73,6 +73,7 @@
 #include "Shimmer_Driver/5xx_HAL/hal_FactoryTest.h"
 #include "Shimmer_Driver/shimmer_driver_include.h"
 #include "log_and_stream_globals.h"
+#include "log_and_stream_includes.h"
 #include "shimmer_btsd.h"
 
 void Init(void);
@@ -110,13 +111,8 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW);
 void updateBtDetailsInEeprom(void);
 
-#define TIMEOUT_100_MS    (3277)
-
 /* should be 0 */
-#define PRESS2UNDOCK      0
 #define IS_SUPPORTED_TCXO 0
-
-uint64_t buttonPressTs, buttonReleaseTs, buttonLastReleaseTs;
 
 uint8_t watchDogWasOnDuringBtStart;
 
@@ -161,7 +157,7 @@ void Init(void)
 
   Board_init();
 
-  setBootStage(BOOT_STAGE_START);
+  LogAndStream_setBootStage(BOOT_STAGE_START);
 
   ShimBrd_setHwId(DEVICE_VER);
 
@@ -177,8 +173,6 @@ void Init(void)
 
   SFRIFG1 = 0;    //clear interrupt flag register
   SFRIE1 |= OFIE; //enable oscillator fault interrupt enable
-
-  buttonLastReleaseTs = 0;
 
   battLastTs64 = 0;
 
@@ -225,7 +219,7 @@ void Init(void)
 
   dierecord = (char *) 0x01A0A;
 
-  setBootStage(BOOT_STAGE_I2C);
+  LogAndStream_setBootStage(BOOT_STAGE_I2C);
   I2C_start(1);
   detectI2cSlaves();
   I2C_stop(1);
@@ -240,12 +234,12 @@ void Init(void)
   eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, ShimBrd_getDaughtCardIdPtr());
   ProcessHwRevision();
 
-  ShimSens_checkOnDefault();
+  ShimSens_startLoggingIfUndockStartEnabled();
 
-  setBootStage(BOOT_STAGE_BLUETOOTH);
+  LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
 
-  setBootStage(BOOT_STAGE_CONFIGURATION);
+  LogAndStream_setBootStage(BOOT_STAGE_CONFIGURATION);
   /* Calibration needs to be loaded after the chips have been detected in
    * order to know which default calib to set for attached chips.
    * It also needs to be loaded after the BT is initialised so that the
@@ -254,7 +248,7 @@ void Init(void)
 
   UART_setState(shimmerStatus.docked);
 
-  RwcCheck();
+  ShimRtc_rwcErrorCheck();
 
   SetupDock();
 
@@ -265,7 +259,7 @@ void Init(void)
   ChargeStatusTimerStart();
 
   shimmerStatus.initialising = 0;
-  setBootStage(BOOT_STAGE_END);
+  LogAndStream_setBootStage(BOOT_STAGE_END);
 }
 
 void handleIfDockedStateOnBoot(void)
@@ -330,7 +324,7 @@ void checkSetupDock(void)
     ShimTask_set(TASK_SETUP_DOCK);
   }
 
-  RwcCheck();
+  ShimRtc_rwcErrorCheck();
 }
 
 void ProcessHwRevision(void)
@@ -447,7 +441,7 @@ void InitialiseBt(void)
         //// software POR reset
         //PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
 
-        setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
+        LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
         while (1)
         {
           __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
@@ -524,7 +518,6 @@ void stopSensingWrapup(void)
 }
 
 //Switch SW1, BT_RTS and BT connect/disconnect
-uint64_t button_two_release_td64, button_press_release_td64;
 #pragma vector = PORT1_VECTOR
 
 __interrupt void Port1_ISR(void)
@@ -586,72 +579,18 @@ __interrupt void Port1_ISR(void)
 
       //BUTTON_SW1
     case P1IV_P1IFG6:
-      if (!BOARD_IS_BTN_RELEASED)
-      {                 //button pressed
-        P1IES &= ~BIT6; //select rising edge trigger, wait for release
-        shimmerStatus.buttonPressed = 1;
-        buttonPressTs = RTC_get64();
+      if (ShimBtn_pressReleaseAction())
+      {
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
 
-        Board_ledOn(LED_LWR_GREEN);
+      if (shimmerStatus.buttonPressed)
+      {
+        Button_waitrelease();
       }
       else
-      {                //button released
-        P1IES |= BIT6; //select fall edge trigger, wait for press
-        shimmerStatus.buttonPressed = 0;
-        buttonReleaseTs = RTC_get64();
-        button_press_release_td64 = buttonReleaseTs - buttonPressTs;
-        button_two_release_td64 = buttonReleaseTs - buttonLastReleaseTs;
-        if (button_press_release_td64 >= 163840)
-        { //long button press: 5s
-        }
-        else if ((button_two_release_td64 > 16384) && !shimmerStatus.configuring
-            && !shimmerStatus.btConnected)
-        { //&& (button_press_release_td64>327)
-          buttonLastReleaseTs = buttonReleaseTs;
-#if PRESS2UNDOCK
-          if (shimmerStatus.docked)
-          {
-            shimmerStatus.docked = 0;
-          }
-          else
-          {
-            shimmerStatus.docked = 1;
-          }
-          ShimTask_set(TASK_SETUP_DOCK);
-          if (!shimmerStatus.sensing)
-          {
-            __bic_SR_register_on_exit(LPM3_bits);
-          }
-#else
-          if (ShimConfig_getStoredConfig()->userButtonEnable)
-          {
-            //toggles sensing and refresh BT timers (for the centre)
-            if (shimmerStatus.sensing)
-            {
-              shimmerStatus.sdlogCmd = SD_LOG_CMD_STATE_STOP;
-              ShimTask_setStopSensing();
-              ShimBt_instreamStatusRespPendingSet(1);
-            }
-            else
-            {
-              if (shimmerStatus.sdlogReady && !shimmerStatus.sdBadFile)
-              {
-                shimmerStatus.sdlogCmd = SD_LOG_CMD_STATE_START;
-                ShimTask_setStartSensing();
-              }
-
-              shimmerStatus.sensing = 1;
-              ShimBt_instreamStatusRespSend(); //only send cmd, not starting yet till START_BTSD_CMD received
-              shimmerStatus.sensing = 0;
-              __bic_SR_register_on_exit(LPM3_bits);
-            }
-          }
-#endif
-        }
-        else
-        {
-          _NOP();
-        }
+      {
+        Button_waitpress();
       }
       break;
     default:

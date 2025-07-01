@@ -42,11 +42,12 @@
 
 #include "msp430.h"
 
-#define LM3658SD_STAT2        (P2IN & BIT7)
-#define LM3658SD_STAT1        (P2IN & BIT6)
+#define LM3658SD_STAT2       (P2IN & BIT7)
+#define LM3658SD_STAT1       (P2IN & BIT6)
 
-#define BOARD_IS_DOCKED       (P2IN & BIT3)
-#define BOARD_IS_BTN_RELEASED (P1IN & BIT6)
+#define BOARD_IS_DOCKED      (P2IN & BIT3)
+//BTN is active low for Shimmer3
+#define BOARD_IS_BTN_PRESSED (!(P1IN & BIT6))
 
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
@@ -62,5 +63,6 @@ void Board_setI2cPower(uint8_t state);
 
 uint8_t Board_isLedOnUprBlue(void);
 uint8_t Board_isLedOnUprGreen(void);
+uint8_t Board_isBtnPressed(void);
 
 #endif /* HAL_BOARD_H */

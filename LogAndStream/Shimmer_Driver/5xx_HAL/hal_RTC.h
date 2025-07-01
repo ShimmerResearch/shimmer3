@@ -20,12 +20,10 @@ extern uint32_t RTC_get32(void);
 //there can be at most 32 bit counter for higher than 32bits
 extern uint64_t RTC_get64(void);
 
-uint64_t getRwcTime(void);
-void setRwcTime(uint8_t *args);
-uint64_t getRwcConfigTime(void);
-uint64_t *getRwcConfigTimePtr(void);
-uint64_t getRwcTimeDiff(void);
-uint64_t *getRwcTimeDiffPtr(void);
-uint8_t isRwcTimeSet(void);
+uint64_t RTC_getRwcTime(void);
+void RTC_setTimeFromTicksPtr(uint8_t *ticksPtr);
+uint64_t RTC_getRwcTimeDiff(void);
+uint64_t *RTC_getRwcTimeDiffPtr(void);
+uint8_t RTC_isRwcTimeSet(void);
 
 #endif /* HAL_RTC_H_ */

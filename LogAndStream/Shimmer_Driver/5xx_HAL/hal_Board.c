@@ -407,3 +407,8 @@ uint8_t Board_isLedOnUprGreen(void)
 {
   return (P1OUT & BIT1);
 }
+
+uint8_t Board_isBtnPressed(void)
+{
+  return BOARD_IS_BTN_PRESSED;
+}

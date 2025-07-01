@@ -48,7 +48,7 @@ uint8_t ShimCalib_findLength(sc_t* sc1)
     }
 }
 
-void ShimmerCalib_initVer(void)
+void ShimCalib_initVer(void)
 {
     shimmerCalib_ram[SC_OFFSET_VER_HW_ID_L] = DEVICE_VER & 0xff;
     shimmerCalib_ram[SC_OFFSET_VER_HW_ID_H] = (DEVICE_VER >> 8) & 0xff;
@@ -70,7 +70,7 @@ void ShimCalib_init(void)
     memset(shimmerCalib_ram, 0, SHIMMER_CALIB_RAM_MAX);
     shimmerCalib_ram[SC_OFFSET_LENGTH_L] = shimmerCalib_ramLen & 0xff;
     shimmerCalib_ram[SC_OFFSET_LENGTH_H] = (shimmerCalib_ramLen >> 8) & 0xff;
-    ShimmerCalib_initVer();
+    ShimCalib_initVer();
 
     ShimCalib_default(SC_SENSOR_ANALOG_ACCEL);
     ShimCalib_default(SC_SENSOR_MPU9150_GYRO);
@@ -298,7 +298,7 @@ uint8_t ShimCalib_ramWrite(const uint8_t* buf, uint8_t length,
     if (shimmerCalib_ramTempLen >= shimmerCalib_ramTempMax + 2)
     {
         memcpy(shimmerCalib_ram, shimmerCalib_ramTemp, shimmerCalib_ramTempMax);
-        ShimmerCalib_initVer();
+        ShimCalib_initVer();
         ShimCalib_ramTempInit();
         return 1;
     }
