@@ -424,11 +424,12 @@ void InitialiseBt(void)
   /* Try the inital baud rate first */
   baudsTried[initialBaudRate] = 1U;
   setBtBaudRateToUse(initialBaudRate);
+  shimmerStatus.btIsInitialised = 0;
   BtStart();
 
   /* Try the baud that's stored in the EEPROM firstly, if that fails try
    * 115200, 1000000 or 460800 and then all other bauds. If they all fail, soft-reset */
-  while (!shimmerStatus.btPowerOn)
+  while (!shimmerStatus.btIsInitialised)
   {
     _delay_cycles(2400000); //100ms
 
@@ -792,7 +793,7 @@ uint8_t checkIfBattReadNeeded(void)
 //BT start Timer
 void BtStartDone()
 {
-  shimmerStatus.btPowerOn = 1;
+  shimmerStatus.btIsInitialised = 1;
   if (!shimmerStatus.sensing)
   {
     shimmerStatus.configuring = 0;
@@ -801,8 +802,11 @@ void BtStartDone()
 
 void BtStart(void)
 {
-  if (!shimmerStatus.btPowerOn)
+  if (!shimmerStatus.btPowerOn && !shimmerStatus.btIsInitialised)
   {
+    //Turn on power (SW_BT P4.3 on SR30 and newer)
+    setBtModulePower(1);
+
     /* Long delays starting BT, need to disable WDT */
     if (!(WDTCTL & WDTHOLD))
     {
@@ -838,7 +842,7 @@ void BtStop(uint8_t isCalledFromMain)
 
   updateBtConnectionStatusInterruptDirection();
   shimmerStatus.btConnected = 0;
-  shimmerStatus.btPowerOn = 0;
+  shimmerStatus.btIsInitialised = 0;
   shimmerStatus.btInSyncMode = 0;
   BT_disable();
   BT_rst_MessageProgress();

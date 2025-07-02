@@ -1492,9 +1492,6 @@ void BT_init(void)
 
   setRn4678ConnectionState(RN4678_DISCONNECTED);
 
-  //Turn on power (SW_BT P4.3 on SR30 and newer)
-  setBtModulePower(1);
-
   txie_reg = 0;
   command_received = 0;
   bt_setbaudrate_step = 0;
@@ -2182,6 +2179,7 @@ void setBtModulePower(uint8_t isEnabled)
       setRn4678OperationalModePins(RN4678_OP_MODE_DISABLE);
     }
   }
+  shimmerStatus.btPowerOn = isEnabled;
 }
 
 uint8_t isBtDeviceUnknown(void)
