@@ -511,7 +511,7 @@ void InitialiseBtAfterBoot(void)
   BtStart();
 }
 
-// Overrides weak function in LogAndStream driver
+//Overrides weak function in LogAndStream driver
 void ShimSens_stopSensingWrapup(void)
 {
   ShimTask_clear(TASK_SAMPLE_BMPX80_PRESS);

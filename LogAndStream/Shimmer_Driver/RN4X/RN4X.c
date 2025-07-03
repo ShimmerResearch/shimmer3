@@ -1493,7 +1493,7 @@ void BT_init(void)
   setRn4678ConnectionState(RN4678_DISCONNECTED);
 
   //Turn on power (SW_BT P4.3 on SR30 and newer)
-    setBtModulePower(1);
+  setBtModulePower(1);
 
   txie_reg = 0;
   command_received = 0;
