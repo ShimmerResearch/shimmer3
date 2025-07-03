@@ -424,7 +424,6 @@ void InitialiseBt(void)
   /* Try the inital baud rate first */
   baudsTried[initialBaudRate] = 1U;
   setBtBaudRateToUse(initialBaudRate);
-  shimmerStatus.btIsInitialised = 0;
   BtStart();
 
   /* Try the baud that's stored in the EEPROM firstly, if that fails try
@@ -512,7 +511,8 @@ void InitialiseBtAfterBoot(void)
   BtStart();
 }
 
-void stopSensingWrapup(void)
+// Overrides weak function in LogAndStream driver
+void ShimSens_stopSensingWrapup(void)
 {
   ShimTask_clear(TASK_SAMPLE_BMPX80_PRESS);
   ShimTask_clear(TASK_SAMPLE_MPU9150_MAG);
@@ -802,11 +802,8 @@ void BtStartDone()
 
 void BtStart(void)
 {
-  if (!shimmerStatus.btPowerOn && !shimmerStatus.btIsInitialised)
+  if (!shimmerStatus.btIsInitialised)
   {
-    //Turn on power (SW_BT P4.3 on SR30 and newer)
-    setBtModulePower(1);
-
     /* Long delays starting BT, need to disable WDT */
     if (!(WDTCTL & WDTHOLD))
     {
