@@ -2182,6 +2182,7 @@ void setBtModulePower(uint8_t isEnabled)
       setRn4678OperationalModePins(RN4678_OP_MODE_DISABLE);
     }
   }
+  shimmerStatus.btPowerOn = isEnabled;
 }
 
 uint8_t isBtDeviceUnknown(void)

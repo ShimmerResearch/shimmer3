@@ -428,7 +428,7 @@ void InitialiseBt(void)
 
   /* Try the baud that's stored in the EEPROM firstly, if that fails try
    * 115200, 1000000 or 460800 and then all other bauds. If they all fail, soft-reset */
-  while (!shimmerStatus.btPowerOn)
+  while (!shimmerStatus.btIsInitialised)
   {
     _delay_cycles(2400000); //100ms
 
@@ -511,7 +511,8 @@ void InitialiseBtAfterBoot(void)
   BtStart();
 }
 
-void stopSensingWrapup(void)
+//Overrides weak function in LogAndStream driver
+void ShimSens_stopSensingWrapup(void)
 {
   ShimTask_clear(TASK_SAMPLE_BMPX80_PRESS);
   ShimTask_clear(TASK_SAMPLE_MPU9150_MAG);
@@ -792,7 +793,7 @@ uint8_t checkIfBattReadNeeded(void)
 //BT start Timer
 void BtStartDone()
 {
-  shimmerStatus.btPowerOn = 1;
+  shimmerStatus.btIsInitialised = 1;
   if (!shimmerStatus.sensing)
   {
     shimmerStatus.configuring = 0;
@@ -801,7 +802,7 @@ void BtStartDone()
 
 void BtStart(void)
 {
-  if (!shimmerStatus.btPowerOn)
+  if (!shimmerStatus.btIsInitialised)
   {
     /* Long delays starting BT, need to disable WDT */
     if (!(WDTCTL & WDTHOLD))
@@ -838,7 +839,7 @@ void BtStop(uint8_t isCalledFromMain)
 
   updateBtConnectionStatusInterruptDirection();
   shimmerStatus.btConnected = 0;
-  shimmerStatus.btPowerOn = 0;
+  shimmerStatus.btIsInitialised = 0;
   shimmerStatus.btInSyncMode = 0;
   BT_disable();
   BT_rst_MessageProgress();
@@ -937,18 +938,26 @@ __interrupt void TIMER0_B0_ISR(void)
   uint16_t timer_b0 = GetTB0();
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-  //start ADC conversion
-  if (sensing.nbrMcuAdcChans)
+  if (shimmerStatus.sensing && !shimmerStatus.configuring)
   {
-    ShimSens_saveTimestampToPacket();
-    DMA0_enable();
-    ADC_startConversion();
-  }
-  else
-  {
-    //no analog channels, so go straight to digital
-    ShimSens_gatherData();
-    __bic_SR_register_on_exit(LPM3_bits);
+    if (sensing.isSampling == SAMPLING_COMPLETE)
+    {
+      ShimSens_saveData();
+    }
+
+    //start ADC conversion
+    if (sensing.nbrMcuAdcChans)
+    {
+      ShimSens_saveTimestampToPacket();
+      DMA0_enable();
+      ADC_startConversion();
+    }
+    else
+    {
+      //no analog channels, so go straight to digital
+      ShimSens_gatherData();
+      __bic_SR_register_on_exit(LPM3_bits);
+    }
   }
 }
 
