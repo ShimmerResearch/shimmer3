@@ -423,7 +423,8 @@ void InitialiseBt(void)
 
   /* Try the inital baud rate first */
   baudsTried[initialBaudRate] = 1U;
-  setBtBaudRateToUse(initialBaudRate);
+  ShimBt_setBtBaudRateToUse(initialBaudRate);
+  BT_startDone_cb(BtStartDone);
   BtStart();
 
   /* Try the baud that's stored in the EEPROM firstly, if that fails try
@@ -477,7 +478,7 @@ void InitialiseBt(void)
       ShimBt_clearBtTxBuf(1U);
 
       baudsTried[initialBaudRate] = 1U;
-      setBtBaudRateToUse(initialBaudRate);
+      ShimBt_setBtBaudRateToUse(initialBaudRate);
       BtStart();
 
       reset_cnt = 50U;
@@ -487,15 +488,15 @@ void InitialiseBt(void)
   if (ShimBrd_isEepromIsPresent()
       && (rnx_radio_eeprom[RNX_RADIO_TYPE_IDX] != getBtHwVersion()
           || rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] == 0xFF
-          || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != getCurrentBtBaudRate())
+          || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != ShimBt_getBtBaudRateToUse())
           || (isBtDeviceRn41orRN42() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != BAUD_115200)))
   {
     updateBtDetailsInEeprom();
   }
 
-  if (ShimConfig_getStoredConfig()->btCommsBaudRate != getCurrentBtBaudRate())
+  if (ShimConfig_getStoredConfig()->btCommsBaudRate != ShimBt_getBtBaudRateToUse())
   {
-    ShimConfig_getStoredConfig()->btCommsBaudRate = getCurrentBtBaudRate();
+    ShimConfig_getStoredConfig()->btCommsBaudRate = ShimBt_getBtBaudRateToUse();
     InfoMem_write(NV_BT_COMMS_BAUD_RATE,
         &ShimConfig_getStoredConfig()->rawBytes[NV_BT_COMMS_BAUD_RATE], 1);
 
@@ -802,7 +803,8 @@ void BtStartDone()
 
 void BtStart(void)
 {
-  if (!shimmerStatus.btIsInitialised)
+  // Best to check if BT is powered on as it could be on but not yet initialised
+  if (!shimmerStatus.btPowerOn)
   {
     /* Long delays starting BT, need to disable WDT */
     if (!(WDTCTL & WDTHOLD))
@@ -815,15 +817,7 @@ void BtStart(void)
       watchDogWasOnDuringBtStart = 0;
     }
 
-    BT_startDone_cb(BtStartDone);
-
-    if (!shimmerStatus.sensing)
-    {
-      shimmerStatus.configuring = 1;
-    }
-    ShimBt_resetBtRxBuff();
-
-    shimmerStatus.btInSyncMode = shimmerStatus.sdSyncEnabled;
+    ShimBt_startCommon();
 
     BT_start();
   }
@@ -831,23 +825,22 @@ void BtStart(void)
 
 void BtStop(uint8_t isCalledFromMain)
 {
-  ShimBt_clearBtTxBuf(isCalledFromMain);
-
-  ShimTask_clear(TASK_RCNODER10);
-
-  DMA2_disable(); //dma2 for bt disabled
-
-  updateBtConnectionStatusInterruptDirection();
-  shimmerStatus.btConnected = 0;
-  shimmerStatus.btIsInitialised = 0;
-  shimmerStatus.btInSyncMode = 0;
-  BT_disable();
-  BT_rst_MessageProgress();
-
-  if (watchDogWasOnDuringBtStart)
+  if (shimmerStatus.btPowerOn)
   {
-    //Reset Watchdog timer
-    WDTCTL = WDTPW + WDTSSEL__ACLK + WDTCNTCL + WDTIS_4;
+    DMA2_disable(); //dma2 for bt disabled
+
+    updateBtConnectionStatusInterruptDirection();
+
+    BT_disable();
+    BT_rst_MessageProgress();
+
+    ShimBt_stopCommon(isCalledFromMain);
+
+    if (watchDogWasOnDuringBtStart)
+    {
+      //Reset Watchdog timer
+      WDTCTL = WDTPW + WDTSSEL__ACLK + WDTCNTCL + WDTIS_4;
+    }
   }
 }
 
@@ -1162,7 +1155,7 @@ void updateBtDetailsInEeprom(void)
   }
   else
   {
-    btFwVerAndBaudRate[1] = getCurrentBtBaudRate();
+    btFwVerAndBaudRate[1] = ShimBt_getBtBaudRateToUse();
   }
   eepromWrite(RNX_TYPE_EEPROM_ADDRESS + RNX_RADIO_TYPE_IDX, 2U, &btFwVerAndBaudRate[0]);
 }
