@@ -803,7 +803,7 @@ void BtStartDone()
 
 void BtStart(void)
 {
-  // Best to check if BT is powered on as it could be on but not yet initialised
+  //Best to check if BT is powered on as it could be on but not yet initialised
   if (!shimmerStatus.btPowerOn)
   {
     /* Long delays starting BT, need to disable WDT */
