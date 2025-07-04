@@ -449,6 +449,9 @@ void InitialiseBt(void)
         }
       }
 
+      BtStop(1);
+      _delay_cycles(12000000); //500ms
+
       /* Baud rate is likely 115200, 1000000 or 460800 so try them first */
       if (baudsTried[BAUD_115200] != 1U)
       {
@@ -473,9 +476,6 @@ void InitialiseBt(void)
           }
         }
       }
-
-      BT_rst_MessageProgress();
-      ShimBt_clearBtTxBuf(1U);
 
       baudsTried[initialBaudRate] = 1U;
       ShimBt_setBtBaudRateToUse(initialBaudRate);
@@ -818,8 +818,7 @@ void BtStart(void)
     }
 
     ShimBt_startCommon();
-
-    BT_start();
+    btInit();
   }
 }
 

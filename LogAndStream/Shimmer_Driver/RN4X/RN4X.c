@@ -1476,9 +1476,6 @@ void BT_init(void)
 
   setRn4678ConnectionState(RN4678_DISCONNECTED);
 
-  //Turn on power (SW_BT P4.3 on SR30 and newer)
-  setBtModulePower(1);
-
   txie_reg = 0;
   command_received = 0;
   bt_setbaudrate_step = 0;
@@ -1564,12 +1561,21 @@ void BT_init(void)
   BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
 }
 
-void BT_start(void)
+void btInit(void)
 {
   starting = 1;
-  initRN1();
+
+  //Turn on power (SW_BT P4.3 on SR30 and newer)
+  setBtModulePower(1);
 
   msp430_clock_init();
+
+  msp430_register_timer_cb(start1, 100, 0); //100ms
+}
+
+void start1(void)
+{
+  initRN1();
 
   //powerup state is reset == low (true); mike conrad of roving networks sez:
   //wait about 1s to 2s after reset toggle

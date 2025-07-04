@@ -310,7 +310,8 @@ uint8_t isBtModuleOverflowPinHigh(void);
 void BT_init(void);
 
 //set up the BT/UART pins
-void BT_start(void);
+void btInit(void);
+void start1(void);
 void start2(void);
 void start3(void);
 
