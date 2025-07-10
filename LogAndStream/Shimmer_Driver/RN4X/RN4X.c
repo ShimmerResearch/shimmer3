@@ -93,7 +93,7 @@ uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
 uint8_t bt_setbaudrate_step, useSpecificAdvertisingName;
-uint8_t btBaudRateToUse, charsReceived;
+uint8_t charsReceived;
 btOperatingMode radioMode;
 
 uint8_t discoverable, authenticate, encrypt, resetDefaultsRequest, setSvcClassRequest,
@@ -994,13 +994,13 @@ void runSetCommands(void)
       if (updateBaudDuringBoot)
       {
         uint8_t defaultBaud = getDefaultBaudForBtVersion();
-        if (btBaudRateToUse == defaultBaud)
+        if (ShimBt_getBtBaudRateToUse() == defaultBaud)
         {
           BT_setUpdateBaudDuringBoot(0);
         }
         else
         {
-          setBtBaudRateToUse(defaultBaud);
+          ShimBt_setBtBaudRateToUse(defaultBaud);
           sendBaudRateUpdateToBtModule();
           return;
         }
@@ -1028,7 +1028,7 @@ void runSetCommands(void)
         BT_setUpdateBaudDuringBoot(0U);
 
         //change MSP430 UART to use new baud rate
-        setupUART(btBaudRateToUse);
+        setupUART(ShimBt_getBtBaudRateToUse());
 
         /* RN42 automatically exists command mode after the
          * temporary baud rate is updated and we're rebooting RN4678 so
@@ -1273,7 +1273,7 @@ void sendBaudRateUpdateToBtModule(void)
      * change is only temporary as the "new" baud rate settings aren't stored in
      * RN42 flash and the default 115200 baud is restored on each device reboot.
      */
-    switch (btBaudRateToUse)
+    switch (ShimBt_getBtBaudRateToUse())
     {
       case BAUD_1200:
         sprintf(commandbuf, "U,1200,N\r");
@@ -1328,7 +1328,7 @@ void sendBaudRateUpdateToBtModule(void)
      * No support for 06=28800, 08=14400, 0C=3000000, 0D=4000000,
      * 0E=3250000, 0F=1843200, 10=307200
      */
-    switch (btBaudRateToUse)
+    switch (ShimBt_getBtBaudRateToUse())
     {
       //NO RN4678 support for 1200 baud
       case BAUD_2400:
@@ -1430,26 +1430,10 @@ void btCmdModeStop(void)
   writeCommand("---\r", "END\r\n");
 }
 
-void setBtBaudRateToUse(uint8_t baudRate)
-{
-  if (baudRate <= BAUD_1000000)
-  {
-    //RN4678 doesn't support 1200, overwrite it with the next highest value
-    if (isBtDeviceRn4678() && baudRate == BAUD_1200)
-    {
-      btBaudRateToUse = BAUD_2400;
-    }
-    else
-    {
-      btBaudRateToUse = baudRate;
-    }
-  }
-}
-
 void BT_resetBaudRate(void)
 {
   slowRate = 0;
-  setBtBaudRateToUse(BAUD_115200);
+  ShimBt_setBtBaudRateToUse(BAUD_115200);
 }
 
 void BT_setGoodCommand(void)
@@ -1491,9 +1475,6 @@ void BT_init(void)
   txOverflow = 0;
 
   setRn4678ConnectionState(RN4678_DISCONNECTED);
-
-  //Turn on power (SW_BT P4.3 on SR30 and newer)
-  setBtModulePower(1);
 
   txie_reg = 0;
   command_received = 0;
@@ -1580,12 +1561,21 @@ void BT_init(void)
   BT_setRn4678BleCompleteLocalName(BLE_ADVERTISING_NAME_SHIMMER3);
 }
 
-void BT_start(void)
+void btInit(void)
 {
   starting = 1;
-  initRN1();
+
+  //Turn on power (SW_BT P4.3 on SR30 and newer)
+  setBtModulePower(1);
 
   msp430_clock_init();
+
+  msp430_register_timer_cb(start1, 100, 0); //100ms
+}
+
+void start1(void)
+{
+  initRN1();
 
   //powerup state is reset == low (true); mike conrad of roving networks sez:
   //wait about 1s to 2s after reset toggle
@@ -1607,7 +1597,7 @@ void start3(void)
   if (starting)
   {
     initRN3();
-    setupUART(btBaudRateToUse);
+    setupUART(ShimBt_getBtBaudRateToUse());
 
     msp430_register_timer_cb(runSetCommands, 15, 0); //15 ms
 
@@ -2266,11 +2256,6 @@ void updateBtWriteFunctionPtr(void)
   {
     ShimBt_writeToTxBufAndSend = &BT_write_rn42;
   }
-}
-
-uint8_t getCurrentBtBaudRate(void)
-{
-  return btBaudRateToUse;
 }
 
 void setBtRxFullResponsePtr(volatile char *ptr)

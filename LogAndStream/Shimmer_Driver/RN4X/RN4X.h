@@ -74,24 +74,6 @@ enum BT_HARDWARE_VERSION
   BT_HW_VER_UNKNOWN = 0xFF,
 };
 
-/* Order here needs to be maintained as it's saved to the EEPROM */
-enum BT_BAUD_RATE
-{
-  BAUD_115200 = 0U,
-  BAUD_1200 = 1U, //Only supported in RN42
-  BAUD_2400 = 2U,
-  BAUD_4800 = 3U,
-  BAUD_9600 = 4U,
-  BAUD_19200 = 5U,
-  BAUD_38400 = 6U,
-  BAUD_57600 = 7U,
-  BAUD_230400 = 8U,  //Only supported in RN42
-  BAUD_460800 = 9U,  //Only supported in RN42
-  BAUD_921600 = 10U, //Only supported in RN42
-  BAUD_1000000 = 11U, //Only supported in RN4678 v1.23 (issues with v1.13.5 & v1.22)
-  BAUD_NO_CHANGE_NEEDED = 0xFF,
-};
-
 typedef enum
 {
   RN4678_TX_POWER_MINUS_20_DBM = 0,
@@ -316,8 +298,6 @@ void btCmdModeStartAfterRn4xTempBaudChange(void);
 void btCmdModeStart(void);
 void btCmdModeStop(void);
 
-void setBtBaudRateToUse(uint8_t baudRate);
-
 void BT_resetBaudRate(void);
 
 //when received command is the same as the expected response, run this
@@ -330,7 +310,8 @@ uint8_t isBtModuleOverflowPinHigh(void);
 void BT_init(void);
 
 //set up the BT/UART pins
-void BT_start(void);
+void btInit(void);
+void start1(void);
 void start2(void);
 void start3(void);
 
@@ -439,7 +420,6 @@ void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew);
 enum BT_FIRMWARE_VERSION getBtFwVersion(void);
 enum BT_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
-uint8_t getCurrentBtBaudRate(void);
 void setBtRxFullResponsePtr(volatile char *ptr);
 uint8_t areBtStatusStringsEnabled(void);
 void setRnCommandModeActive(uint8_t state);
