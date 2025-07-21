@@ -389,15 +389,6 @@ void InitialiseBt(void)
   BT_setGetMacAddress(1);
   BT_setGetVersion(1);
 
-#if BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-  /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
-   * always used for Classic Bluetooth so we're just disabling the passkey
-   * altogether here */
-  BT_setAuthentication(2U);
-  setBleDeviceInformation(
-      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
-#endif
-
   BT_setUpdateBaudDuringBoot(1);
   //BT_useSpecificAdvertisingName(1U);
 

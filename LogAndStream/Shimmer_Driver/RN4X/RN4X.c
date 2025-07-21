@@ -66,6 +66,9 @@
 
 #include "log_and_stream_externs.h"
 #include <Comms/shimmer_bt_uart.h>
+#include <Boards/shimmer_boards.h>
+#include <Configuration/shimmer_config.h>
+#include "../shimmer_btsd.h"
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -817,7 +820,7 @@ void runSetCommands(void)
 
       /* Skipping BLE setup for the moment if sync is enabled to reduce
        * initialisation time while sensing */
-      if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+      if (!ShimBt_getIsBleSupportEnabled() || shimmerStatus.btInSyncMode)
       {
         /* Skip to next stage */
         if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1093,7 +1096,7 @@ void runSetCommands(void)
       }
     }
 
-    if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+    if (!ShimBt_getIsBleSupportEnabled() || shimmerStatus.btInSyncMode)
     {
       /* Skip to next stage */
       if (bt_setcommands_step == REBOOT + 1)
@@ -1494,7 +1497,6 @@ void BT_init(void)
   getMacAddress = 0;
   BT_setRadioMode(SLAVE_MODE);
   BT_setDiscoverable(1U);
-  BT_setAuthentication(4U);
   encrypt = 0;
   resetDefaultsRequest = 0;
   setSvcClassRequest = 0;
@@ -1531,7 +1533,30 @@ void BT_init(void)
   //setting is 0x0100 (160ms) BT_setPagingTime("0080"); // 80ms
   BT_setPagingTime("0100"); //160ms
 
-  if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+  /* Set authentication based on mode */
+  if (shimmerStatus.sdSyncEnabled)
+  {
+    /* Set legacy pin code for SD sync */
+    BT_setAuthentication(4U);
+  }
+  else
+  {
+    /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
+     * always used for Classic Bluetooth so we're just disabling the passkey
+     * altogether here */
+    BT_setAuthentication(2U);
+    setBleDeviceInformation(
+        ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+  }
+
+  if (isBtDeviceRn4678())
+  {
+    ShimBt_setIsBleSupportEnabled(
+        ShimConfig_areConfigBytesValid()
+            && (ShimConfig_getStoredConfig()->bleEnabled));
+  }
+
+  if (!ShimBt_getIsBleSupportEnabled() || shimmerStatus.sdSyncEnabled)
   {
     /* 2 = Bluetooth Classic only */
     BT_setRn4678BtMode("2");
