@@ -1570,7 +1570,8 @@ void btInit(void)
 
   msp430_clock_init();
 
-  msp430_register_timer_cb(start1, 100, 0); //100ms
+  //10ms chosen through test. 100ms found not to work on RN42 v6.15
+  msp430_register_timer_cb(start1, 10, 0);
 }
 
 void start1(void)
