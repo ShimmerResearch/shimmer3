@@ -48,7 +48,7 @@ void I2C_start(uint8_t controlExpBrd)
   if (controlExpBrd)
   {
     Board_setExpansionBrdPower(1);
-    __delay_cycles(48000); //2ms
+    __delay_cycles(480000); //20ms
   }
   else
   {
