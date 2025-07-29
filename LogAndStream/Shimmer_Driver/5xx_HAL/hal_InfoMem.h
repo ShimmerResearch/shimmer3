@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Shimmer Research, Ltd.
+ * Copyright (c) 2013, Shimmer Research, Ltd.
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,62 +36,40 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @author Weibo Pan
- * @date June, 2014
+ * @author Mike Healy
+ * @date December, 2013
+ *
+ * @modified Sam O'Mahony
+ * @date January, 2018
  */
 
-#ifndef HAL_UARTA0_H_
-#define HAL_UARTA0_H_
+#ifndef HAL_INFOMEM_H
+#define HAL_INFOMEM_H
 
 #include <stdint.h>
-//============================== below is the UART part ===============================
-#define UARTSEL         P3SEL
-#define UARTTXD         BIT4
-#define UARTRXD         BIT5
 
-#define UARTCTL0        UCA0CTL0
-#define UARTCTL1        UCA0CTL1
-#define UARTBR0         UCA0BR0
-#define UARTBR1         UCA0BR1
-#define UARTMCTL        UCA0MCTL
-#define UARTIFG         UCA0IFG
-#define UARTIE          UCA0IE
-#define UARTTXBUF       UCA0TXBUF
-#define UARTRXBUF       UCA0RXBUF
-#define UART_VECTOR     USCI_A0_VECTOR
-#define UCIV            UCA0IV
+#define INFOMEM_SEG_D             0x01
+#define INFOMEM_SEG_C             0x02
+#define INFOMEM_SEG_B             0x04
+#define INFOMEM_SEG_A             0x08
+#define INFOMEM_SEG_ALL           0x0F
 
+#define INFOMEM_OFFSET_MSP430     0x1800
+#define INFOMEM_SIZE              512
+#define INFOMEM_SEG_SIZE          128
+#define INFOMEM_SEG_A_ADDR_MSP430 0x1980
+#define INFOMEM_SEG_B_ADDR_MSP430 0x1900
+#define INFOMEM_SEG_C_ADDR_MSP430 0x1880
+#define INFOMEM_SEG_D_ADDR_MSP430 0x1800
 
-// registers the uart to usci_a0
-// must run only once before using the uart for the first time
+//returns 1 if successful, 0 if failure
+uint8_t InfoMem_write(uint16_t addr, uint8_t *buf, uint16_t size);
 
-//extern void UART_reg2Uca0();
+//returns 1 if successful, 0 if failure
+uint8_t InfoMem_read(uint16_t addr, uint8_t *buf, uint16_t size);
 
-extern void UART_write(uint8_t *buf, uint8_t len);
+void InfoMem_erase(uint8_t segments);
 
-//initializes the uart_num_registered_cmds value
-extern void UART_init(uint8_t (*uart_cb)(uint8_t data));
+void InfoMem_update(uint8_t *configBytePtr);
 
-// configures the pin settings
-// run this every time before using UART
-extern void UART_config();
-
-// register commands
-// usage: on receiving 'cmd_buff' through uart0_rx,
-// return 'response_buf' through uart0_tx
-// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
-//      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
-// to switch between uart_isr and other isrs
-// the last activated one works
-extern void DockUart_enable();
-
-// reset p6.1 and p7.6 back to sel+input
-extern void DockUart_disable();
-
-//============================== above is the UART part ===============================
-
-
-
-#endif /* HAL_UARTA0_H_ */
+#endif /* HAL_INFOMEM_H */

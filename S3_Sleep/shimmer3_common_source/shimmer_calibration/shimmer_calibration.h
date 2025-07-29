@@ -123,29 +123,29 @@ typedef struct shimmer_calib_t
 #define SC_SENSOR_RANGE_MAX_BMP180                 1
 #define SC_DATA_LEN_BMP180                         22
 
-extern void ShimmerCalib_init(void);
+extern void ShimCalib_init(void);
 
-extern uint8_t ShimmerCalib_findLength(sc_t* sc1);
+extern uint8_t ShimCalib_findLength(sc_t* sc1);
 
-extern void ShimmerCalib_ram2File(void);
+extern void ShimCalib_ram2File(void);
 
-extern uint8_t ShimmerCalib_file2Ram(void);
-
-// return 0: success, 1: fail
-extern uint8_t ShimmerCalib_singleSensorWrite(const sc_t* sc1);
+extern uint8_t ShimCalib_file2Ram(void);
 
 // return 0: success, 1: fail
-extern uint8_t ShimmerCalib_singleSensorRead(sc_t* sc1);
+extern uint8_t ShimCalib_singleSensorWrite(const sc_t* sc1);
 
-extern void ShimmerCalib_checkRamLen();
-extern void ShimmerCalib_ramTempInit();
+// return 0: success, 1: fail
+extern uint8_t ShimCalib_singleSensorRead(sc_t* sc1);
 
-extern uint8_t ShimmerCalib_ramWrite(const uint8_t* buf, uint8_t length,
+extern void ShimCalib_checkRamLen();
+extern void ShimCalib_ramTempInit();
+
+extern uint8_t ShimCalib_ramWrite(const uint8_t* buf, uint8_t length,
                                      uint16_t offset);
 
-extern uint8_t ShimmerCalib_ramRead(uint8_t* buf, uint8_t length,
+extern uint8_t ShimCalib_ramRead(uint8_t* buf, uint8_t length,
                                     uint16_t offset);
 
-void ShimmerCalib_default(uint8_t sensor);
+void ShimCalib_default(uint8_t sensor);
 
 #endif //SHIMMER_CALIBRATION_H

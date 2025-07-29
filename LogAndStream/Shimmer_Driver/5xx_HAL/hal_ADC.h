@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Shimmer Research, Ltd.
+ * Copyright (c) 2013, Shimmer Research, Ltd.
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,62 +36,37 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @author Weibo Pan
- * @date June, 2014
+ * @author Mike Healy
+ * @date December, 2013
  */
 
-#ifndef HAL_UARTA0_H_
-#define HAL_UARTA0_H_
+#ifndef HAL_ADC_H
+#define HAL_ADC_H
 
 #include <stdint.h>
-//============================== below is the UART part ===============================
-#define UARTSEL         P3SEL
-#define UARTTXD         BIT4
-#define UARTRXD         BIT5
 
-#define UARTCTL0        UCA0CTL0
-#define UARTCTL1        UCA0CTL1
-#define UARTBR0         UCA0BR0
-#define UARTBR1         UCA0BR1
-#define UARTMCTL        UCA0MCTL
-#define UARTIFG         UCA0IFG
-#define UARTIE          UCA0IE
-#define UARTTXBUF       UCA0TXBUF
-#define UARTRXBUF       UCA0RXBUF
-#define UART_VECTOR     USCI_A0_VECTOR
-#define UCIV            UCA0IV
+//ADC initialisation mask
+#define MASK_A_ACCEL 0x0001
+#define MASK_VBATT   0x0002
+#define MASK_EXT_A7  0x0004
+#define MASK_EXT_A6  0x0008
+#define MASK_EXT_A15 0x0010
+#define MASK_INT_A1  0x0020
+#define MASK_INT_A12 0x0040
+#define MASK_INT_A13 0x0080
+#define MASK_INT_A14 0x0100
+#define MASK_GSR     0x0020 //uses ADC1
 
+extern uint16_t *ADC_init(uint16_t mask);
+extern void ADC_startConversion(void);
+extern void ADC_disable(void);
+extern void ADC_setInterrupts(uint16_t mask);
 
-// registers the uart to usci_a0
-// must run only once before using the uart for the first time
+//pass in a pointer to the function that will get called when
+//adc conversion is finished
+//the passed in function returns a 1 if program execution should resume
+//(i.e. clear LPM3 bits)
+//otherwise return 0
+extern void ADC_conversionDoneFunction(uint8_t (*conversionDoneFuncPtr)(void));
 
-//extern void UART_reg2Uca0();
-
-extern void UART_write(uint8_t *buf, uint8_t len);
-
-//initializes the uart_num_registered_cmds value
-extern void UART_init(uint8_t (*uart_cb)(uint8_t data));
-
-// configures the pin settings
-// run this every time before using UART
-extern void UART_config();
-
-// register commands
-// usage: on receiving 'cmd_buff' through uart0_rx,
-// return 'response_buf' through uart0_tx
-// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
-//      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
-// to switch between uart_isr and other isrs
-// the last activated one works
-extern void DockUart_enable();
-
-// reset p6.1 and p7.6 back to sel+input
-extern void DockUart_disable();
-
-//============================== above is the UART part ===============================
-
-
-
-#endif /* HAL_UARTA0_H_ */
+#endif //HAL_ADC_H
