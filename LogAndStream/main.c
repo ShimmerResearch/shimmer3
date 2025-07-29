@@ -987,7 +987,7 @@ void SetupDock(void)
 {
   shimmerStatus.configuring = 1;
 
-  ShimBatt_resetChargingStatus();
+  ShimBatt_resetBatteryChargingStatus();
 
   if (shimmerStatus.docked)
   {
