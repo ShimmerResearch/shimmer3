@@ -988,9 +988,14 @@ void DockSdPowerCycle()
 void SetupDock()
 {
   shimmerStatus.configuring = 1;
+
+  ShimBatt_resetChargingStatus();
+
   if (shimmerStatus.docked)
   {
     ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
+    /* Reset battery critical count on dock to allow logging to begin again if
+     * auto-stop on low-power is enabled. */
     ShimBatt_resetBatteryCriticalCount();
 
     shimmerStatus.sdlogCmd = 0;
