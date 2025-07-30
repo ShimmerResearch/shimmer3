@@ -64,11 +64,11 @@
 #include "../msp430_clock/msp430_clock.h"
 #include "msp430.h"
 
-#include "log_and_stream_externs.h"
-#include <Comms/shimmer_bt_uart.h>
-#include <Boards/shimmer_boards.h>
-#include <Configuration/shimmer_config.h>
 #include "../shimmer_btsd.h"
+#include "log_and_stream_externs.h"
+#include <Boards/shimmer_boards.h>
+#include <Comms/shimmer_bt_uart.h>
+#include <Configuration/shimmer_config.h>
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -1542,9 +1542,8 @@ void BT_init(void)
 
   if (isBtDeviceRn4678())
   {
-    ShimBt_setIsBleSupportEnabled(
-        ShimConfig_areConfigBytesValid()
-            && (ShimConfig_getStoredConfig()->bleEnabled));
+    ShimBt_setIsBleSupportEnabled(ShimConfig_areConfigBytesValid()
+        && (ShimConfig_getStoredConfig()->bleEnabled));
   }
 
   if (!ShimBt_getIsBleSupportEnabled() || shimmerStatus.sdSyncEnabled)
