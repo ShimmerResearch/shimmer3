@@ -628,9 +628,7 @@ __interrupt void Port2_ISR(void)
 
       //dock_detect_N
     case P2IV_P2IFG3:
-      ShimTask_set(TASK_SETUP_DOCK);
-      /* Reset to battery "charging"/"checking" LED indication on docking change */
-      ShimBatt_resetBatteryChargingStatus();
+      LogAndStream_dockedStateChange();
       if (!undockEvent)
       {
         if (!BOARD_IS_DOCKED) //undocked
@@ -976,12 +974,17 @@ void DockSdPowerCycle()
   P6OUT &= ~BIT0;         //DETECT_N set low
 }
 
-void SetupDock()
+void SetupDock(void)
 {
   shimmerStatus.configuring = 1;
+
+  ShimBatt_resetBatteryChargingStatus();
+
   if (shimmerStatus.docked)
   {
     ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
+    /* Reset battery critical count on dock to allow logging to begin again if
+     * auto-stop on low-power is enabled. */
     ShimBatt_resetBatteryCriticalCount();
 
     shimmerStatus.sdlogCmd = 0;
