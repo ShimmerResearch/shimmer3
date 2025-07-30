@@ -1533,21 +1533,12 @@ void BT_init(void)
   //setting is 0x0100 (160ms) BT_setPagingTime("0080"); // 80ms
   BT_setPagingTime("0100"); //160ms
 
-  /* Set authentication based on mode */
-  if (shimmerStatus.sdSyncEnabled)
-  {
-    /* Set legacy pin code for SD sync */
-    BT_setAuthentication(4U);
-  }
-  else
-  {
-    /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
-     * always used for Classic Bluetooth so we're just disabling the passkey
-     * altogether here */
-    BT_setAuthentication(2U);
-    setBleDeviceInformation(
-        ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
-  }
+  /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
+   * always used for Classic Bluetooth (authentication mode 4) so we're just
+   * disabling the passkey here altogether. */
+  BT_setAuthentication(2U);
+  setBleDeviceInformation(
+      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 
   if (isBtDeviceRn4678())
   {
