@@ -723,7 +723,7 @@ void detectI2cSlaves(void)
     ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
   }
 
-  ShimBrd_setEepromIsPresent(i2cSlavePresent(CAT24C16_ADDR));
+  ShimEeprom_setIsPresent(i2cSlavePresent(CAT24C16_ADDR));
 
   if (i2cSlavePresent(ICM20948_ADDR))
   {

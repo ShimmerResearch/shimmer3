@@ -63,14 +63,6 @@ enum BT_FIRMWARE_VERSION
   RN41_V4_77,
 };
 
-enum BT_HARDWARE_VERSION
-{
-  RN42 = 0U,
-  RN4678 = 1U,
-  RN41 = 2U,
-  BT_HW_VER_UNKNOWN = 0xFF,
-};
-
 typedef enum
 {
   RN4678_TX_POWER_MINUS_20_DBM = 0,
@@ -160,10 +152,6 @@ enum BT_SET_COMMAND_STAGES
 //powerup state is reset == low (true); mike conrad of roving networks sez:
 //wait about 1s to 2s after reset toggle
 #define BT_DELAY_REBOOT_TICKS   48000000UL //2s @24MHz
-
-#define RNX_TYPE_EEPROM_ADDRESS (EEPROM_MAX_SIZE_IN_BYTES - CAT24C16_PAGE_SIZE)
-#define RNX_RADIO_TYPE_IDX      (0U)
-#define RN4678_BAUD_RATE_IDX    (1U)
 
 #define RN4X_AOK_RESPONSE       "AOK\r\n"
 #define RN4X_CMD_LEN            5U
@@ -415,7 +403,6 @@ uint8_t isBtDeviceRn4678(void);
 uint8_t doesBtDeviceSupport1Mbps(void);
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew);
 enum BT_FIRMWARE_VERSION getBtFwVersion(void);
-enum BT_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
 void setBtRxFullResponsePtr(volatile char *ptr);
 uint8_t areBtStatusStringsEnabled(void);
@@ -453,5 +440,8 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
+
+void setBleCurrentlyDisabled(uint8_t state);
+uint8_t isBleCurrentlyDisabled(void);
 
 #endif //RN4X_H
