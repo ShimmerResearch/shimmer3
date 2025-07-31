@@ -1540,7 +1540,7 @@ void BT_init(void)
   setBleDeviceInformation(
       ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 
-  if (ShimEeprom_getRadioDetails()->rn4678BleDisabled || shimmerStatus.sdSyncEnabled)
+  if (ShimEeprom_isRn4678BleDisabled() || shimmerStatus.sdSyncEnabled)
   {
     /* 2 = Bluetooth Classic only */
     BT_setRn4678BtMode("2");
