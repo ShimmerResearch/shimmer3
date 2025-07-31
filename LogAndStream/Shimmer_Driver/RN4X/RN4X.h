@@ -111,6 +111,7 @@ enum BT_SET_COMMAND_STAGES
   WAIT_FOR_BOOT,
   CMD_MODE_START,
   GET_VERSION,
+  MODULE_QUIET_1,
   RESET_FACTORY_DEFAULTS,
   GET_OPERATING_MODE,
   SET_OPERATING_MODE,
@@ -154,8 +155,10 @@ enum BT_SET_COMMAND_STAGES
   REENTER_CMD_MODE,
   REBOOT,
   RN4678_REENTER_CMD_MODE,
+  MODULE_QUIET_2,
   RN4678_SET_BLE_LOCAL_ADV_NAME,
   //RN4678_SET_BLE_APPEARANCE,
+  MODULE_WAKEUP,
   CMD_MODE_STOP,
   FINISH
 };
@@ -290,6 +293,7 @@ void writeCommand(char *cmd, char *response);
 void writeCommandWithCmdLen(char *cmd, uint8_t cmdLen, char *response);
 void runSetCommands(void);
 void runMasterCommands(void);
+void enterQuietMode(void);
 void sendBaudRateUpdateToBtModule(void);
 
 void writeCommandBufAndExpectAok(void);

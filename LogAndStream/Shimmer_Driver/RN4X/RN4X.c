@@ -445,6 +445,13 @@ void runSetCommands(void)
       }
     }
 
+    if (bt_setcommands_step == MODULE_QUIET_1)
+    {
+      bt_setcommands_step++;
+      enterQuietMode();
+      return;
+    }
+
     //reset factory defaults
     if (bt_setcommands_step == RESET_FACTORY_DEFAULTS)
     {
@@ -1116,6 +1123,13 @@ void runSetCommands(void)
           }
         }
 
+        if (bt_setcommands_step == MODULE_QUIET_2)
+        {
+          bt_setcommands_step++;
+          enterQuietMode();
+          return;
+        }
+
         if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
         {
           bt_setcommands_step++;
@@ -1162,6 +1176,17 @@ void runSetCommands(void)
         {
           bt_setcommands_step = CMD_MODE_STOP;
         }
+      }
+    }
+
+    if (bt_setcommands_step == MODULE_WAKEUP)
+    {
+      bt_setcommands_step++;
+      if (isRnCommandModeActive())
+      {
+        sprintf(commandbuf, "W\r");
+        writeCommandBufAndExpectAok();
+        return;
       }
     }
 
@@ -1260,6 +1285,22 @@ void runMasterCommands(void)
     }
   }
   return;
+}
+
+void enterQuietMode(void)
+{
+  if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+  {
+    //The module is not discoverable.
+    sprintf(commandbuf, "Q\r");
+  }
+  else
+  {
+    /*The module is not discoverable and not able to connect (both Classic
+     * and BLE for RN4678).*/
+    sprintf(commandbuf, "Q,1\r");
+  }
+  writeCommandBufAndExpectAok();
 }
 
 void sendBaudRateUpdateToBtModule(void)
