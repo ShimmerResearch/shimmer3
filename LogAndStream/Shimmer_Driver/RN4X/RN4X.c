@@ -1291,13 +1291,13 @@ void enterQuietMode(void)
 {
   if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
   {
-    //The module is not discoverable.
+    //The Q command makes the module non-discoverable.
     sprintf(commandbuf, "Q\r");
   }
   else
   {
-    /*The module is not discoverable and not able to connect (both Classic
-     * and BLE for RN4678).*/
+    /*The Q,1 command makes the module not non-discoverable and non-connectable
+     * (both Classic BT and BLE - if supported).*/
     sprintf(commandbuf, "Q,1\r");
   }
   writeCommandBufAndExpectAok();
