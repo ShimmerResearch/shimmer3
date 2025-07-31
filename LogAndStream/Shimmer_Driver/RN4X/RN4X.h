@@ -151,12 +151,12 @@ enum BT_SET_COMMAND_STAGES
 
 //powerup state is reset == low (true); mike conrad of roving networks sez:
 //wait about 1s to 2s after reset toggle
-#define BT_DELAY_REBOOT_TICKS   48000000UL //2s @24MHz
+#define BT_DELAY_REBOOT_TICKS 48000000UL //2s @24MHz
 
-#define RN4X_AOK_RESPONSE       "AOK\r\n"
-#define RN4X_CMD_LEN            5U
+#define RN4X_AOK_RESPONSE     "AOK\r\n"
+#define RN4X_CMD_LEN          5U
 
-#define RN42_CMD                "CMD\r\n"
+#define RN42_CMD              "CMD\r\n"
 #define RN41_VERSION_RESPONSE_V4_77 \
   "Ver 4.77 05/12/09 \r\n(c) Roving Networks\r\n"
 #define RN41_VERSION_RESPONSE_LEN_V4_77 41U
