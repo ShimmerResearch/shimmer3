@@ -6,9 +6,6 @@
 #include <Comms/shimmer_bt_uart.h>
 #include <log_and_stream_definitions.h>
 
-/* Enables BLE if FW is LogAndStream and the RN4678 is detected */
-#define BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678   1
-
 /********** Defines created when testing Bluetooth driver - Start ***********/
 /* This toggles the CTS pin whenever the DMA interrupt is being processed to tell the BT module to stop sending bytes while the MCU is not in a position to recieve them */
 #define BT_CTS_CONTROL_ENABLED                      1
@@ -64,14 +61,6 @@ enum BT_FIRMWARE_VERSION
   RN4678_V1_22_0,
   RN4678_V1_23_0,
   RN41_V4_77,
-};
-
-enum BT_HARDWARE_VERSION
-{
-  RN42 = 0U,
-  RN4678 = 1U,
-  RN41 = 2U,
-  BT_HW_VER_UNKNOWN = 0xFF,
 };
 
 typedef enum
@@ -162,16 +151,12 @@ enum BT_SET_COMMAND_STAGES
 
 //powerup state is reset == low (true); mike conrad of roving networks sez:
 //wait about 1s to 2s after reset toggle
-#define BT_DELAY_REBOOT_TICKS   48000000UL //2s @24MHz
+#define BT_DELAY_REBOOT_TICKS 48000000UL //2s @24MHz
 
-#define RNX_TYPE_EEPROM_ADDRESS (EEPROM_MAX_SIZE_IN_BYTES - CAT24C16_PAGE_SIZE)
-#define RNX_RADIO_TYPE_IDX      (0U)
-#define RN4678_BAUD_RATE_IDX    (1U)
+#define RN4X_AOK_RESPONSE     "AOK\r\n"
+#define RN4X_CMD_LEN          5U
 
-#define RN4X_AOK_RESPONSE       "AOK\r\n"
-#define RN4X_CMD_LEN            5U
-
-#define RN42_CMD                "CMD\r\n"
+#define RN42_CMD              "CMD\r\n"
 #define RN41_VERSION_RESPONSE_V4_77 \
   "Ver 4.77 05/12/09 \r\n(c) Roving Networks\r\n"
 #define RN41_VERSION_RESPONSE_LEN_V4_77 41U
@@ -418,7 +403,6 @@ uint8_t isBtDeviceRn4678(void);
 uint8_t doesBtDeviceSupport1Mbps(void);
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew);
 enum BT_FIRMWARE_VERSION getBtFwVersion(void);
-enum BT_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
 void setBtRxFullResponsePtr(volatile char *ptr);
 uint8_t areBtStatusStringsEnabled(void);
@@ -456,5 +440,8 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
+
+void setBleCurrentlyDisabled(uint8_t state);
+uint8_t isBleCurrentlyDisabled(void);
 
 #endif //RN4X_H

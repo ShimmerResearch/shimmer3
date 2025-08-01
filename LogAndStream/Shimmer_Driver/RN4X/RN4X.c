@@ -64,8 +64,9 @@
 #include "../msp430_clock/msp430_clock.h"
 #include "msp430.h"
 
+#include "../shimmer_btsd.h"
 #include "log_and_stream_externs.h"
-#include <Comms/shimmer_bt_uart.h>
+#include "log_and_stream_includes.h"
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -126,6 +127,8 @@ volatile uint8_t rn4678RtsLockDetected;
 #endif
 
 char *daughtCardIdStrPtrForBle;
+
+uint8_t bleCurrentlyDisabled = 1;
 
 const char *const hex = "0123456789ABCDEF";
 
@@ -817,7 +820,7 @@ void runSetCommands(void)
 
       /* Skipping BLE setup for the moment if sync is enabled to reduce
        * initialisation time while sensing */
-      if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+      if (isBleCurrentlyDisabled() || shimmerStatus.btInSyncMode)
       {
         /* Skip to next stage */
         if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1093,7 +1096,7 @@ void runSetCommands(void)
       }
     }
 
-    if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+    if (isBleCurrentlyDisabled() || shimmerStatus.btInSyncMode)
     {
       /* Skip to next stage */
       if (bt_setcommands_step == REBOOT + 1)
@@ -1494,7 +1497,6 @@ void BT_init(void)
   getMacAddress = 0;
   BT_setRadioMode(SLAVE_MODE);
   BT_setDiscoverable(1U);
-  BT_setAuthentication(4U);
   encrypt = 0;
   resetDefaultsRequest = 0;
   setSvcClassRequest = 0;
@@ -1531,15 +1533,24 @@ void BT_init(void)
   //setting is 0x0100 (160ms) BT_setPagingTime("0080"); // 80ms
   BT_setPagingTime("0100"); //160ms
 
-  if (!BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678 || shimmerStatus.btInSyncMode)
+  /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
+   * always used for Classic Bluetooth (authentication mode 4) so we're just
+   * disabling the passkey here altogether. */
+  BT_setAuthentication(2U);
+  setBleDeviceInformation(
+      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+
+  if (ShimEeprom_isRn4678BleDisabled() || shimmerStatus.sdSyncEnabled)
   {
     /* 2 = Bluetooth Classic only */
     BT_setRn4678BtMode("2");
+    setBleCurrentlyDisabled(1);
   }
   else
   {
     /* 0 = Dual mode */
     BT_setRn4678BtMode("0");
+    setBleCurrentlyDisabled(0);
   }
 
   //Enable fast mode with HW flow control enabled
@@ -2222,23 +2233,6 @@ enum BT_FIRMWARE_VERSION getBtFwVersion(void)
   return btFwVer;
 }
 
-enum BT_HARDWARE_VERSION getBtHwVersion(void)
-{
-  if (isBtDeviceRn42())
-  {
-    return RN42;
-  }
-  else if (isBtDeviceRn4678())
-  {
-    return RN4678;
-  }
-  else if (isBtDeviceRn41())
-  {
-    return RN41;
-  }
-  return BT_HW_VER_UNKNOWN;
-}
-
 void updateBtWriteFunctionPtr(void)
 {
   if (isRn4678ConnectionBle())
@@ -2671,6 +2665,16 @@ void string2hexString(char *input, char *output)
   }
   //insert NULL at the end of the output string
   output[i++] = '\0';
+}
+
+void setBleCurrentlyDisabled(uint8_t state)
+{
+  bleCurrentlyDisabled = state;
+}
+
+uint8_t isBleCurrentlyDisabled(void)
+{
+  return bleCurrentlyDisabled;
 }
 
 #pragma vector = USCI_A1_VECTOR

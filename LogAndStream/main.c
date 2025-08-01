@@ -106,11 +106,6 @@ float samplingClockFreqGet(void);
 void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
-void eepromRead(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
-void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
-void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW);
-void updateBtDetailsInEeprom(void);
-
 /* should be 0 */
 #define IS_SUPPORTED_TCXO 0
 
@@ -132,9 +127,6 @@ char *dierecord;
 /* variables used for delayed undock-start */
 uint8_t undockEvent;
 uint64_t time_newUnDockEvent;
-
-//bluetooth variables
-uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
 
 void main(void)
 {
@@ -183,9 +175,6 @@ void Init(void)
   ADC_varsInit();
 
   setBmpInUse(BMP180_IN_USE);
-  ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
-  ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
-  ShimBrd_setEepromIsPresent(0);
 
   /* variables used for delayed undock-start */
   undockEvent = 0;
@@ -230,8 +219,11 @@ void Init(void)
   I2C_stop(0);
   ShimSdHead_saveBmpCalibrationToSdHeader();
 
-  /* Read Daughter card ID*/
-  eepromRead(DAUGHT_CARD_ID, CAT24C16_PAGE_SIZE, ShimBrd_getDaughtCardIdPtr());
+  if (ShimEeprom_isPresent())
+  {
+    ShimEeprom_readAll();
+  }
+
   ProcessHwRevision();
 
   ShimSens_startLoggingIfUndockStartEnabled();
@@ -333,7 +325,7 @@ void ProcessHwRevision(void)
 
   ShimBrd_parseDaughterCardId();
 
-  if (ShimBrd_isEepromIsPresent())
+  if (ShimEeprom_isPresent())
   {
     //Some board batches don't have the LSM303AHTR placed, in these
     //cases, the ICM-20948's channels are used instead
@@ -389,31 +381,14 @@ void InitialiseBt(void)
   BT_setGetMacAddress(1);
   BT_setGetVersion(1);
 
-#if BT_ENABLE_BLE_FOR_LOGANDSTREAM_AND_RN4678
-  /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
-   * always used for Classic Bluetooth so we're just disabling the passkey
-   * altogether here */
-  BT_setAuthentication(2U);
-  setBleDeviceInformation(
-      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
-#endif
-
   BT_setUpdateBaudDuringBoot(1);
   //BT_useSpecificAdvertisingName(1U);
 
-  /* Read previous baud rate from the EEPROM if it is present */
   uint8_t initialBaudRate = BAUD_115200;
-  memset(rnx_radio_eeprom, 0xFF, sizeof(rnx_radio_eeprom) / sizeof(rnx_radio_eeprom[0]));
-  if (ShimBrd_isEepromIsPresent())
+  /* Use previous baud rate from the EEPROM if it is present */
+  if (ShimEeprom_isPresent() && ShimEeprom_getRadioDetails()->baudRate <= BAUD_1000000)
   {
-    //Read Bluetooth configuration parameters from EEPROM
-    /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
-    eepromRead(RNX_TYPE_EEPROM_ADDRESS, CAT24C16_PAGE_SIZE, rnx_radio_eeprom);
-
-    if (rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] <= BAUD_1000000)
-    {
-      initialBaudRate = rnx_radio_eeprom[RN4678_BAUD_RATE_IDX];
-    }
+    initialBaudRate = ShimEeprom_getRadioDetails()->baudRate;
   }
 
   uint8_t reset_cnt = 50U; //50 * 100ms = 5s per baud rate attempt
@@ -485,13 +460,10 @@ void InitialiseBt(void)
     }
   }
 
-  if (ShimBrd_isEepromIsPresent()
-      && (rnx_radio_eeprom[RNX_RADIO_TYPE_IDX] != getBtHwVersion()
-          || rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] == 0xFF
-          || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != ShimBt_getBtBaudRateToUse())
-          || (isBtDeviceRn41orRN42() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != BAUD_115200)))
+  if (ShimEeprom_isPresent() && ShimEeprom_areRadioDetailsIncorrect())
   {
-    updateBtDetailsInEeprom();
+    ShimEeprom_updateRadioDetails();
+    ShimEeprom_writeRadioDetails();
   }
 
   if (ShimConfig_getStoredConfig()->btCommsBaudRate != ShimBt_getBtBaudRateToUse())
@@ -1104,62 +1076,6 @@ uint16_t FreqProd(uint16_t samplingFreq)
 float samplingClockFreqGet(void)
 {
   return clockFreq;
-}
-
-void eepromRead(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf)
-{
-  eepromReadWrite(dataAddr, dataSize, dataBuf, EEPROM_READ);
-}
-
-void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf)
-{
-  eepromReadWrite(dataAddr, dataSize, dataBuf, EEPROM_WRITE);
-}
-
-void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW)
-{
-  bool timer_was_stopped = FALSE;
-
-  //Spool up EEPROM and required timing peripherals
-  if (TB0CTL == MC_0) //Timer is stopped
-  {
-    BlinkTimerStart();
-    timer_was_stopped = TRUE;
-  }
-
-  CAT24C16_init();
-
-  //EEPROM needs to be updated with latest bt baud rate, configure here
-  if (eepromRW == EEPROM_READ)
-  {
-    CAT24C16_read(dataAddr, dataSize, dataBuf);
-  }
-  else
-  {
-    CAT24C16_write(dataAddr, dataSize, dataBuf);
-  }
-
-  //Wind down EEPROM and required timing peripherals
-  CAT24C16_powerOff();
-  if (timer_was_stopped == TRUE)
-  {
-    BlinkTimerStop();
-  }
-}
-
-void updateBtDetailsInEeprom(void)
-{
-  uint8_t btFwVerAndBaudRate[2];
-  btFwVerAndBaudRate[0] = (uint8_t) getBtHwVersion();
-  if (isBtDeviceRn41orRN42())
-  {
-    btFwVerAndBaudRate[1] = BAUD_115200;
-  }
-  else
-  {
-    btFwVerAndBaudRate[1] = ShimBt_getBtBaudRateToUse();
-  }
-  eepromWrite(RNX_TYPE_EEPROM_ADDRESS + RNX_RADIO_TYPE_IDX, 2U, &btFwVerAndBaudRate[0]);
 }
 
 void setSamplingClkSource(float samplingClock)
