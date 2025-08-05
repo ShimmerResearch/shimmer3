@@ -54,7 +54,7 @@
   3 //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
 #define FW_VER_MAJOR 1 //Major version number: 0-65535
 #define FW_VER_MINOR 0 //Minor version number: 0-255
-#define FW_VER_REL   2 //internal version number: 0-255
+#define FW_VER_REL   3 //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE  (1)
