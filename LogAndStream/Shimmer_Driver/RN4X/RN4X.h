@@ -359,7 +359,7 @@ char *BT_getDesiredRnTxPowerForBtVerGetCmd(void);
 void BT_setRn4678TxPower(rn4678TxPower_et newValue);
 void BT_setRn42TxPowerPreAug2012(rn42TxPowerPreAug2012_et newValue);
 void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue);
-void BT_setRn4678BtMode(char *hexval_time);
+void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn);
 void BT_setRn4xRemoteConfigurationTimer(char *hexval_time);
 void BT_resetDefaults(void);
 
@@ -444,8 +444,5 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
-
-void setBleCurrentlyDisabled(uint8_t state);
-uint8_t isBleCurrentlyDisabled(void);
 
 #endif //RN4X_H
