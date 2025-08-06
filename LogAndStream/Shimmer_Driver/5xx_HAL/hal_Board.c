@@ -201,7 +201,7 @@ void Board_init(void)
  * @brief  Turn on LEDs
  * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn on
  * @return none
-******************************************************************************/
+ ******************************************************************************/
 inline void Board_ledOn(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
@@ -230,7 +230,7 @@ inline void Board_ledOn(uint8_t ledMask)
  * @brief  Turn off LEDs
  * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn off
  * @return none
-******************************************************************************/
+ ******************************************************************************/
 inline void Board_ledOff(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
@@ -259,7 +259,7 @@ inline void Board_ledOff(uint8_t ledMask)
  * @brief  Toggle LEDs
  * @param  ledMask   Use values defined in HAL_board.h for the LEDs to toggle
  * @return none
-******************************************************************************/
+ ******************************************************************************/
 inline void Board_ledToggle(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
