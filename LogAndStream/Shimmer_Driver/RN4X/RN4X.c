@@ -1581,7 +1581,7 @@ void BT_init(void)
 
   if (shimmerStatus.sdSyncEnabled)
   {
-    // Classic only for sync mode
+    //Classic only for sync mode
     BT_setBtMode(1, 0);
   }
   else
@@ -1991,15 +1991,15 @@ void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn)
 {
   ShimBt_setBtMode(btClassicEn, bleEn);
 
-  if(btClassicEn && bleEn)
+  if (btClassicEn && bleEn)
   {
     sprintf(btMode, "0");
   }
-  else if(bleEn)
+  else if (bleEn)
   {
     sprintf(btMode, "1");
   }
-  else if(btClassicEn)
+  else if (btClassicEn)
   {
     sprintf(btMode, "2");
   }
@@ -2276,9 +2276,9 @@ void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
   /* Write function needs to be updated depending BT FW version */
   updateBtWriteFunctionPtr();
 
-  if(isBtDeviceRn41orRN42())
+  if (isBtDeviceRn41orRN42())
   {
-    // Only RN4678 supports BLE
+    //Only RN4678 supports BLE
     BT_setBtMode(1, 0);
   }
 }
