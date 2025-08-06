@@ -52,11 +52,11 @@
 #define XT1_ENABLE   (BIT0 + BIT1)
 #define XT2_ENABLE   (BIT2 + BIT3)
 
-/***************************************************************************/ /**
-                                                                               * @brief  Initialize the board - configure ports
-                                                                               * @param  None
-                                                                               * @return none
-                                                                               ******************************************************************************/
+/******************************************************************************
+ * @brief  Initialize the board - configure ports
+ * @param  None
+ * @return none
+ ******************************************************************************/
 void Board_init(void)
 {
   //Setup XT1 and XT2
@@ -197,11 +197,11 @@ void Board_init(void)
   P8DIR |= BIT4; //set as output
 }
 
-/***************************************************************************/ /**
-                                                                               * @brief  Turn on LEDs
-                                                                               * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn on
-                                                                               * @return none
-                                                                               ******************************************************************************/
+/******************************************************************************
+ * @brief  Turn on LEDs
+ * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn on
+ * @return none
+******************************************************************************/
 inline void Board_ledOn(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
@@ -226,11 +226,11 @@ inline void Board_ledOn(uint8_t ledMask)
   }
 }
 
-/***************************************************************************/ /**
-                                                                               * @brief  Turn off LEDs
-                                                                               * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn off
-                                                                               * @return none
-                                                                               ******************************************************************************/
+/******************************************************************************
+ * @brief  Turn off LEDs
+ * @param  ledMask   Use values defined in HAL_board.h for the LEDs to turn off
+ * @return none
+******************************************************************************/
 inline void Board_ledOff(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
@@ -255,11 +255,11 @@ inline void Board_ledOff(uint8_t ledMask)
   }
 }
 
-/***************************************************************************/ /**
-                                                                               * @brief  Toggle LEDs
-                                                                               * @param  ledMask   Use values defined in HAL_board.h for the LEDs to toggle
-                                                                               * @return none
-                                                                               ******************************************************************************/
+/******************************************************************************
+ * @brief  Toggle LEDs
+ * @param  ledMask   Use values defined in HAL_board.h for the LEDs to toggle
+ * @return none
+******************************************************************************/
 inline void Board_ledToggle(uint8_t ledMask)
 {
   if (ledMask & LED_LWR_RED)
@@ -283,10 +283,6 @@ inline void Board_ledToggle(uint8_t ledMask)
     P1OUT ^= BIT2;
   }
 }
-
-/***************************************************************************/ /**
-                                                                               * @}
-                                                                               ******************************************************************************/
 
 void Board_initForRevision(void)
 {
