@@ -128,8 +128,6 @@ volatile uint8_t rn4678RtsLockDetected;
 
 char *daughtCardIdStrPtrForBle;
 
-uint8_t bleCurrentlyDisabled = 1;
-
 const char *const hex = "0123456789ABCDEF";
 
 const char *const rn4678TxPower_str[]
@@ -827,7 +825,7 @@ void runSetCommands(void)
 
       /* Skipping BLE setup for the moment if sync is enabled to reduce
        * initialisation time while sensing */
-      if (isBleCurrentlyDisabled() || shimmerStatus.btInSyncMode)
+      if (!ShimBt_isBleCurrentlyEnabled() || shimmerStatus.btInSyncMode)
       {
         /* Skip to next stage */
         if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
@@ -1103,7 +1101,7 @@ void runSetCommands(void)
       }
     }
 
-    if (isBleCurrentlyDisabled() || shimmerStatus.btInSyncMode)
+    if (!ShimBt_isBleCurrentlyEnabled() || shimmerStatus.btInSyncMode)
     {
       /* Skip to next stage */
       if (bt_setcommands_step == REBOOT + 1)
@@ -1596,17 +1594,14 @@ void BT_init(void)
   setBleDeviceInformation(
       ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
 
-  if (ShimEeprom_isRn4678BleDisabled() || shimmerStatus.sdSyncEnabled)
+  if (shimmerStatus.sdSyncEnabled)
   {
-    /* 2 = Bluetooth Classic only */
-    BT_setRn4678BtMode("2");
-    setBleCurrentlyDisabled(1);
+    //Classic only for sync mode
+    BT_setBtMode(1, 0);
   }
   else
   {
-    /* 0 = Dual mode */
-    BT_setRn4678BtMode("0");
-    setBleCurrentlyDisabled(0);
+    BT_setBtMode(ShimEeprom_isBtClassicEnabled(), ShimEeprom_isBleEnabled());
   }
 
   //Enable fast mode with HW flow control enabled
@@ -2007,9 +2002,23 @@ void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue)
  * 0 = Dual mode
  * 1 = Bluetooth Low Energy only
  * 2 = Bluetooth Classic only */
-void BT_setRn4678BtMode(char *hexval_time)
+void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn)
 {
-  snprintf(btMode, sizeof(btMode), "%s", hexval_time);
+  ShimBt_setBtMode(btClassicEn, bleEn);
+
+  //Handle both enabled and also treat the same if both disabled
+  if ((btClassicEn && bleEn) || (!btClassicEn && !bleEn))
+  {
+    sprintf(btMode, "0");
+  }
+  else if (bleEn)
+  {
+    sprintf(btMode, "1");
+  }
+  else if (btClassicEn)
+  {
+    sprintf(btMode, "2");
+  }
 }
 
 void BT_setRn4xRemoteConfigurationTimer(char *hexval_time)
@@ -2282,6 +2291,12 @@ void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
 
   /* Write function needs to be updated depending BT FW version */
   updateBtWriteFunctionPtr();
+
+  if (isBtDeviceRn41orRN42())
+  {
+    //Only RN4678 supports BLE
+    BT_setBtMode(1, 0);
+  }
 }
 
 enum BT_FIRMWARE_VERSION getBtFwVersion(void)
@@ -2721,16 +2736,6 @@ void string2hexString(char *input, char *output)
   }
   //insert NULL at the end of the output string
   output[i++] = '\0';
-}
-
-void setBleCurrentlyDisabled(uint8_t state)
-{
-  bleCurrentlyDisabled = state;
-}
-
-uint8_t isBleCurrentlyDisabled(void)
-{
-  return bleCurrentlyDisabled;
 }
 
 #pragma vector = USCI_A1_VECTOR
