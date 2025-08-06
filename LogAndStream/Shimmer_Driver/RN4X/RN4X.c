@@ -1991,7 +1991,9 @@ void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn)
 {
   ShimBt_setBtMode(btClassicEn, bleEn);
 
-  if (btClassicEn && bleEn)
+  // Handle both enabled and also treat the same if both disabled
+  if ((btClassicEn && bleEn)
+    || (!btClassicEn && !bleEn))
   {
     sprintf(btMode, "0");
   }
