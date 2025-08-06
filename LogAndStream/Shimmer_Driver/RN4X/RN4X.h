@@ -278,7 +278,8 @@ void writeCommand(char *cmd, char *response);
 void writeCommandWithCmdLen(char *cmd, uint8_t cmdLen, char *response);
 void runSetCommands(void);
 void runMasterCommands(void);
-void enterQuietMode(void);
+void cmdQuietModeEnter(void);
+void cmdQuietModeExit(void);
 void sendBaudRateUpdateToBtModule(void);
 
 void writeCommandBufAndExpectAok(void);
