@@ -1108,7 +1108,7 @@ void runSetCommands(void)
       /* Skip to next stage */
       if (bt_setcommands_step == REBOOT + 1)
       {
-        bt_setcommands_step = CMD_MODE_STOP;
+        bt_setcommands_step = MODULE_WAKEUP;
       }
     }
     else
@@ -1177,7 +1177,7 @@ void runSetCommands(void)
       {
         if (bt_setcommands_step == REBOOT + 1)
         {
-          bt_setcommands_step = CMD_MODE_STOP;
+          bt_setcommands_step = MODULE_WAKEUP;
         }
       }
     }
