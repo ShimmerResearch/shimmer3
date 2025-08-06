@@ -1312,7 +1312,7 @@ void cmdQuietModeExit(void)
   sprintf(commandbuf, "W\r");
   if (isBtDeviceRn41orRN42())
   {
-    // Tested on RN42 v4.77 and v6.15
+    //Tested on RN42 v4.77 and v6.15
     writeCommand(commandbuf, "Wake\r\n");
   }
   else
