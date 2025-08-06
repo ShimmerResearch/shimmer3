@@ -451,7 +451,7 @@ void runSetCommands(void)
     if (bt_setcommands_step == MODULE_QUIET_1)
     {
       bt_setcommands_step++;
-      enterQuietMode();
+      cmdQuietModeEnter();
       return;
     }
 
@@ -1129,7 +1129,7 @@ void runSetCommands(void)
         if (bt_setcommands_step == MODULE_QUIET_2)
         {
           bt_setcommands_step++;
-          enterQuietMode();
+          cmdQuietModeEnter();
           return;
         }
 
@@ -1187,8 +1187,7 @@ void runSetCommands(void)
       bt_setcommands_step++;
       if (isRnCommandModeActive())
       {
-        sprintf(commandbuf, "W\r");
-        writeCommandBufAndExpectAok();
+        cmdQuietModeExit();
         return;
       }
     }
@@ -1290,20 +1289,36 @@ void runMasterCommands(void)
   return;
 }
 
-void enterQuietMode(void)
+void cmdQuietModeEnter(void)
 {
+  /* From testing, RN42 FW v4.77 responds back with "Quiet\r\n". RN42 v6.15 and
+   * RN4678 v1.00.5 and v1.23 respond back with "AOK\r\nCMD> " */
   if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
   {
     //The Q command makes the module non-discoverable.
-    sprintf(commandbuf, "Q\r");
+    writeCommand("Q\r", "Quiet\r\n");
   }
   else
   {
     /*The Q,1 command makes the module not non-discoverable and non-connectable
      * (both Classic BT and BLE - if supported).*/
     sprintf(commandbuf, "Q,1\r");
+    writeCommandBufAndExpectAok();
   }
-  writeCommandBufAndExpectAok();
+}
+
+void cmdQuietModeExit(void)
+{
+  sprintf(commandbuf, "W\r");
+  if (isBtDeviceRn41orRN42())
+  {
+    //Tested on RN42 v4.77 and v6.15
+    writeCommand(commandbuf, "Wake\r\n");
+  }
+  else
+  {
+    writeCommandBufAndExpectAok();
+  }
 }
 
 void sendBaudRateUpdateToBtModule(void)
