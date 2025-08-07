@@ -9,8 +9,8 @@
 
 #include "Shimmer_Driver/shimmer_driver_include.h"
 #include <math.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #define PRES_TS_EN 0
 
