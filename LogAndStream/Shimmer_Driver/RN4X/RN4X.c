@@ -64,7 +64,7 @@
 #include "../msp430_clock/msp430_clock.h"
 #include "msp430.h"
 
-#include "../shimmer_btsd.h"
+#include "../version.h"
 #include "log_and_stream_externs.h"
 #include "log_and_stream_includes.h"
 
@@ -1592,7 +1592,7 @@ void BT_init(void)
    * disabling the passkey here altogether. */
   BT_setAuthentication(2U);
   setBleDeviceInformation(
-      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+      ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH);
 
   if (shimmerStatus.sdSyncEnabled)
   {

@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 #include "../../i2c.h"
-#include "../../shimmer_btsd.h"
+#include "../../version.h"
 
 #include "msp430.h"
 

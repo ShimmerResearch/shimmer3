@@ -8,6 +8,7 @@
 #include "RN4678.h"
 
 #include "stdint.h"
+#include "stdbool.h"
 
 #include "RN4X.h"
 #include <log_and_stream_includes.h>
@@ -88,7 +89,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
             || (btFwVer == RN42_V4_77 && btStatusStr[7U] == 'T')
             || (btFwVer == RN42_V6_15 && btStatusStr[21U] == ','))
         {
-          ShimBt_handleBtRfCommStateChange(TRUE);
+          ShimBt_handleBtRfCommStateChange(true);
           bringUcOutOfSleep = 1U;
         }
         else if (btStatusStr[BT_STAT_STR_LEN_SMALLEST] == '\0')
@@ -131,7 +132,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
          * Bluetooth connections. */
         if (shimmerStatus.btConnected)
         {
-          ShimBt_handleBtRfCommStateChange(FALSE);
+          ShimBt_handleBtRfCommStateChange(false);
           bringUcOutOfSleep = 1U;
         }
 
@@ -140,7 +141,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
       /* "%DISCONNECT" -> RN42 */
       else if (btStatusStr[10U] == 'T')
       {
-        ShimBt_handleBtRfCommStateChange(FALSE);
+        ShimBt_handleBtRfCommStateChange(false);
         bringUcOutOfSleep = 1U;
       }
       /* "%DISCON" - Read outstanding bytes */
@@ -262,7 +263,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
           setRn4678ConnectionState(RN4678_CONNECTED_BLE);
 
           /* RN4678 seems to assume charactertic is advice once BLE connected */
-          ShimBt_handleBtRfCommStateChange(TRUE);
+          ShimBt_handleBtRfCommStateChange(true);
 
           bringUcOutOfSleep = 1U;
         }
@@ -366,7 +367,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
           /* "%RFCOMM_CLOSE%" */
           if (btStatusStr[13U] == '%')
           {
-            ShimBt_handleBtRfCommStateChange(FALSE);
+            ShimBt_handleBtRfCommStateChange(false);
             bringUcOutOfSleep = 1U;
           }
           /* "%RFCOMM_CLOSE" - Read outstanding bytes */
@@ -378,7 +379,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
         /* "%RFCOMM_OPEN%" */
         else if (btStatusStr[12U] == '%')
         {
-          ShimBt_handleBtRfCommStateChange(TRUE);
+          ShimBt_handleBtRfCommStateChange(true);
           bringUcOutOfSleep = 1U;
         }
         /* "%RFCOMM" - Read outstanding bytes */

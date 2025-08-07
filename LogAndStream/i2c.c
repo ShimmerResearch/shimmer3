@@ -10,6 +10,7 @@
 #include "Shimmer_Driver/shimmer_driver_include.h"
 #include <math.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define PRES_TS_EN 0
 
@@ -21,8 +22,8 @@ uint8_t bmpTempCurrentVal[BMPX80_TEMP_BUFF_SIZE],
 
 /*variables for ICM20948 Accel/Gyro*/
 uint8_t icm20948AccelGyroBuf[12] = { 0 };
-bool isIcm20948AccelEn = FALSE;
-bool isIcm20948GyroEn = FALSE;
+bool isIcm20948AccelEn = false;
+bool isIcm20948GyroEn = false;
 
 #if PRES_TS_EN
 uint16_t bmpTempInterval, bmpPresInterval;
@@ -393,16 +394,16 @@ void I2C_configureChannels(void)
     sensing.dataLen += BMPX80_PACKET_SIZE;
   }
 
-  isIcm20948AccelEn = FALSE;
-  isIcm20948GyroEn = FALSE;
+  isIcm20948AccelEn = false;
+  isIcm20948GyroEn = false;
   if (ShimBrd_isGyroInUseIcm20948() && storedConfigPtr->chEnGyro)
   {
-    isIcm20948GyroEn = TRUE;
+    isIcm20948GyroEn = true;
   }
   if (storedConfigPtr->chEnAltAccel
       || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnWrAccel))
   {
-    isIcm20948AccelEn = TRUE;
+    isIcm20948AccelEn = true;
   }
 
   sensing.ccLen += nbr_i2c_chans;

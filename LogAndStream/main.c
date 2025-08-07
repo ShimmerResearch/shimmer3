@@ -75,6 +75,7 @@
 #include "log_and_stream_globals.h"
 #include "log_and_stream_includes.h"
 #include "shimmer_btsd.h"
+#include "version.h"
 
 void Init(void);
 void handleIfDockedStateOnBoot(void);
