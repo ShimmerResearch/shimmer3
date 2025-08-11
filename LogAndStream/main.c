@@ -74,8 +74,8 @@
 #include "log_and_stream_includes.h"
 
 #include "5xx_HAL/hal_FactoryTest.h"
-#include "shimmer_driver_include.h"
 #include "shimmer_definitions.h"
+#include "shimmer_driver_include.h"
 #include "version.h"
 
 void Init(void);
