@@ -48,6 +48,8 @@
 
 #include <stdint.h>
 
+#include "version.h"
+
 //Represents SR30. 0-3 for shimmer1 to shimmer3
 #define DEVICE_VER 3
 //Two byte firmware identifier number:  3 for LogAndStream, 2 for SDLog, 1 for BTStream,
