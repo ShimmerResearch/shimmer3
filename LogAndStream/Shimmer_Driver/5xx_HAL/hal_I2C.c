@@ -40,10 +40,11 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "../../shimmer_btsd.h"
 #include "hal_I2C.h"
 #include "hal_TB0.h"
 #include "msp430.h"
+
+#include "../shimmer_definitions.h"
 
 #define I2C_TIMEOUT \
   164 //164/32768 = 5.005ms

@@ -11,7 +11,7 @@
 #include "stdint.h"
 
 #include "RN4X.h"
-#include <log_and_stream_includes.h>
+#include "log_and_stream_includes.h"
 
 volatile char btStatusStr[BT_STAT_STR_LEN_LARGEST + 1U]; /* +1 to always have a null char */
 uint8_t btStatusStrIndex;

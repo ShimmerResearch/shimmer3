@@ -9,13 +9,15 @@
 
 #include <stdio.h>
 
-#include "../../i2c.h"
-#include "../../version.h"
-
 #include "msp430.h"
 
-#include "../shimmer_driver_include.h"
+#include "../../i2c.h"
+
+#include "shimmer_driver_include.h"
+
 #include "log_and_stream_externs.h"
+#include "shimmer_definitions.h"
+#include "version.h"
 
 factory_test_target_t factoryTestTarget;
 factory_test_t factoryTestToRun;

@@ -70,11 +70,12 @@
 #include "i2c.h"
 #include "spi.h"
 
-#include "Shimmer_Driver/5xx_HAL/hal_FactoryTest.h"
-#include "Shimmer_Driver/shimmer_driver_include.h"
 #include "log_and_stream_globals.h"
 #include "log_and_stream_includes.h"
-#include "shimmer_btsd.h"
+
+#include "5xx_HAL/hal_FactoryTest.h"
+#include "shimmer_driver_include.h"
+#include "shimmer_definitions.h"
 #include "version.h"
 
 void Init(void);

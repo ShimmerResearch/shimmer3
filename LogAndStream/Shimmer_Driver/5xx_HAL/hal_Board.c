@@ -41,7 +41,7 @@
 #include <Boards/shimmer_boards.h>
 #include <GSR/gsr.h>
 #include <LEDs/shimmer_leds.h>
-#include <log_and_stream_externs.h>
+#include "log_and_stream_externs.h"
 
 #define XT1_PORT_DIR P7DIR
 #define XT1_PORT_OUT P7OUT

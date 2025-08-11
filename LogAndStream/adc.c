@@ -11,7 +11,7 @@
 
 #include "msp430.h"
 
-#include "../shimmer_btsd.h"
+#include "Shimmer_Driver/shimmer_definitions.h"
 #include "Shimmer_Driver/shimmer_driver_include.h"
 
 uint16_t *adcStartPtr;

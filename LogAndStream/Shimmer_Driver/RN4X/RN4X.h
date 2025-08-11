@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include <Comms/shimmer_bt_uart.h>
-#include <log_and_stream_definitions.h>
+#include "log_and_stream_definitions.h"
 
 /********** Defines created when testing Bluetooth driver - Start ***********/
 /* This toggles the CTS pin whenever the DMA interrupt is being processed to tell the BT module to stop sending bytes while the MCU is not in a position to recieve them */
