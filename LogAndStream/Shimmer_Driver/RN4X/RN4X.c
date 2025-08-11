@@ -1591,8 +1591,8 @@ void BT_init(void)
    * always used for Classic Bluetooth (authentication mode 4) so we're just
    * disabling the passkey here altogether. */
   BT_setAuthentication(2U);
-  setBleDeviceInformation(
-      ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH);
+  setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR,
+      FW_VERSION_MINOR, FW_VERSION_PATCH);
 
   if (shimmerStatus.sdSyncEnabled)
   {
