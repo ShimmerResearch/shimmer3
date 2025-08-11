@@ -5,16 +5,16 @@ Firmware Versioning Guide
 ========================
 
 This project uses a versioning system with the following files:
-- FW_Shimmer3r/S3R_Production/build/version.txt
-- FW_Shimmer3r/S3R_Production/build/version_base.txt
-- FW_Shimmer3r/S3R_Production/Shimmer_Driver/version.h
+- LogAndStream/build/version.txt
+- LogAndStream/build/version_base.txt
+- LogAndStream/Shimmer_Driver/version.h
 
 How to Increment the Version
 ----------------------------
 
 1. Open a terminal (Git Bash recommended on Windows).
 2. Navigate to the project directory:
-   cd FW_Shimmer3r/S3R_Production/build
+   cd LogAndStream/build
 
 3. Run the version increment script:
    ./scripts/increment_version.sh [major|minor|patch]
