@@ -7,7 +7,7 @@
 
 #include "RN4678.h"
 
-#include "stdbool.h"
+#include <stdbool.h>
 #include "stdint.h"
 
 #include "RN4X.h"
