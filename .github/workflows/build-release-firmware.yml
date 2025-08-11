@@ -30,8 +30,8 @@ jobs:
     - name: Increment version
       run: |
         set -euo pipefail
-        chmod +x Project/build/scripts/increment_version.sh
-        Project/build/scripts/increment_version.sh ${{ github.event.inputs.increment || 'patch' }}
+        chmod +x Project/log-and-stream-common/scripts/increment_version.sh
+        Project/log-and-stream-common/scripts/increment_version.sh ${{ github.event.inputs.increment || 'patch' }}
       working-directory: Project/build
 
     - name: Save version for next steps
