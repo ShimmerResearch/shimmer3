@@ -7,8 +7,8 @@
 
 #include "RN4678.h"
 
-#include <stdbool.h>
 #include "stdint.h"
+#include <stdbool.h>
 
 #include "RN4X.h"
 #include "log_and_stream_includes.h"
