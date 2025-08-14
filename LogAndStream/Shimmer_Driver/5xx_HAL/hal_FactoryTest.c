@@ -17,18 +17,14 @@
 #include "../shimmer_driver_include.h"
 #include "log_and_stream_externs.h"
 
-factory_test_target_t factoryTestTarget;
-factory_test_t factoryTestToRun;
-
-char buffer[100];
+char *buffer;
 
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 
-void run_factory_test(void)
+void hal_run_factory_test(factory_test_t factoryTestToRun, char *bufPtr)
 {
-  send_test_report("//**************************** TEST START "
-                   "************************************//\r\n");
+  buffer = bufPtr;
 
   if (factoryTestToRun == FACTORY_TEST_MAIN || factoryTestToRun == FACTORY_TEST_ICS)
   {
@@ -47,7 +43,7 @@ void run_factory_test(void)
     I2C_test();
     send_test_report("\r\n");
 
-    SPI_test();
+    SPI_test(factoryTestToRun);
 
     if (factoryTestToRun == FACTORY_TEST_MAIN)
     {
@@ -59,9 +55,6 @@ void run_factory_test(void)
   {
     led_test();
   }
-
-  send_test_report("//***************************** TEST END "
-                   "*************************************//\r\n");
 }
 
 void print_shimmer_model(void)
@@ -251,7 +244,7 @@ void I2C_test(void)
   I2C_stop(1);
 }
 
-void SPI_test(void)
+void SPI_test(factory_test_target_t factoryTestTarget)
 {
   uint8_t ads1292RTestResult = 0;
 
@@ -296,19 +289,10 @@ void SPI_test(void)
   }
 }
 
-void setup_factory_test(factory_test_target_t target, factory_test_t testToRun)
-{
-  factoryTestTarget = target;
-  factoryTestToRun = testToRun;
-}
-
-void send_test_report(char *str)
+void send_test_report_impl(const char *str, factory_test_target_t factoryTestTarget)
 {
   switch (factoryTestTarget)
   {
-      //case PRINT_TO_DEBUGGER:
-      //  printf(str);
-      //  break;
     case PRINT_TO_DOCK_UART:
       DockUart_writeBlocking((uint8_t *) str, strlen(str));
       break;
