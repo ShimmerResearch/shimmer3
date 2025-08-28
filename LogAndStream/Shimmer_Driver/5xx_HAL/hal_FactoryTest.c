@@ -143,8 +143,9 @@ void sd_card_test(void)
 
     if (P2IN & BIT3)
     {
-      ShimFactoryTest_sendReport(" - FAIL: Shimmer is docked so SD card test can not be "
-                       "performed\r\n");
+      ShimFactoryTest_sendReport(
+          " - FAIL: Shimmer is docked so SD card test can not be "
+          "performed\r\n");
     }
     else
     {
@@ -232,15 +233,18 @@ void I2C_test(void)
   }
   if (i2cSlavePresent(MPU9150_ADDR))
   {
-    ShimFactoryTest_sendReport(" - MPU9x50 detected (self-test not implemented yet)\r\n");
+    ShimFactoryTest_sendReport(
+        " - MPU9x50 detected (self-test not implemented yet)\r\n");
   }
   if (i2cSlavePresent(BMP180_ADDR))
   {
-    ShimFactoryTest_sendReport(" - BMP180 detected (self-test not implemented yet)\r\n");
+    ShimFactoryTest_sendReport(
+        " - BMP180 detected (self-test not implemented yet)\r\n");
   }
   if (i2cSlavePresent(BMP280_ADDR))
   {
-    ShimFactoryTest_sendReport(" - BMP280 detected (self-test not implemented yet)\r\n");
+    ShimFactoryTest_sendReport(
+        " - BMP280 detected (self-test not implemented yet)\r\n");
   }
 
   I2C_stop(1);
@@ -256,7 +260,8 @@ void SPI_test(void)
   {
     if (ShimFactoryTest_getTarget() == PRINT_TO_DOCK_UART)
     {
-      ShimFactoryTest_sendReport("- FAIL: ADS1292R test will not work from dock\r\n");
+      ShimFactoryTest_sendReport(
+          "- FAIL: ADS1292R test will not work from dock\r\n");
     }
     else
     {
@@ -287,7 +292,8 @@ void SPI_test(void)
   }
   else
   {
-    ShimFactoryTest_sendReport("- ADS1292R test not applicable for this model\r\n");
+    ShimFactoryTest_sendReport(
+        "- ADS1292R test not applicable for this model\r\n");
   }
 }
 
