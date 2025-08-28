@@ -10,31 +10,16 @@
 
 #include <stdint.h>
 
+#include "Test/shimmer_test.h"
+
 #define DELAY_BETWEEN_LED_CHANGES_TICKS 48000000UL
 
-typedef enum
-{
-  PRINT_TO_DEBUGGER = 0,
-  PRINT_TO_DOCK_UART,
-  PRINT_TO_BT_UART
-} factory_test_target_t;
-
-typedef enum
-{
-  FACTORY_TEST_MAIN = 0,
-  FACTORY_TEST_LEDS,
-  FACTORY_TEST_ICS,
-  FACTORY_TEST_COUNT
-} factory_test_t;
-
-void run_factory_test(void);
+void hal_run_factory_test(factory_test_t factoryTestToRun, char *bufPtr);
 void print_shimmer_model(void);
 void led_test(void);
 void sd_card_test(void);
 void bt_module_test(void);
 void I2C_test(void);
 void SPI_test(void);
-void setup_factory_test(factory_test_target_t target, factory_test_t testToRun);
-void send_test_report(char *str);
 
 #endif /* SHIMMER3_COMMON_SOURCE_5XX_HAL_HAL_FACTORYTEST_H_ */
