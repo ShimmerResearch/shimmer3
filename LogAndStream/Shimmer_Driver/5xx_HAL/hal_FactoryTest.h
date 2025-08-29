@@ -20,6 +20,6 @@ void led_test(void);
 void sd_card_test(void);
 void bt_module_test(void);
 void I2C_test(void);
-void SPI_test(factory_test_target_t factoryTestTarget);
+void SPI_test(void);
 
 #endif /* SHIMMER3_COMMON_SOURCE_5XX_HAL_HAL_FACTORYTEST_H_ */

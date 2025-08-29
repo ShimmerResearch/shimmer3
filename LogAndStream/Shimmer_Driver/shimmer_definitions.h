@@ -48,13 +48,12 @@
 
 #include <stdint.h>
 
-//these are defined in the Makefile for BtStream (TinyOS)
-#define DEVICE_VER 3 //Represents SR30. 0-3 for shimmer1 to shimmer3
-#define FW_IDENTIFIER \
-  3 //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
-#define FW_VER_MAJOR 1 //Major version number: 0-65535
-#define FW_VER_MINOR 0 //Minor version number: 0-255
-#define FW_VER_REL   4 //internal version number: 0-255
+#include "version.h"
+
+//Represents SR30. 0-3 for shimmer1 to shimmer3
+#define DEVICE_VER    3
+//Two byte firmware identifier number:  3 for LogAndStream, 2 for SDLog, 1 for BTStream,
+#define FW_IDENTIFIER 3
 
 typedef uint8_t bool;
 #define TRUE  (1)

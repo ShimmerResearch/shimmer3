@@ -64,9 +64,9 @@
 #include "../msp430_clock/msp430_clock.h"
 #include "msp430.h"
 
-#include "../shimmer_btsd.h"
 #include "log_and_stream_externs.h"
 #include "log_and_stream_includes.h"
+#include "version.h"
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -1591,8 +1591,8 @@ void BT_init(void)
    * always used for Classic Bluetooth (authentication mode 4) so we're just
    * disabling the passkey here altogether. */
   BT_setAuthentication(2U);
-  setBleDeviceInformation(
-      ShimBrd_getDaughtCardIdStrPtr(), FW_VER_MAJOR, FW_VER_MINOR, FW_VER_REL);
+  setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR,
+      FW_VERSION_MINOR, FW_VERSION_PATCH);
 
   if (shimmerStatus.sdSyncEnabled)
   {

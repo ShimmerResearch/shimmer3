@@ -1,0 +1,105 @@
+name: Build MSP430 Firmware
+
+on:
+#  push:
+#    branches:
+#      - main
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: "Which version part to increment: major, minor, patch"
+        default: "patch"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for tags
+
+    - name: Install Wine and CCS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wine
+        # Download and install Code Composer Studio CLI or MSP430 toolchain as needed
+        # Example: wget and install steps for msp430-gcc or ccs CLI
+
+    - name: Increment version
+      run: |
+        set -euo pipefail
+        chmod +x Project/log-and-stream-common/scripts/increment_version.sh
+        Project/log-and-stream-common/scripts/increment_version.sh ${{ github.event.inputs.increment || 'patch' }}
+      working-directory: Project/build
+
+    - name: Save version for next steps
+      id: get_version
+      run: |
+        set -euo pipefail
+        echo "version=$(cat Project/build/version.txt)" >> $GITHUB_OUTPUT
+
+    - name: Commit version bump
+      run: |
+        set -euo pipefail
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add Project/build/version.txt Project/Source/version.h
+        git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+        git push
+
+    - name: Check for clean working tree
+      run: |
+        set -euo pipefail
+        if ! git diff --quiet || ! git diff --cached --quiet; then
+          echo "Working tree is dirty. Please commit or stash changes before tagging."
+          exit 1
+        fi
+
+    - name: Build firmware
+      run: |
+        set -euo pipefail
+        # Example for CCS project using ccsbuild (adjust as needed)
+        # wine /path/to/ccs/eclipse/ccsbuild.exe -build Project/ProjectName
+        # Or, if using Makefile:
+        make -C Project
+
+    - name: Find and copy hex file
+      run: |
+        set -euo pipefail
+        mkdir -p build
+        HEX_PATH=""
+        if [ -f Project/Release/ProjectName.hex ]; then
+          HEX_PATH=Project/Release/ProjectName.hex
+        elif [ -f Project/Debug/ProjectName.hex ]; then
+          HEX_PATH=Project/Debug/ProjectName.hex
+        else
+          echo "No .hex file found in Release or Debug."
+          exit 1
+        fi
+        cp "$HEX_PATH" build/ProjectName_v${{ steps.get_version.outputs.version }}.hex
+
+    - name: Upload firmware artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-hex
+        path: build/*.hex
+
+    - name: Create Git tag
+      run: |
+        set -euo pipefail
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git tag "v${{ steps.get_version.outputs.version }}"
+        git push origin "v${{ steps.get_version.outputs.version }}"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ steps.get_version.outputs.version }}
+        name: "Firmware v${{ steps.get_version.outputs.version }}"
+        generate_release_notes: true
+        files: build/*.hex
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
