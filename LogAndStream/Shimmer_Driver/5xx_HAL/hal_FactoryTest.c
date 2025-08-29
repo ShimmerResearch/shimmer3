@@ -301,9 +301,6 @@ void ShimFactoryTest_sendReportImpl(const char *str, factory_test_target_t facto
 {
   switch (factoryTestTarget)
   {
-      //case PRINT_TO_DEBUGGER:
-      //  printf(str);
-      //  break;
     case PRINT_TO_DOCK_UART:
       DockUart_writeBlocking((uint8_t *) str, strlen(str));
       break;
