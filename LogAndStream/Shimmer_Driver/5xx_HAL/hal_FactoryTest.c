@@ -198,7 +198,7 @@ void bt_module_test(void)
   //}
   //else
   //{
-  //    send_test_report(" - FAIL\r\n");
+  //    ShimFactoryTest_sendReport(" - FAIL\r\n");
   //}
   //return stat.isBtPoweredOn;
 }
