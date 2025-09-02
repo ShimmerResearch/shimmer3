@@ -40,22 +40,13 @@ jobs:
         set -euo pipefail
         echo "version=$(cat Project/build/version.txt)" >> $GITHUB_OUTPUT
 
-    - name: Commit version bump
-      run: |
-        set -euo pipefail
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git add Project/build/version.txt Project/Source/version.h
-        git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
-        git push
-
-    - name: Check for clean working tree
-      run: |
-        set -euo pipefail
-        if ! git diff --quiet || ! git diff --cached --quiet; then
-          echo "Working tree is dirty. Please commit or stash changes before tagging."
-          exit 1
-        fi
+#    - name: Check for clean working tree
+#      run: |
+#        set -euo pipefail
+#        if ! git diff --quiet || ! git diff --cached --quiet; then
+#          echo "Working tree is dirty. Please commit or stash changes before tagging."
+#          exit 1
+#        fi
 
     - name: Build firmware
       run: |
@@ -80,6 +71,15 @@ jobs:
         fi
         cp "$HEX_PATH" build/ProjectName_v${{ steps.get_version.outputs.version }}.hex
 
+    - name: Commit version bump
+      run: |
+        set -euo pipefail
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add Project/build/version.txt Project/Source/version.h
+        git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+        git push
+
     - name: Upload firmware artifact
       uses: actions/upload-artifact@v4
       with:
@@ -98,7 +98,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ steps.get_version.outputs.version }}
-        name: "Firmware v${{ steps.get_version.outputs.version }}"
+        name: "v${{ steps.get_version.outputs.version }}"
         generate_release_notes: true
         files: build/*.hex
       env:

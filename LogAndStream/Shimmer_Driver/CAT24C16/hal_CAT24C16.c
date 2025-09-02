@@ -5,9 +5,9 @@
  *      Author: MarkNolan
  */
 
-#include "hal_cat24c16.h"
+#include "hal_CAT24C16.h"
 
-#include "cat24c16.h"
+#include "CAT24C16.h"
 #include "msp430.h"
 #include <stdint.h>
 

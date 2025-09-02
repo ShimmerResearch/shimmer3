@@ -17,8 +17,8 @@
 #include "5xx_HAL/hal_pmm.h"
 
 #include "BMPX80/bmpX80.h"
-#include "CAT24C16/cat24c16.h"
-#include "CAT24C16/hal_cat24c16.h"
+#include "CAT24C16/CAT24C16.h"
+#include "CAT24C16/hal_CAT24C16.h"
 #include "EXG/ads1292.h"
 #include "EXG/exg.h"
 #include "FatFs/ff.h"

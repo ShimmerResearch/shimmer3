@@ -5,7 +5,7 @@
  *      Author: WeiboP
  */
 
-#include "cat24c16.h"
+#include "CAT24C16.h"
 
 #include "../5xx_HAL/hal_Board.h"
 #include "../5xx_HAL/hal_I2C.h"
