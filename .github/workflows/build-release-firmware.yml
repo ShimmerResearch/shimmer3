@@ -63,13 +63,22 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build firmware
+#      - name: Build firmware
+#        run: |
+#          set -euo pipefail
+#          /opt/ti/ccs/ccs/eclipse/ccsbuild \
+#            -ccs.location "${{ env.PROJECT_DIR }}" \
+#            -ccs.build "${{ env.PROJECT_DIR }}" \
+#            -ccs.configuration Release
+
+      - name: Build firmware (CCS Project)
         run: |
           set -euo pipefail
-          /opt/ti/ccs/ccs/eclipse/ccsbuild \
-            -ccs.location "${{ env.PROJECT_DIR }}" \
-            -ccs.build "${{ env.PROJECT_DIR }}" \
-            -ccs.configuration Release
+          /opt/ti/ccs/eclipse/ccs_eclipsec \
+            -noSplash \
+            -data "$PWD/workspace" \
+            -build "${{ env.PROJECT_DIR }}" \
+            -cleanBuild
       
       - name: Find and copy hex file
         run: |
@@ -119,11 +128,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tag submodule log-and-stream-common
-        working-directory: ${{ env.PROJECT_DIR }}/log-and-stream-common
         run: |
           set -euo pipefail
-          git fetch --tags
+          cd ${{ env.PROJECT_DIR }}/log-and-stream-common
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
-          git push "https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/ShimmerResearch/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/<org>/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
