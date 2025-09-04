@@ -1,8 +1,11 @@
+/*
+ * Adapted from Texas Instruments supplied example code
+ */
+
 /*******************************************************************************
  *
- *  UserExperience.c - system_pre_init.c
+ * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
  *
- *  Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -34,38 +37,56 @@
  *
  ******************************************************************************/
 
-/*
- * The function _system_pre_init it called by the start-up code before
- * "main" is called, and before data segment initialization is
- * performed.
+//****************************************************************************//
+// Function Library for setting the PMM
+//    File: hal_pmm.h
+//
+//    Texas Instruments
+//
+//    Version 1.2
+//    10/17/09
+//
+//    V1.0  Initial Version
+//    V1.1  Adjustment to UG
+//    V1.2  Added return values
+//****************************************************************************////====================================================================
+
+#ifndef HAL_PMM_H
+#define HAL_PMM_H
+
+#define PMM_STATUS_OK    0
+#define PMM_STATUS_ERROR 1
+
+//====================================================================
+/**
+ * Set the VCore to a new level if it is possible and return a
+ * error - value.
  *
- * This is a template file, modify to perform any initialization that
- * should take place early.
- *
- * The return value of this function controls if data segment
- * initialization should take place. If 0 is returned, it is bypassed.
- *
- * For the MSP430 microcontroller family, please consider disabling
- * the watchdog timer here, as it could time-out during the data
- * segment initialization.
+ * \param      level       PMM level ID
+ * \return int       1: error / 0: done
  */
+unsigned int SetVCore(unsigned char level);
 
-#include "msp430.h"
-#include <intrinsics.h>
+//====================================================================
+/**
+ * Set the VCore to a higher level, if it is possible.
+ * Return a 1 if voltage at highside (Vcc) is to low
+ * for the selected Level (level).
+ *
+ * \param      level       PMM level ID
+ * \return int       1: error / 0: done
+ */
+unsigned int SetVCoreUp(unsigned char level);
 
-int _system_pre_init(void)
-{
-  /* Insert your low-level initializations here */
+//====================================================================
+/**
+ * Set the VCore to a lower level.
+ * Return a 1 if voltage at highside (Vcc) is still to low
+ * for the selected Level (level).
+ *
+ * \param      level       PMM level ID
+ * \return int       1: done with error / 0: done without error
+ */
+unsigned int SetVCoreDown(unsigned char level);
 
-  /* Disable Watchdog timer to prevent reset during */
-  /* long variable initialization sequences. */
-  WDTCTL = WDTPW | WDTHOLD;
-
-  /*==================================*/
-  /* Choose if segment initialization */
-  /* should be done or not.           */
-  /* Return: 0 to omit initialization */
-  /* 1 to run initialization          */
-  /*==================================*/
-  return 0;
-}
+#endif /* HAL_PMM_H */

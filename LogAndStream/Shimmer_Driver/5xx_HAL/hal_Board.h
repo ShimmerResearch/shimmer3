@@ -1,6 +1,7 @@
+/*
+ * Adapted from Texas Instruments supplied example code
+ */
 /*******************************************************************************
- *
- *  UserExperience.c - system_pre_init.c
  *
  *  Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
  *
@@ -34,38 +35,34 @@
  *
  ******************************************************************************/
 
-/*
- * The function _system_pre_init it called by the start-up code before
- * "main" is called, and before data segment initialization is
- * performed.
- *
- * This is a template file, modify to perform any initialization that
- * should take place early.
- *
- * The return value of this function controls if data segment
- * initialization should take place. If 0 is returned, it is bypassed.
- *
- * For the MSP430 microcontroller family, please consider disabling
- * the watchdog timer here, as it could time-out during the data
- * segment initialization.
- */
+#ifndef HAL_BOARD_H
+#define HAL_BOARD_H
+
+#include <stdint.h>
 
 #include "msp430.h"
-#include <intrinsics.h>
 
-int _system_pre_init(void)
-{
-  /* Insert your low-level initializations here */
+#define LM3658SD_STAT2       (P2IN & BIT7)
+#define LM3658SD_STAT1       (P2IN & BIT6)
 
-  /* Disable Watchdog timer to prevent reset during */
-  /* long variable initialization sequences. */
-  WDTCTL = WDTPW | WDTHOLD;
+#define BOARD_IS_DOCKED      (P2IN & BIT3)
+//BTN is active low for Shimmer3
+#define BOARD_IS_BTN_PRESSED (!(P1IN & BIT6))
 
-  /*==================================*/
-  /* Choose if segment initialization */
-  /* should be done or not.           */
-  /* Return: 0 to omit initialization */
-  /* 1 to run initialization          */
-  /*==================================*/
-  return 0;
-}
+extern void Board_init(void);
+extern void Board_ledOn(uint8_t ledMask);
+extern void Board_ledOff(uint8_t ledMask);
+extern void Board_ledToggle(uint8_t ledMask);
+void Board_initForRevision(void);
+
+void SdPowerOff(void);
+void SdPowerOn(void);
+void Board_setSdPower(uint8_t state);
+void Board_setExpansionBrdPower(uint8_t state);
+void Board_setI2cPower(uint8_t state);
+
+uint8_t Board_isLedOnUprBlue(void);
+uint8_t Board_isLedOnUprGreen(void);
+uint8_t Board_isBtnPressed(void);
+
+#endif /* HAL_BOARD_H */

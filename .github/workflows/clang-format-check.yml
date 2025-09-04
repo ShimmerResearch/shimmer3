@@ -1,0 +1,35 @@
+# https://github.com/marketplace/actions/clang-format-lint
+name: clang-format-lint
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    # To get working on on: [pull_request], uncomment the following
+    # https://github.com/EndBug/add-and-commit#working-with-prs
+ #     with:
+ #       repository: ${{ github.event.pull_request.head.repo.full_name }}
+ #       ref: ${{ github.event.pull_request.head.ref }}
+    - uses: DoozyX/clang-format-lint-action@v0.17
+      with:
+        source: './LogAndStream'
+        exclude: '*/Shimmer_Driver/FatFs'
+        extensions: 'h,c'
+        clangFormatVersion: 17
+        inplace: True
+        style: file
+    - uses: EndBug/add-and-commit@v9
+      with:
+        # Determines the way the action fills missing author name and email. Three options are available:
+        # - github_actor -> UserName <UserName@users.noreply.github.com>
+        # - user_info -> Your Display Name <your-actual@email.com>
+        # - github_actions -> github-actions <email associated with the github logo>
+        # Default: github_actor
+        default_author: github_actions
+        message: 'Committing clang-format changes'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

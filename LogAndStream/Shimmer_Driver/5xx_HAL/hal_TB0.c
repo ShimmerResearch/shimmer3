@@ -36,62 +36,55 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * @author Weibo Pan
- * @date June, 2014
+ * @author Mike Healy
+ * @date August, 2014
  */
 
-#ifndef HAL_UARTA0_H_
-#define HAL_UARTA0_H_
+#include "hal_TB0.h"
+#include "msp430.h"
 
-#include <stdint.h>
-//============================== below is the UART part ===============================
-#define UARTSEL         P3SEL
-#define UARTTXD         BIT4
-#define UARTRXD         BIT5
+inline void StartTB0(void)
+{
+  TB0CTL = TBSSEL_1 + MC_2 + TBCLR; //ACLK, continuous mode, clear TBR
+}
 
-#define UARTCTL0        UCA0CTL0
-#define UARTCTL1        UCA0CTL1
-#define UARTBR0         UCA0BR0
-#define UARTBR1         UCA0BR1
-#define UARTMCTL        UCA0MCTL
-#define UARTIFG         UCA0IFG
-#define UARTIE          UCA0IE
-#define UARTTXBUF       UCA0TXBUF
-#define UARTRXBUF       UCA0RXBUF
-#define UART_VECTOR     USCI_A0_VECTOR
-#define UCIV            UCA0IV
+inline void ResetTB0(void)
+{
+  TB0CTL += TBCLR;
+}
 
+inline void StopTB0(void)
+{
+  TB0CTL = MC_0;
+}
 
-// registers the uart to usci_a0
-// must run only once before using the uart for the first time
+//read TB0 counter while timer is running
+inline uint16_t GetTB0(void)
+{
+  register uint16_t t0, t1;
+  //uint8_t ie;
+  // if (ie = (__get_SR_register() & GIE)) //interrupts enabled?
+  //   __disable_interrupt();
+  t1 = TB0R;
+  do
+  {
+    t0 = t1;
+    t1 = TB0R;
+  } while (t0 != t1);
+  //if(ie)
+  //   __enable_interrupt();
+  return t1;
+}
 
-//extern void UART_reg2Uca0();
-
-extern void UART_write(uint8_t *buf, uint8_t len);
-
-//initializes the uart_num_registered_cmds value
-extern void UART_init(uint8_t (*uart_cb)(uint8_t data));
-
-// configures the pin settings
-// run this every time before using UART
-extern void UART_config();
-
-// register commands
-// usage: on receiving 'cmd_buff' through uart0_rx,
-// return 'response_buf' through uart0_tx
-// cmd_buff must be a string of exactly 4 bytes, the 4th byte must be '$'
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *response_buf, uint8_t response_length);
-//extern void UART_regCmd(uint8_t *cmd_buff, uint8_t *rsp_buf, uint8_t rsp_len,
-//      uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
-// to switch between uart_isr and other isrs
-// the last activated one works
-extern void DockUart_enable();
-
-// reset p6.1 and p7.6 back to sel+input
-extern void DockUart_disable();
-
-//============================== above is the UART part ===============================
-
-
-
-#endif /* HAL_UARTA0_H_ */
+//Check if timer is running
+inline uint8_t IsRunningTB0(void)
+{
+  if (TB0CTL & 0x0030)
+  {
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
