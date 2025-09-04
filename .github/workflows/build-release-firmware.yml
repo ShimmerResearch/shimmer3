@@ -34,14 +34,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget xz-utils wine64
 
-      - name: Download and Install Code Composer Studio (Headless)
+      - name: Cache CCS Installation
+        uses: actions/cache@v4
+        with:
+          path: /opt/ti/ccs
+          key: ccs-12.8.1-linux
+
+      - name: Install Code Composer Studio (CCS 12.8.1)
         run: |
           set -euo pipefail
-          CCS_URL="https://software-dl.ti.com/ccs/esd/CCS/latest/exports/ccs_setup_12.7.0.00007_linux-x64.bin"
-          wget "$CCS_URL" -O /tmp/ccs_setup.bin
-          chmod +x /tmp/ccs_setup.bin
-          sudo /tmp/ccs_setup.bin --mode unattended --prefix $CCS_INSTALL_DIR
-          echo "$CCS_INSTALL_DIR/eclipse" >> $GITHUB_PATH
+          wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS12.8.1.00005_linux-x64.tar.gz
+          mkdir -p /opt/ti
+          tar -xzf CCS12.8.1.00005_linux-x64.tar.gz -C /opt/ti
+          # Optional: add CCS to PATH for later steps
+          echo "/opt/ti/ccs/ccs/eclipse" >> $GITHUB_PATH
 
       - name: Increment version
         working-directory: ${{ env.PROJECT_DIR }}/build
@@ -57,11 +63,14 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build firmware (CCS Project)
+      - name: Build firmware
         run: |
           set -euo pipefail
-          $CCS_INSTALL_DIR/eclipse/ccsbuild -noSplash -data "$PWD/workspace" -build "${{ env.PROJECT_DIR }}"
-
+          /opt/ti/ccs/ccs/eclipse/ccsbuild \
+            -ccs.location "${{ env.PROJECT_DIR }}" \
+            -ccs.build "${{ env.PROJECT_DIR }}" \
+            -ccs.configuration Release
+      
       - name: Find and copy hex file
         run: |
           set -euo pipefail
