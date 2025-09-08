@@ -29,73 +29,21 @@ jobs:
           fetch-depth: 0  # Needed for tags and versioning
           submodules: recursive  # Ensures log-and-stream-common is fetched
 
-#      - name: Install dependencies (Wine + tools)
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install -y wget xz-utils wine64
+      - name: Debug path
+        run: pwd
 
-      - name: Install dependencies
+      - name: Debug contents
+        run: ls
+
+      - name: Debug directory structure
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libncurses6 libncursesw6 libx11-6 libxtst6 libgtk2.0-0
-
-      - name: Cache CCS Installation
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CCS_INSTALL_DIR }}
-          key: ccs-12.8.1-linux
-
-#              https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS12.8.1.00005_linux-x64.tar.gz
-
-#          if [ ! -x "${{ env.CCS_INSTALL_DIR }}/ccs/eclipse/eclipse" ]; then
-#            wget --timeout=60 -q --show-progress \
-#              http://shimmersensing.com/images/uploads/docs/CCS12.8.1.00005_linux-x64.tar.gz
-#            sudo mkdir -p /opt/ti
-#            sudo tar -xzf CCS12.8.1.00005_linux-x64.tar.gz -C /opt/ti
-#            sudo chmod +x /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run
-#            sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-#              --mode unattended --prefix "${{ env.CCS_INSTALL_DIR }}" --accept_eula Yes
-#          fi
-
-#            sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-#              --mode unattended --prefix /opt/ti/ccs --platform minimal --eula accept --debugtrace /tmp/ccs_install.log
-
-      - name: Install Code Composer Studio (CCS 12.8.1) if not cached
-        timeout-minutes: 20
-        run: |
-          set -euo pipefail
-          set -x
-          df -h
-          # Only install if CCS isn't already present (cache hit will restore it)
-          if [ ! -x "/opt/ti/ccs/ccs/eclipse/eclipse" ]; then
-            wget --timeout=60 --tries=5 --waitretry=10 \
-              http://shimmersensing.com/images/uploads/docs/CCS12.8.1.00005_linux-x64.tar.gz
-            sudo mkdir -p /opt/ti
-            sudo tar -xzf CCS12.8.1.00005_linux-x64.tar.gz -C /opt/ti
-            sudo chmod +x /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run
-
-            # Silent install into $CCS_INSTALL_DIR
-            # Note: If your runner prompts for additional components, you may need to add component flags.
-            sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-              --prefix /opt/ti/ccs --enable-components PF_MSP430 --mode unattended
-          fi          
-          df -h
-
-          # Put ccsbuild on PATH
-          echo "${{ env.CCS_INSTALL_DIR }}/ccs/utils/bin" >> "$GITHUB_PATH"
-
-      - name: Verify CCS install
-        run: |
-          set -euo pipefail
-          ls -la "${{ env.CCS_INSTALL_DIR }}/ccs/utils/bin" || true
-          command -v ccsbuild
+          ls -lR ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts
 
       - name: Increment version
-        working-directory: ${{ env.PROJECT_DIR }}/build
         run: |
           set -euo pipefail
-          chmod +x ../log-and-stream-common/scripts/increment_version.sh
-          ../log-and-stream-common/scripts/increment_version.sh "${{ github.event.inputs.increment }}"
+          chmod +x ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh
+          ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh "${{ github.event.inputs.increment || 'patch' }}"
 
       - name: Save version for next steps
         id: get_version
@@ -104,31 +52,18 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-#      - name: Build firmware
-#        run: |
-#          set -euo pipefail
-#          ${{ env.CCS_INSTALL_DIR }}/ccs/eclipse/ccsbuild \
-#            -ccs.location "${{ env.PROJECT_DIR }}" \
-#            -ccs.build "${{ env.PROJECT_DIR }}" \
-#            -ccs.configuration Release
+      - name: Install and Build with Code Composer Studio IDE v12.8
+        uses: uoohyo/action-ccstudio-ide@v0.1.0
+        with:
+          project-path: '${{ env.PROJECT_DIR }}'     # adjust as needed
+          project-name: '${{ env.PROJECT_DIR }}'
+          build-config: 'Debug'
+          major-ver: '12'
+          minor-ver: '7'
+          patch-ver: '0'
+          build-ver: '00007'                      # adjust if you know the exact build number
+          components: 'PF_MSP430'
 
-#      - name: Build firmware (CCS Project)
-#        run: |
-#          set -euo pipefail
-#          ${{ env.CCS_INSTALL_DIR }}/eclipse/ccs_eclipsec \
-#            -noSplash \
-#            -data "$PWD/workspace" \
-#            -build "${{ env.PROJECT_DIR }}" \
-#            -cleanBuild
-
-      - name: Build firmware (CCS Project via ccsbuild)
-        run: |
-          set -euo pipefail
-          ccsbuild \
-            -ccs.location "${{ env.PROJECT_DIR }}" \
-            -ccs.build "${{ env.PROJECT_DIR }}" \
-            -ccs.configuration Release
-      
       - name: Find and copy hex file
         run: |
           set -euo pipefail
