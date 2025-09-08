@@ -52,26 +52,23 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout CCS Action
-        uses: actions/checkout@v3
-        with:
-          repository: uoohyo/action-ccstudio-ide
-          path: .github/actions/ccs
+      - name: Download CCS v12.8.1.00005 for Linux
+        run: |
+          wget https://software-dl.ti.com/ccs/esd/CCSv12/CCS_12_8_1/exports/CCS_12.8.1.00005/ccs_setup_12.8.1.00005.run -O /tmp/ccs_setup.run
 
-      - name: Make entrypoint executable
-        run: chmod +x .github/actions/ccs/entrypoint.sh
+      - name: Install CCS v12.8.1.00005
+        run: |
+          chmod +x /tmp/ccs_setup.run
+          sudo /tmp/ccs_setup.run --mode unattended --prefix /opt/ti/ccs1281 --enable-components PF_MSP430 --disable-components PF_ARM,PF_C2000,PF_DSP
 
-      - name: Build with CCS v12.8
-        uses: ./.github/actions/ccs
-        with:
-          project-path: 'LogAndStream'
-          project-name: 'LogAndStream'
-          build-config: 'Debug'
-          major-ver: '12'
-          minor-ver: '8'
-          patch-ver: '0'
-          build-ver: '00001'
-          components: 'PF_MSP430'
+      - name: Build MSP430 Project
+        run: |
+          /opt/ti/ccs1281/eclipse/eclipse \
+            -noSplash \
+            -data ${GITHUB_WORKSPACE}/ccs_workspace \
+            -application com.ti.ccstudio.apps.projectBuild \
+            -ccs.projects LogAndStream \
+            -ccs.configuration Debug
 
       - name: Find and copy hex file
         run: |
@@ -100,7 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: firmware-hex
-          path: build/*.hex
+          path: Debug/*.hex
 
       - name: Create Git tag
         run: |
