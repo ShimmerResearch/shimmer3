@@ -48,8 +48,21 @@ jobs:
           set -x
           df -h
           # Only install if CCS isn't already present (cache hit will restore it)
-          if [ ! -x "${{ env.CCS_INSTALL_DIR }}/ccs/eclipse/eclipse" ]; then
-            wget --timeout=60 -q --show-progress \
+#          if [ ! -x "${{ env.CCS_INSTALL_DIR }}/ccs/eclipse/eclipse" ]; then
+#            wget --timeout=60 -q --show-progress \
+#              http://shimmersensing.com/images/uploads/docs/CCS12.8.1.00005_linux-x64.tar.gz
+#            sudo mkdir -p /opt/ti
+#            sudo tar -xzf CCS12.8.1.00005_linux-x64.tar.gz -C /opt/ti
+#            sudo chmod +x /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run
+#
+#            # Silent install into $CCS_INSTALL_DIR
+#            # Note: If your runner prompts for additional components, you may need to add component flags.
+#            sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
+#              --mode unattended --prefix "${{ env.CCS_INSTALL_DIR }}" --accept_eula Yes
+#          fi
+
+          if [ ! -x "/opt/ti/ccs/ccs/eclipse/eclipse" ]; then
+            wget --timeout=60 --tries=5 --waitretry=10 \
               http://shimmersensing.com/images/uploads/docs/CCS12.8.1.00005_linux-x64.tar.gz
             sudo mkdir -p /opt/ti
             sudo tar -xzf CCS12.8.1.00005_linux-x64.tar.gz -C /opt/ti
@@ -58,8 +71,8 @@ jobs:
             # Silent install into $CCS_INSTALL_DIR
             # Note: If your runner prompts for additional components, you may need to add component flags.
             sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-              --mode unattended --prefix "${{ env.CCS_INSTALL_DIR }}" --accept_eula Yes
-          fi
+              --mode unattended --prefix /opt/ti/ccs --platform minimal --eula accept --debugtrace /tmp/ccs_install.log
+          fi          
           df -h
 
           # Put ccsbuild on PATH
