@@ -52,16 +52,25 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Install and Build with Code Composer Studio IDE v12.8
-        uses: uoohyo/action-ccstudio-ide@v0.1.0
+      - name: Checkout CCS Action
+        uses: actions/checkout@v3
         with:
-          project-path: '${{ env.PROJECT_DIR }}'     # adjust as needed
-          project-name: '${{ env.PROJECT_DIR }}'
+          repository: uoohyo/action-ccstudio-ide
+          path: .github/actions/ccs
+
+      - name: Make entrypoint executable
+        run: chmod +x .github/actions/ccs/entrypoint.sh
+
+      - name: Build with CCS v12.8
+        uses: ./.github/actions/ccs
+        with:
+          project-path: 'LogAndStream'
+          project-name: 'LogAndStream'
           build-config: 'Debug'
           major-ver: '12'
-          minor-ver: '7'
+          minor-ver: '8'
           patch-ver: '0'
-          build-ver: '00007'                      # adjust if you know the exact build number
+          build-ver: '00001'
           components: 'PF_MSP430'
 
       - name: Find and copy hex file
