@@ -52,6 +52,9 @@ jobs:
 #              --mode unattended --prefix "${{ env.CCS_INSTALL_DIR }}" --accept_eula Yes
 #          fi
 
+#            sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
+#              --mode unattended --prefix /opt/ti/ccs --platform minimal --eula accept --debugtrace /tmp/ccs_install.log
+
       - name: Install Code Composer Studio (CCS 12.8.1) if not cached
         timeout-minutes: 20
         run: |
@@ -69,7 +72,7 @@ jobs:
             # Silent install into $CCS_INSTALL_DIR
             # Note: If your runner prompts for additional components, you may need to add component flags.
             sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-              --mode unattended --prefix /opt/ti/ccs --platform minimal --eula accept --debugtrace /tmp/ccs_install.log
+              --mode unattended --prefix /opt/ti/ccs --debugtrace /tmp/ccs_install.log
           fi          
           df -h
 
