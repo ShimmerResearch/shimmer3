@@ -72,7 +72,7 @@ jobs:
             # Silent install into $CCS_INSTALL_DIR
             # Note: If your runner prompts for additional components, you may need to add component flags.
             sudo /opt/ti/CCS12.8.1.00005_linux-x64/ccs_setup_12.8.1.00005.run \
-              --mode unattended --prefix /opt/ti/ccs --debugtrace /tmp/ccs_install.log
+              --prefix /opt/ti/ccs --enable-components PF_MSP430 --mode unattended
           fi          
           df -h
 
