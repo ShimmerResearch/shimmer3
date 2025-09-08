@@ -14,8 +14,11 @@ permissions:
   contents: write  # Needed for git commit/push and tag creation
 
 env:
+  PROJECT_NAME: LogAndStream
   PROJECT_DIR: LogAndStream
+  BUILD_CONFIG: Debug
   TAG_PREFIX: LogAndStream_Shimmer3_v
+  CCS_VERSION: 12.8.1.00005
   CCS_INSTALL_DIR: /opt/ti/ccs  # Where CCS will be installed
 
 jobs:
@@ -52,23 +55,41 @@ jobs:
           VERSION=$(cat "${{ env.PROJECT_DIR }}/build/version.txt")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Download CCS v12.8.1.00005 for Linux
+      - name: Install prerequisites
         run: |
-          wget https://software-dl.ti.com/ccs/esd/CCSv12/CCS_12_8_1/exports/CCS_12.8.1.00005/ccs_setup_12.8.1.00005.run -O /tmp/ccs_setup.run
+          sudo apt-get update
+          sudo apt-get install -y wget xz-utils libusb-1.0-0
 
-      - name: Install CCS v12.8.1.00005
+      - name: Download Code Composer Studio v12.8
         run: |
-          chmod +x /tmp/ccs_setup.run
-          sudo /tmp/ccs_setup.run --mode unattended --prefix /opt/ti/ccs1281 --enable-components PF_MSP430 --disable-components PF_ARM,PF_C2000,PF_DSP
+          wget -q https://software-dl.ti.com/ccs/esd/CCSv12/CCS_${CCS_VERSION}/CCS${CCS_VERSION}_linux-x64.tar.gz -O /tmp/ccs.tar.gz
+          mkdir -p /tmp/ccs
+          tar -xzf /tmp/ccs.tar.gz -C /tmp/ccs
 
-      - name: Build MSP430 Project
+      - name: Silent install CCS
         run: |
-          /opt/ti/ccs1281/eclipse/eclipse \
+          /tmp/ccs/ccs_setup_${CCS_VERSION}.bin \
+            --mode unattended \
+            --prefix ${CCS_INSTALL_DIR} \
+            --enable-components PF_MSP430 \
+            --disable-components PF_C2000,PF_ARM,PF_DSP
+
+      - name: Build MSP430 project
+        run: |
+          ${CCS_INSTALL_DIR}/eclipse/eclipse \
             -noSplash \
             -data ${GITHUB_WORKSPACE}/ccs_workspace \
             -application com.ti.ccstudio.apps.projectBuild \
-            -ccs.projects LogAndStream \
-            -ccs.configuration Debug
+            -ccs.projects ${PROJECT_NAME} \
+            -ccs.configuration ${BUILD_CONFIG}
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: msp430-firmware
+          path: |
+            **/${BUILD_CONFIG}/*.out
+            **/${BUILD_CONFIG}/*.hex
 
       - name: Find and copy hex file
         run: |
