@@ -131,11 +131,7 @@ char *daughtCardIdStrPtrForBle;
 const char *const hex = "0123456789ABCDEF";
 
 const char *const rn4678TxPower_str[]
-    = { [RN4678_TX_POWER_MINUS_20_DBM] = "0\0",
-        [RN4678_TX_POWER_MINUS_7_DBM] = "1\0",
-        [RN4678_TX_POWER_MINUS_2_DBM] = "2\0",
-        [RN4678_TX_POWER_0_DBM] = "3\0",
-        [RN4678_TX_POWER_PLUS_2_DBM] = "4\0" };
+    = { [RN4678_TX_POWER_MINUS_20_DBM] = "0\0", [RN4678_TX_POWER_MINUS_7_DBM] = "1\0", [RN4678_TX_POWER_MINUS_2_DBM] = "2\0", [RN4678_TX_POWER_0_DBM] = "3\0", [RN4678_TX_POWER_PLUS_2_DBM] = "4\0" };
 
 const char *const rn42TxPowerPreAug2012_set_str[]
     = { [RN42_TX_POWER_PRE_AUG_2012_PLUS_12_DBM] = "0004\0",
