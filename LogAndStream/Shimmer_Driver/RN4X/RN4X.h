@@ -355,8 +355,8 @@ void BT_setInquiryScanWindow(char *hexvalTime); //max 4 chars (hex word)
 void BT_setRn4678FastMode(char *hexval_time);
 void BT_setRn4678BleConnectionParameters(char *hexval_time);
 void BT_setRn4678BleCompleteLocalName(char *hexval_name);
-char *BT_getDesiredRnTxPowerForBtVerSetCmd(void);
-char *BT_getDesiredRnTxPowerForBtVerGetCmd(void);
+const char *BT_getDesiredRnTxPowerForBtVerSetCmd(void);
+const char *BT_getDesiredRnTxPowerForBtVerGetCmd(void);
 void BT_setRn4678TxPower(rn4678TxPower_et newValue);
 void BT_setRn42TxPowerPreAug2012(rn42TxPowerPreAug2012_et newValue);
 void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue);

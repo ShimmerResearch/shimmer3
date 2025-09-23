@@ -58,15 +58,15 @@
 // Check and define required Defines
 //************************************************************************
 
-#ifndef XT1LFOFFG //Defines if not available in header file
-#define XT1LFOFFG 0
-#endif
-#ifndef XT1HFOFFG //Defines if not available in header file
-#define XT1HFOFFG 0
-#endif
-#ifndef XT2OFFG //Defines if not available in header file
-#define XT2OFFG 0
-#endif
+//#ifndef XT1LFOFFG //Defines if not available in header file
+//#define XT1LFOFFG 0
+//#endif
+//#ifndef XT1HFOFFG //Defines if not available in header file
+//#define XT1HFOFFG 0
+//#endif
+//#ifndef XT2OFFG //Defines if not available in header file
+//#define XT2OFFG 0
+//#endif
 
 //************************************************************************
 // Defines
