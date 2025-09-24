@@ -90,7 +90,8 @@ rn4678TxPower_et rn4678TxPower;
 rn42TxPowerPreAug2012_et rn42TxPowerPreAug2012;
 rn42TxPowerPostAug2012_et rn42TxPowerPostAug2012;
 
-uint8_t bt_setcommands_step, command_received, bt_setcommands_start;
+BT_SET_COMMAND_STAGES_t bt_setcommands_step;
+uint8_t command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
 uint8_t bt_setbaudrate_step, useSpecificAdvertisingName;
@@ -1594,9 +1595,10 @@ void BT_init(void)
   setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR,
       FW_VERSION_MINOR, FW_VERSION_PATCH);
 
-  if (shimmerStatus.sdSyncEnabled)
+  if (shimmerStatus.sdSyncEnabled || !ShimEeprom_isPresent())
   {
-    //Classic only for sync mode
+    /* Classic only for sync mode or older devices that don't have an EEPROM
+     * (safely assumes older BT module with no BLE support)*/
     BT_setBtMode(1, 0);
   }
   else
