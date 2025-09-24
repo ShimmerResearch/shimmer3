@@ -95,7 +95,7 @@ typedef enum
   RN42_TX_POWER_POST_AUG_2012_MINUS_12_DBM
 } rn42TxPowerPostAug2012_et;
 
-enum BT_SET_COMMAND_STAGES
+typedef enum BT_SET_COMMAND_STAGES
 {
   WAIT_FOR_BOOT,
   CMD_MODE_START,
@@ -150,7 +150,7 @@ enum BT_SET_COMMAND_STAGES
   MODULE_WAKEUP,
   CMD_MODE_STOP,
   FINISH
-};
+} BT_SET_COMMAND_STAGES_t;
 
 //powerup state is reset == low (true); mike conrad of roving networks sez:
 //wait about 1s to 2s after reset toggle
