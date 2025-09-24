@@ -1597,8 +1597,8 @@ void BT_init(void)
 
   if (shimmerStatus.sdSyncEnabled || !ShimEeprom_isPresent())
   {
-    /* Classic only for sync mode or older devices that don't have an EEPROM
-     * (safely assumes older BT module with no BLE support)*/
+    /* Enable classic BT only for sync mode or older devices without EEPROM
+     * (which use RN42 modules without BLE support) */
     BT_setBtMode(1, 0);
   }
   else
