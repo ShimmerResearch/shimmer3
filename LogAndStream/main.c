@@ -493,6 +493,18 @@ void ShimSens_stopSensingWrapup(void)
   ShimTask_clear(TASK_SAMPLE_MPU9150_MAG);
 }
 
+//Overrides weak function in LogAndStream driver
+uint8_t ShimBrd_doesDeviceSupportBle(void)
+{
+  return isBtDeviceRn4678();
+}
+
+//Overrides weak function in LogAndStream driver
+uint8_t ShimBrd_doesDeviceSupportBtClassic(void)
+{
+  return 1;
+}
+
 //Switch SW1, BT_RTS and BT connect/disconnect
 #pragma vector = PORT1_VECTOR
 
