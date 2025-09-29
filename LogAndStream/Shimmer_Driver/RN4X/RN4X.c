@@ -1205,7 +1205,7 @@ void runSetCommands(void)
     //arriving here = all done perfectly
     if (bt_setcommands_step == FINISH)
     {
-      bt_setcommands_step = 0;
+      bt_setcommands_step = WAIT_FOR_BOOT;
       bt_setcommands_start = 0;
       setRnCommandModeActive(0);
 
@@ -1540,7 +1540,7 @@ void BT_init(void)
   bt_getmac_step = 0;
   bt_getmac_start = 0;
   bt_setcommands_start = 0;
-  bt_setcommands_step = 0;
+  bt_setcommands_step = WAIT_FOR_BOOT;
   bt_runmastercommands_step = 0;
   bt_runmastercommands_start = 0;
   BT_setWaitForInitialBoot(0);
@@ -1588,10 +1588,21 @@ void BT_init(void)
   //setting is 0x0100 (160ms) BT_setPagingTime("0080"); // 80ms
   BT_setPagingTime("0100"); //160ms
 
-  /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
-   * always used for Classic Bluetooth (authentication mode 4) so we're just
-   * disabling the passkey here altogether. */
-  BT_setAuthentication(2U);
+  if (shimmerStatus.sdSyncEnabled)
+  {
+    /* Using legacy "1234" pin code for SD Sync as it's all we can get working
+     * so far to let the RN42, RN4678 and CYW20820 within the S3 and S3R models
+     * to all connect together. */
+    BT_setAuthentication(4U);
+  }
+  else
+  {
+    /* BLE isn't compatible with the standard "1234" passkey that Shimmer3 has
+     * always used for Classic Bluetooth (authentication mode 4) so we're just
+     * disabling the passkey here altogether. */
+    BT_setAuthentication(2U);
+  }
+
   setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR,
       FW_VERSION_MINOR, FW_VERSION_PATCH);
 
@@ -2072,7 +2083,7 @@ void BT_rst_MessageProgress(void)
 
   command_received = 0;
   bt_setbaudrate_step = 0;
-  bt_setcommands_step = 0;
+  bt_setcommands_step = WAIT_FOR_BOOT;
   bt_setcommands_start = 0;
   bt_runmastercommands_step = 0;
   bt_runmastercommands_start = 0;
