@@ -48,6 +48,8 @@
 #define BOARD_IS_DOCKED      (P2IN & BIT3)
 //BTN is active low for Shimmer3
 #define BOARD_IS_BTN_PRESSED (!(P1IN & BIT6))
+//SD card detection is active low
+#define BOARD_IS_SD_INSERTED (!(P4IN & BIT1))
 
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
@@ -64,5 +66,6 @@ void Board_setI2cPower(uint8_t state);
 uint8_t Board_isLedOnUprBlue(void);
 uint8_t Board_isLedOnUprGreen(void);
 uint8_t Board_isBtnPressed(void);
+void Board_detectN(uint8_t state);
 
 #endif /* HAL_BOARD_H */

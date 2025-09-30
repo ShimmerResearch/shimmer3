@@ -153,7 +153,7 @@ void Board_init(void)
   //DOCK
   P2DIR &= ~BIT3; //set as input
   //DETECT_N
-  P6OUT |= BIT0; //set high
+  Board_detectN(1); //DETECT_N set to high
   P6REN |= BIT0; //enable pull up
   P6DIR |= BIT0; //set as output
 
@@ -407,4 +407,16 @@ uint8_t Board_isLedOnUprGreen(void)
 uint8_t Board_isBtnPressed(void)
 {
   return BOARD_IS_BTN_PRESSED;
+}
+
+void Board_detectN(uint8_t state)
+{
+  if (state)
+  {
+    P6OUT |= BIT0; //DETECT_N set high
+  }
+  else
+  {
+    P6OUT &= ~BIT0; //DETECT_N set low
+  }
 }

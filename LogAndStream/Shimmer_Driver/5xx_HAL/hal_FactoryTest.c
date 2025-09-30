@@ -267,7 +267,7 @@ void SPI_test(void)
     {
       if (shimmerStatus.docked)
       {
-        DockUart_disable();
+        DockUart_deinit();
       }
 
       EXG_init();
@@ -286,7 +286,7 @@ void SPI_test(void)
 
       if (shimmerStatus.docked)
       {
-        DockUart_enable();
+        DockUart_init();
       }
     }
   }

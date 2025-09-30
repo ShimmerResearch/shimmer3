@@ -92,7 +92,6 @@ void SampleTimerStart(void);
 void SampleTimerStop(void);
 char *HAL_GetUID(void);
 void DockSdPowerCycle();
-void SetupDock(void);
 uint8_t CheckSdInslot(void);
 uint8_t checkIfBattReadNeeded(void);
 void BtStartDone();
@@ -244,7 +243,7 @@ void Init(void)
 
   ShimRtc_rwcErrorCheck();
 
-  SetupDock();
+  LogAndStream_setupDock();
 
   /* Take initial measurement to update LED state */
   manageReadBatt(1);
@@ -279,7 +278,7 @@ void handleIfDockedStateOnBoot(void)
     ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
     P2IES &= ~BIT3; //look for rising edge
     shimmerStatus.docked = 0;
-    P6OUT |= BIT0; //DETECT_N set to high
+    Board_detectN(1); //DETECT_N set to high
     if (CheckSdInslot())
     {
       shimmerStatus.sdlogReady = 1;
@@ -304,7 +303,7 @@ void checkSetupDock(void)
     if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
     {
       shimmerStatus.docked = (BOARD_IS_DOCKED >> 3);
-      SetupDock();
+      LogAndStream_setupDock();
     }
 
     if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
@@ -503,6 +502,21 @@ uint8_t ShimBrd_doesDeviceSupportBle(void)
 uint8_t ShimBrd_doesDeviceSupportBtClassic(void)
 {
   return 1;
+}
+
+//Overrides weak function in LogAndStream driver
+void delay_ms(const uint32_t delay_time_ms)
+{
+  uint32_t ms = delay_time_ms;
+  while (ms >= 1000U)
+  {
+    __delay_cycles(MSP430_MCU_CLOCK); // 1 second block
+    ms -= 1000U;
+  }
+  while (ms--)
+  {
+      __delay_cycles(MSP430_MCU_CYCLES_PER_MS); // 1 ms blocks
+  }
 }
 
 //Switch SW1, BT_RTS and BT connect/disconnect
@@ -966,63 +980,13 @@ void DockSdPowerCycle()
 
   SdPowerOn();            //SW_FLASH set high, SdPowerOn();
   _delay_cycles(1200000); //give SD card time to power back up
-  P6OUT &= ~BIT0;         //DETECT_N set low
-}
-
-void SetupDock(void)
-{
-  shimmerStatus.configuring = 1;
-
-  ShimBatt_resetBatteryChargingStatus();
-
-  if (shimmerStatus.docked)
-  {
-    ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
-    /* Reset battery critical count on dock to allow logging to begin again if
-     * auto-stop on low-power is enabled. */
-    ShimBatt_resetBatteryCriticalCount();
-
-    shimmerStatus.sdlogCmd = 0;
-    shimmerStatus.sdlogReady = 0;
-    sensing.isFileCreated = 0;
-    if (CheckSdInslot())
-    {
-      DockSdPowerCycle();
-    }
-    if (!shimmerStatus.sensing)
-    {
-      DockUart_enable();
-    }
-    ShimBt_instreamStatusRespSend();
-  }
-  else
-  {
-    ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
-    if (!shimmerStatus.sensing)
-    {
-      DockUart_disable();
-    }
-    P6OUT |= BIT0;
-    ShimBt_instreamStatusRespSend();
-    SdPowerOff();
-    if (CheckSdInslot() && !shimmerStatus.sensing && !shimmerStatus.sdBadFile)
-    {
-      _delay_cycles(2880000);
-      SdPowerOn();
-      LogAndStream_syncConfigAndCalibOnSd();
-    }
-    else
-    {
-      LogAndStream_setSdInfoSyncDelayed(1);
-    }
-  }
-  shimmerStatus.configuring = 0;
+  Board_detectN(0);
 }
 
 uint8_t CheckSdInslot(void)
 {
   //Check if card is inserted and enable interrupt for SD_DETECT_N
-  shimmerStatus.sdInserted = (P4IN & BIT1) ? 0 : 1;
+  shimmerStatus.sdInserted = BOARD_IS_SD_INSERTED;
   ff_result = ShimSd_mount(shimmerStatus.sdInserted);
   return shimmerStatus.sdInserted;
 }
