@@ -154,8 +154,8 @@ void Board_init(void)
   P2DIR &= ~BIT3; //set as input
   //DETECT_N
   Board_detectN(1); //DETECT_N set to high
-  P6REN |= BIT0; //enable pull up
-  P6DIR |= BIT0; //set as output
+  P6REN |= BIT0;    //enable pull up
+  P6DIR |= BIT0;    //set as output
 
   //EXP_RESET_N
   Board_setExpansionBrdPower(0);
