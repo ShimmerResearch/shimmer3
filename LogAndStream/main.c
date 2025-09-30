@@ -91,7 +91,7 @@ void BlinkTimerStop(void);
 void SampleTimerStart(void);
 void SampleTimerStop(void);
 char *HAL_GetUID(void);
-void DockSdPowerCycle();
+void DockSdPowerCycle(void);
 uint8_t CheckSdInslot(void);
 uint8_t checkIfBattReadNeeded(void);
 void BtStartDone();
@@ -956,7 +956,7 @@ char *HAL_GetUID(void)
   return dierecord;
 }
 
-void DockSdPowerCycle()
+void DockSdPowerCycle(void)
 {
   _delay_cycles(2880000);
   SdPowerOff(); //SW_FLASH set low, SdPowerOff();
