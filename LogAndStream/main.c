@@ -510,12 +510,12 @@ void delay_ms(const uint32_t delay_time_ms)
   uint32_t ms = delay_time_ms;
   while (ms >= 1000U)
   {
-    __delay_cycles(MSP430_MCU_CLOCK); // 1 second block
+    __delay_cycles(MSP430_MCU_CLOCK); //1 second block
     ms -= 1000U;
   }
   while (ms--)
   {
-      __delay_cycles(MSP430_MCU_CYCLES_PER_MS); // 1 ms blocks
+    __delay_cycles(MSP430_MCU_CYCLES_PER_MS); //1 ms blocks
   }
 }
 
