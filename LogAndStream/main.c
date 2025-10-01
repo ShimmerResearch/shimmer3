@@ -193,7 +193,7 @@ void Init(void)
   LogAndStream_checkSdInSlot();
   Board_checkDockedDetectState();
 
-  // Enable dock detect interrupt
+  //Enable dock detect interrupt
   P2IFG &= ~BIT3; //clear flag
   P2IE |= BIT3;   //enable interrupt
 
