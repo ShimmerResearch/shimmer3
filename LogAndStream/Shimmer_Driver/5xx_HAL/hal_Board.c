@@ -38,11 +38,11 @@
 #include "hal_Board.h"
 #include "msp430.h"
 
-#include "log_and_stream_externs.h"
 #include "Boards/shimmer_boards.h"
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
 #include "SDCard/shimmer_sd_data_file.h"
+#include "log_and_stream_externs.h"
 
 #define XT1_PORT_DIR P7DIR
 #define XT1_PORT_OUT P7OUT
@@ -155,8 +155,8 @@ void Board_init(void)
   P2DIR &= ~BIT3; //set as input
   //DETECT_N
   Board_dockDetectN(1); //DETECT_N set to high
-  P6REN |= BIT0;    //enable pull up
-  P6DIR |= BIT0;    //set as output
+  P6REN |= BIT0;        //enable pull up
+  P6DIR |= BIT0;        //set as output
 
   //EXP_RESET_N
   Board_setExpansionBrdPower(0);
@@ -348,7 +348,7 @@ void Board_initForRevision(void)
 void Board_sdPowerCycle(void)
 {
   _delay_cycles(2880000); //120ms
-  Board_setSdPower(0); //SW_FLASH set low
+  Board_setSdPower(0);    //SW_FLASH set low
 
   P5SEL &= ~(BIT4 + BIT5);
   P5OUT &= ~(BIT4 + BIT5); //FLASH_SOMI and FLASH_SCLK set low
@@ -367,7 +367,7 @@ void Board_sdPowerCycle(void)
   P4DIR &= ~BIT0;          //FLASH_CS_N set as input
   P6DIR &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as input
 
-  Board_setSdPower(1);            //SW_FLASH set high
+  Board_setSdPower(1);    //SW_FLASH set high
   _delay_cycles(1200000); //give SD card time to power back up - 50ms
 }
 
