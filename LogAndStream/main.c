@@ -143,7 +143,7 @@ void Init(void)
   //PM5CTL0 &= ~LOCKLPM5;
 
   LogAndStream_init();
-  shimmerStatus.initialising = 1; /* led flag, in initialisation period */
+  shimmerStatus.booting = 1; /* led flag, in initialisation period */
 
   Board_init();
 
@@ -246,7 +246,7 @@ void Init(void)
   /* Initialise Watchdog status timer */
   ChargeStatusTimerStart();
 
-  shimmerStatus.initialising = 0;
+  shimmerStatus.booting = 0;
   LogAndStream_setBootStage(BOOT_STAGE_END);
 }
 
@@ -716,7 +716,7 @@ __interrupt void TIMER0_B1_ISR(void)
 
       LogAndStream_blinkTimerCommon();
 
-      if (!shimmerStatus.initialising && checkIfBattReadNeeded())
+      if (!shimmerStatus.booting && checkIfBattReadNeeded())
       {
         __bic_SR_register_on_exit(LPM3_bits);
       }
@@ -754,10 +754,6 @@ uint8_t checkIfBattReadNeeded(void)
 void BtStartDone()
 {
   shimmerStatus.btIsInitialised = 1;
-  if (!shimmerStatus.sensing)
-  {
-    shimmerStatus.configuring = 0;
-  }
 }
 
 void BtStart(void)
