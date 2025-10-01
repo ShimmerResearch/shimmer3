@@ -57,15 +57,20 @@ extern void Board_ledOff(uint8_t ledMask);
 extern void Board_ledToggle(uint8_t ledMask);
 void Board_initForRevision(void);
 
-void SdPowerOff(void);
-void SdPowerOn(void);
+void Board_sdPowerCycle(void);
+void Board_sd2Pc(void);
+void Board_sd2Mcu(void);
 void Board_setSdPower(uint8_t state);
+uint8_t Board_checkDockedDetectState(void);
+void Board_setDockDetectIntDir(void);
+void Board_setUndockDetectIntDir(void);
 void Board_setExpansionBrdPower(uint8_t state);
 void Board_setI2cPower(uint8_t state);
 
 uint8_t Board_isLedOnUprBlue(void);
 uint8_t Board_isLedOnUprGreen(void);
 uint8_t Board_isBtnPressed(void);
-void Board_detectN(uint8_t state);
+uint8_t Board_isSdInserted(void);
+void Board_dockDetectN(uint8_t state);
 
 #endif /* HAL_BOARD_H */

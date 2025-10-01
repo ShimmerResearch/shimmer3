@@ -39,9 +39,10 @@
 #include "msp430.h"
 
 #include "log_and_stream_externs.h"
-#include <Boards/shimmer_boards.h>
-#include <GSR/gsr.h>
-#include <LEDs/shimmer_leds.h>
+#include "Boards/shimmer_boards.h"
+#include "GSR/gsr.h"
+#include "LEDs/shimmer_leds.h"
+#include "SDCard/shimmer_sd_data_file.h"
 
 #define XT1_PORT_DIR P7DIR
 #define XT1_PORT_OUT P7OUT
@@ -153,7 +154,7 @@ void Board_init(void)
   //DOCK
   P2DIR &= ~BIT3; //set as input
   //DETECT_N
-  Board_detectN(1); //DETECT_N set to high
+  Board_dockDetectN(1); //DETECT_N set to high
   P6REN |= BIT0;    //enable pull up
   P6DIR |= BIT0;    //set as output
 
@@ -344,25 +345,90 @@ void Board_initForRevision(void)
   }
 }
 
-void SdPowerOff(void)
+void Board_sdPowerCycle(void)
 {
-  Board_setSdPower(0);
-} //SD power off
+  _delay_cycles(2880000); //120ms
+  Board_setSdPower(0); //SW_FLASH set low
 
-void SdPowerOn(void)
+  P5SEL &= ~(BIT4 + BIT5);
+  P5OUT &= ~(BIT4 + BIT5); //FLASH_SOMI and FLASH_SCLK set low
+  P5DIR |= BIT4;           //FLASH_SOMI set as output
+  P3SEL &= ~BIT7;
+  P3OUT &= ~BIT7;          //FLASH_SIMO set low
+  P4OUT &= ~BIT0;          //FLASH_CS_N set low
+  P6OUT &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set low
+  P6DIR |= BIT6 + BIT7;    //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as output
+
+  //60ms as taken from TinyOS driver (SDP.nc powerCycle() function)
+  _delay_cycles(2880000); //120ms
+
+  P5DIR &= ~(BIT4 + BIT5); //FLASH_SOMI and FLASH_SCLK set as input
+  P3DIR &= ~BIT7;          //FLASH_SIMO set as input
+  P4DIR &= ~BIT0;          //FLASH_CS_N set as input
+  P6DIR &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as input
+
+  Board_setSdPower(1);            //SW_FLASH set high
+  _delay_cycles(1200000); //give SD card time to power back up - 50ms
+}
+
+void Board_sd2Pc(void)
 {
-  Board_setSdPower(1);
-} //SD power on
+  //Power cycle the SD card
+  Board_sdPowerCycle();
+
+  //Setup pin to indicate SD ready for dock access
+  Board_dockDetectN(0);
+
+  //Unmount SD card
+  ShimSd_mount(0);
+}
+
+void Board_sd2Mcu(void)
+{
+  //Setup pin to indicate SD not ready for dock access
+  Board_dockDetectN(1);
+
+  //Power cycle the SD card
+  Board_sdPowerCycle();
+
+  //Mount SD card
+  ShimSd_mount(0);
+  ShimSd_mount(1);
+}
+
+uint8_t Board_checkDockedDetectState(void)
+{
+  shimmerStatus.docked = BOARD_IS_DOCKED;
+  if (shimmerStatus.docked)
+  {
+    Board_setUndockDetectIntDir();
+  }
+  else
+  {
+    Board_setDockDetectIntDir();
+  }
+  return shimmerStatus.docked;
+}
+
+void Board_setDockDetectIntDir(void)
+{
+  P2IES &= ~BIT3; //look for rising edge
+}
+
+void Board_setUndockDetectIntDir(void)
+{
+  P2IES |= BIT3; //look for falling edge
+}
 
 void Board_setSdPower(uint8_t state)
 {
   if (state)
   {
-    P4OUT |= BIT2;
+    P4OUT |= BIT2; //SD power on
   }
   else
   {
-    P4OUT &= ~BIT2;
+    P4OUT &= ~BIT2; //SD power off
   }
   shimmerStatus.sdPowerOn = state;
 }
@@ -409,7 +475,13 @@ uint8_t Board_isBtnPressed(void)
   return BOARD_IS_BTN_PRESSED;
 }
 
-void Board_detectN(uint8_t state)
+uint8_t Board_isSdInserted(void)
+{
+  return BOARD_IS_SD_INSERTED;
+}
+
+/* Informs dock that an SD card has been connected */
+void Board_dockDetectN(uint8_t state)
 {
   if (state)
   {

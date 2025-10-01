@@ -79,7 +79,6 @@
 #include "version.h"
 
 void Init(void);
-void handleIfDockedStateOnBoot(void);
 void sleepWhenNoTask(void);
 void checkSetupDock(void);
 void ProcessHwRevision(void);
@@ -91,8 +90,6 @@ void BlinkTimerStop(void);
 void SampleTimerStart(void);
 void SampleTimerStop(void);
 char *HAL_GetUID(void);
-void DockSdPowerCycle(void);
-uint8_t CheckSdInslot(void);
 uint8_t checkIfBattReadNeeded(void);
 void BtStartDone();
 void BtStart(void);
@@ -193,12 +190,14 @@ void Init(void)
   UCA0_isrInit();
   UART_init(ShimDock_rxCallback);
 
-  shimmerStatus.sdInserted = (bool) (!(P4IN & BIT1));
+  LogAndStream_checkSdInSlot();
+  Board_checkDockedDetectState();
 
-  handleIfDockedStateOnBoot();
-
+  // Enable dock detect interrupt
   P2IFG &= ~BIT3; //clear flag
   P2IE |= BIT3;   //enable interrupt
+
+  LogAndStream_setupDockUndock();
 
   //RwcCheck();
   RTC_init(0);
@@ -227,8 +226,6 @@ void Init(void)
 
   ProcessHwRevision();
 
-  ShimSens_startLoggingIfUndockStartEnabled();
-
   LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
 
@@ -239,11 +236,9 @@ void Init(void)
    * MAC ID can be used for default Shimmer name and calibration file names.*/
   ShimConfig_loadSensorConfigAndCalib();
 
-  UART_setState(shimmerStatus.docked);
+  ShimSens_startLoggingIfUndockStartEnabled();
 
   ShimRtc_rwcErrorCheck();
-
-  LogAndStream_setupDock();
 
   /* Take initial measurement to update LED state */
   manageReadBatt(1);
@@ -253,41 +248,6 @@ void Init(void)
 
   shimmerStatus.initialising = 0;
   LogAndStream_setBootStage(BOOT_STAGE_END);
-}
-
-void handleIfDockedStateOnBoot(void)
-{
-#if TEST_UNDOCKED
-  if (0)
-  {
-#else
-  if (BOARD_IS_DOCKED)
-  {
-#endif
-    ShimBatt_setBatteryInterval(BATT_INTERVAL_DOCKED);
-    P2IES |= BIT3; //look for falling edge
-    shimmerStatus.docked = 1;
-    shimmerStatus.sdlogReady = 0;
-    if (CheckSdInslot())
-    {
-      DockSdPowerCycle();
-    }
-  }
-  else
-  {
-    ShimBatt_setBatteryInterval(BATT_INTERVAL_UNDOCKED);
-    P2IES &= ~BIT3; //look for rising edge
-    shimmerStatus.docked = 0;
-    Board_detectN(1); //DETECT_N set to high
-    if (CheckSdInslot())
-    {
-      shimmerStatus.sdlogReady = 1;
-    }
-    else
-    {
-      shimmerStatus.sdlogReady = 0;
-    }
-  }
 }
 
 void sleepWhenNoTask(void)
@@ -303,7 +263,7 @@ void checkSetupDock(void)
     if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
     {
       shimmerStatus.docked = (BOARD_IS_DOCKED >> 3);
-      LogAndStream_setupDock();
+      LogAndStream_setupDockUndock();
     }
 
     if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
@@ -621,6 +581,7 @@ __interrupt void Port2_ISR(void)
 
       //EXP_DETECT_N
     case P2IV_P2IFG1:
+      //TODO Oct 2025, I don't think this interrupt is used anywhere any more
       //TODO: Debounce this
       //see slaa513 for example using multiple time bases on a single timer module
       if (P2IN & BIT1)
@@ -654,13 +615,13 @@ __interrupt void Port2_ISR(void)
       }
       if (BOARD_IS_DOCKED)
       {
-        P2IES |= BIT3; //look for falling edge
+        Board_setUndockDetectIntDir();
         shimmerStatus.sdlogReady = 0;
       }
       else
       {
-        P2IES &= ~BIT3; //look for rising edge
-        if (CheckSdInslot() && !shimmerStatus.sdBadFile)
+        Board_setDockDetectIntDir();
+        if (LogAndStream_checkSdInSlot() && !shimmerStatus.sdBadFile)
         {
           shimmerStatus.sdlogReady = 1;
         }
@@ -954,41 +915,6 @@ __interrupt void TIMER0_B0_ISR(void)
 char *HAL_GetUID(void)
 {
   return dierecord;
-}
-
-void DockSdPowerCycle(void)
-{
-  _delay_cycles(2880000);
-  SdPowerOff(); //SW_FLASH set low, SdPowerOff();
-
-  P5SEL &= ~(BIT4 + BIT5);
-  P5OUT &= ~(BIT4 + BIT5); //FLASH_SOMI and FLASH_SCLK set low
-  P5DIR |= BIT4;           //FLASH_SOMI set as output
-  P3SEL &= ~BIT7;
-  P3OUT &= ~BIT7;          //FLASH_SIMO set low
-  P4OUT &= ~BIT0;          //FLASH_CS_N set low
-  P6OUT &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set low
-  P6DIR |= BIT6 + BIT7;    //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as output
-
-  //60ms as taken from TinyOS driver (SDP.nc powerCycle() function)
-  _delay_cycles(2880000);
-
-  P5DIR &= ~(BIT4 + BIT5); //FLASH_SOMI and FLASH_SCLK set as input
-  P3DIR &= ~BIT7;          //FLASH_SIMO set as input
-  P4DIR &= ~BIT0;          //FLASH_CS_N set as input
-  P6DIR &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as input
-
-  SdPowerOn();            //SW_FLASH set high, SdPowerOn();
-  _delay_cycles(1200000); //give SD card time to power back up
-  Board_detectN(0);
-}
-
-uint8_t CheckSdInslot(void)
-{
-  //Check if card is inserted and enable interrupt for SD_DETECT_N
-  shimmerStatus.sdInserted = BOARD_IS_SD_INSERTED;
-  ff_result = ShimSd_mount(shimmerStatus.sdInserted);
-  return shimmerStatus.sdInserted;
 }
 
 void TB0Start()
