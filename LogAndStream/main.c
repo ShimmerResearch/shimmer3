@@ -260,13 +260,13 @@ void checkSetupDock(void)
   if (!shimmerStatus.configuring && !sensing.inSdWr
       && (BOARD_IS_DOCKED || ((RTC_get64() - time_newUnDockEvent) > TIMEOUT_100_MS)))
   {
-    if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
+    if (shimmerStatus.docked != BOARD_IS_DOCKED)
     {
-      shimmerStatus.docked = (BOARD_IS_DOCKED >> 3);
+      shimmerStatus.docked = BOARD_IS_DOCKED;
       LogAndStream_setupDockUndock();
     }
 
-    if (shimmerStatus.docked != (BOARD_IS_DOCKED >> 3))
+    if (shimmerStatus.docked != BOARD_IS_DOCKED)
     {
       ShimTask_set(TASK_SETUP_DOCK);
     }

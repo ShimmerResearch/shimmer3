@@ -42,14 +42,14 @@
 
 #include "msp430.h"
 
-#define LM3658SD_STAT2       (P2IN & BIT7)
-#define LM3658SD_STAT1       (P2IN & BIT6)
+#define LM3658SD_STAT2       ((P2IN & BIT7)? 1:0)
+#define LM3658SD_STAT1       ((P2IN & BIT6)? 1:0)
 
-#define BOARD_IS_DOCKED      (P2IN & BIT3)
+#define BOARD_IS_DOCKED      ((P2IN & BIT3)? 1:0)
 //BTN is active low for Shimmer3
-#define BOARD_IS_BTN_PRESSED (!(P1IN & BIT6))
+#define BOARD_IS_BTN_PRESSED ((P1IN & BIT6)? 0:1)
 //SD card detection is active low
-#define BOARD_IS_SD_INSERTED (!(P4IN & BIT1))
+#define BOARD_IS_SD_INSERTED ((P4IN & BIT1)? 0:1)
 
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
