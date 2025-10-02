@@ -330,6 +330,5 @@ void saveBatteryVoltageAndUpdateStatus(void)
   //Multiplied by 2 due to voltage divider
   uint16_t battValMV = (((uint32_t) currentBattVal * 3000) >> 12) * 2;
 
-  ShimBatt_updateStatus(
-      currentBattVal, battValMV, LM3658SD_STAT1, LM3658SD_STAT2);
+  ShimBatt_updateStatus(currentBattVal, battValMV, LM3658SD_STAT1, LM3658SD_STAT2);
 }
