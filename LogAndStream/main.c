@@ -566,7 +566,7 @@ __interrupt void Port2_ISR(void)
     case P2IV_P2IFG3:
       Board_checkDockedDetectState();
       LogAndStream_dockedStateChange();
-      // Exit LPM to process setup dock task
+      //Exit LPM to process setup dock task
       __bic_SR_register_on_exit(LPM3_bits);
       break;
       //Default case
