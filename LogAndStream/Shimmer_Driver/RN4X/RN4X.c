@@ -1606,17 +1606,6 @@ void BT_init(void)
   setBleDeviceInformation(ShimBrd_getDaughtCardIdStrPtr(), FW_VERSION_MAJOR,
       FW_VERSION_MINOR, FW_VERSION_PATCH);
 
-  if (shimmerStatus.sdSyncEnabled || !ShimEeprom_isPresent())
-  {
-    /* Enable classic BT only for sync mode or older devices without EEPROM
-     * (which use RN42 modules without BLE support) */
-    BT_setBtMode(1, 0);
-  }
-  else
-  {
-    BT_setBtMode(ShimEeprom_isBtClassicEnabled(), ShimEeprom_isBleEnabled());
-  }
-
   //Enable fast mode with HW flow control enabled
   BT_setRn4678FastMode("9000");
 
@@ -2011,14 +2000,13 @@ void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue)
   rn42TxPowerPostAug2012 = newValue;
 }
 
-/* Set RN4678 to use dual Bluetooth mode
+/* Overrides weak function in LogAndStream driver.
+ * Set RN4678 to use dual Bluetooth mode
  * 0 = Dual mode
  * 1 = Bluetooth Low Energy only
  * 2 = Bluetooth Classic only */
 void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn)
 {
-  ShimBt_setBtMode(btClassicEn, bleEn);
-
   //Handle both enabled and also treat the same if both disabled
   if ((btClassicEn && bleEn) || (!btClassicEn && !bleEn))
   {

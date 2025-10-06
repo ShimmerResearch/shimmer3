@@ -360,7 +360,6 @@ const char *BT_getDesiredRnTxPowerForBtVerGetCmd(void);
 void BT_setRn4678TxPower(rn4678TxPower_et newValue);
 void BT_setRn42TxPowerPreAug2012(rn42TxPowerPreAug2012_et newValue);
 void BT_setRn42TxPowerPostAug2012(rn42TxPowerPostAug2012_et newValue);
-void BT_setBtMode(uint8_t btClassicEn, uint8_t bleEn);
 void BT_setRn4xRemoteConfigurationTimer(char *hexval_time);
 void BT_resetDefaults(void);
 
