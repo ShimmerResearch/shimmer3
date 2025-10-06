@@ -80,7 +80,6 @@
 
 void Init(void);
 void sleepWhenNoTask(void);
-void checkSetupDock(void);
 void ProcessHwRevision(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
@@ -121,10 +120,6 @@ uint16_t clk_30, clk_45, clk_55, clk_64, clk_75, clk_133, clk_90, clk_120,
 uint8_t all0xff[7U], all0x00[7U];
 
 char *dierecord;
-
-/* variables used for delayed undock-start */
-uint8_t undockEvent;
-uint64_t time_newUnDockEvent;
 
 void main(void)
 {
@@ -173,10 +168,6 @@ void Init(void)
   ADC_varsInit();
 
   setBmpInUse(BMP180_IN_USE);
-
-  /* variables used for delayed undock-start */
-  undockEvent = 0;
-  time_newUnDockEvent = 0;
 
   memset(all0xff, 0xff, sizeof(all0xff) / sizeof(all0xff[0]));
   memset(all0x00, 0x00, sizeof(all0x00) / sizeof(all0x00[0]));
@@ -253,31 +244,6 @@ void Init(void)
 void sleepWhenNoTask(void)
 {
   __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
-}
-
-void checkSetupDock(void)
-{
-  if (!shimmerStatus.configuring && !sensing.inSdWr
-      && (BOARD_IS_DOCKED || ((RTC_get64() - time_newUnDockEvent) > TIMEOUT_100_MS)))
-  {
-    if (shimmerStatus.docked != BOARD_IS_DOCKED)
-    {
-      shimmerStatus.docked = BOARD_IS_DOCKED;
-      LogAndStream_setupDockUndock();
-    }
-
-    if (shimmerStatus.docked != BOARD_IS_DOCKED)
-    {
-      ShimTask_set(TASK_SETUP_DOCK);
-    }
-    undockEvent = 0;
-  }
-  else
-  {
-    ShimTask_set(TASK_SETUP_DOCK);
-  }
-
-  ShimRtc_rwcErrorCheck();
 }
 
 void ProcessHwRevision(void)
@@ -598,38 +564,10 @@ __interrupt void Port2_ISR(void)
 
       //dock_detect_N
     case P2IV_P2IFG3:
+      Board_checkDockedDetectState();
       LogAndStream_dockedStateChange();
-      if (!undockEvent)
-      {
-        if (!BOARD_IS_DOCKED) //undocked
-        {
-          undockEvent = 1;
-          ShimBatt_setBattCritical(0);
-          time_newUnDockEvent = RTC_get64();
-        }
-        //see slaa513 for example using multiple time bases on a single timer module
-        if (!shimmerStatus.sensing)
-        {
-          __bic_SR_register_on_exit(LPM3_bits);
-        }
-      }
-      if (BOARD_IS_DOCKED)
-      {
-        Board_setUndockDetectIntDir();
-        shimmerStatus.sdlogReady = 0;
-      }
-      else
-      {
-        Board_setDockDetectIntDir();
-        if (LogAndStream_checkSdInSlot() && !shimmerStatus.sdBadFile)
-        {
-          shimmerStatus.sdlogReady = 1;
-        }
-        else
-        {
-          shimmerStatus.sdlogReady = 0;
-        }
-      }
+      // Exit LPM to process setup dock task
+      __bic_SR_register_on_exit(LPM3_bits);
       break;
       //Default case
     default:
@@ -740,7 +678,7 @@ uint8_t checkIfBattReadNeeded(void)
   batt_td = batt_my_local_time_64 - battLastTs64;
 
   if ((batt_td > ShimBatt_getBatteryIntervalTicks()))
-  { //10 mins = 19660800
+  {
     battLastTs64 = batt_my_local_time_64;
     if (!shimmerStatus.sensing && ShimTask_set(TASK_BATT_READ))
     {
