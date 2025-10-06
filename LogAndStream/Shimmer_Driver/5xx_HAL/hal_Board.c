@@ -480,6 +480,11 @@ uint8_t Board_isSdInserted(void)
   return BOARD_IS_SD_INSERTED;
 }
 
+uint8_t Board_isDocked(void)
+{
+  return BOARD_IS_DOCKED;
+}
+
 /* Informs dock that an SD card has been connected */
 void Board_dockDetectN(uint8_t state)
 {

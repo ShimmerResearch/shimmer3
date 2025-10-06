@@ -71,6 +71,7 @@ uint8_t Board_isLedOnUprBlue(void);
 uint8_t Board_isLedOnUprGreen(void);
 uint8_t Board_isBtnPressed(void);
 uint8_t Board_isSdInserted(void);
+uint8_t Board_isDocked(void);
 void Board_dockDetectN(uint8_t state);
 
 #endif /* HAL_BOARD_H */
