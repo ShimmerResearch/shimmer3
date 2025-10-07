@@ -208,15 +208,15 @@ void UART_setState(uint8_t state)
 {
   if (state)
   {
-    DockUart_enable();
+    DockUart_init();
   }
   else
   {
-    DockUart_disable();
+    DockUart_deinit();
   }
 }
 
-void DockUart_disable(void)
+void DockUart_deinit(void)
 {
   UARTCTL1 |= UCSWRST; //**Put state machine in reset**
 
@@ -231,7 +231,7 @@ void DockUart_disable(void)
   Board_setExpansionBrdPower(0);
 }
 
-void DockUart_enable(void)
+void DockUart_init(void)
 {
   P6SEL &= ~BIT1;
   P6DIR |= BIT1;

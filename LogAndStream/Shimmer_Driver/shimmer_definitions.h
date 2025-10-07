@@ -201,6 +201,8 @@ typedef uint8_t error_t;
 //choice of clock
 #define TCXO_CLOCK                     (255765.625)
 #define MSP430_CLOCK                   (32768.0)
+#define MSP430_MCU_CLOCK               (24000000)
+#define MSP430_MCU_CYCLES_PER_MS       (MSP430_MCU_CLOCK / 1000)
 
 //BMP Pressure oversampling ratio
 #define BMPX80_OSS_1                   0x00
