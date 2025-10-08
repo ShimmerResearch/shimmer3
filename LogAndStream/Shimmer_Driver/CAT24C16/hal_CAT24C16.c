@@ -10,7 +10,7 @@
 #include "CAT24C16.h"
 #include "msp430.h"
 #include <stdint.h>
-
+#include "log_and_stream_globals.h"
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 
@@ -27,6 +27,7 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf)
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW)
 {
   uint8_t timer_was_stopped = 0;
+  uint8_t i2CWasRunning = shimmerStatus.pinPvI2c;
 
   //Spool up EEPROM and required timing peripherals
   if (TB0CTL == MC_0) //Timer is stopped
@@ -48,7 +49,10 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enu
   }
 
   //Wind down EEPROM and required timing peripherals
-  CAT24C16_powerOff();
+  if (!i2CWasRunning)
+  {
+    CAT24C16_powerOff();
+  }
   if (timer_was_stopped)
   {
     BlinkTimerStop();
