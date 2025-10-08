@@ -1,5 +1,4 @@
-name: Build MSP430 Firmware
-
+name: Build-MSP430-Firmware
 on:
   # push:
   #   branches:
@@ -7,8 +6,22 @@ on:
   workflow_dispatch:
     inputs:
       increment:
-        description: "Which version part to increment: major, minor, patch"
+        description: "Which version part to increment (vMAJOR.MINOR.PATCH)?"
+        required: true
         default: "patch"
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+      build_mode:
+        description: "Select build mode:"
+        required: true
+        default: "Debug"
+        type: choice
+        options:
+          - Release
+          - Debug
 
 permissions:
   contents: write  # Needed for git commit/push and tag creation
@@ -19,12 +32,12 @@ env:
   BUILD_CONFIG: Debug
   TAG_PREFIX: LogAndStream_Shimmer3_v
   CCS_VERSION: 12.8.1.00005
-  CCS_INSTALL_DIR: /opt/ti/ccs  # Where CCS will be installed
+  CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
+  CCS_TAR: CCS12.8.1.00005_linux-x64.tar.gz
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code (with submodules)
         uses: actions/checkout@v4
@@ -42,11 +55,19 @@ jobs:
         run: |
           ls -lR ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts
 
+      - name: Normalize line endings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix
+          dos2unix '${{ env.PROJECT_DIR }}'/log-and-stream-common/scripts/*.sh || true
+
       - name: Increment version
         run: |
           set -euo pipefail
-          chmod +x ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh
-          ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh "${{ github.event.inputs.increment || 'patch' }}"
+          inc="${{ github.event.inputs.increment }}"
+          [ -z "$inc" ] && inc=patch
+          chmod +x '${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh'
+          '${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh' "$inc"
 
       - name: Save version for next steps
         id: get_version
@@ -57,61 +78,250 @@ jobs:
 
       - name: Install prerequisites
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget xz-utils libusb-1.0-0
+          set -e
+          apt-get update
+          apt-get install -y wget xz-utils libusb-1.0-0 \
+            libxext6 libxrender1 libxtst6 libxi6 libglib2.0-0 libgtk2.0-0 libnss3 ca-certificates \
+            tar gzip coreutils findutils libtinfo5
+          rm -rf /var/lib/apt/lists/*
 
-      - name: Download Code Composer Studio v12.8
+      - name: Cache CCS
+        id: ccs-cache
+        uses: actions/cache@v4
+        with:
+            # use the absolute install dir directly
+          path: ${{ env.CCS_INSTALL_DIR }}
+          key: ccs-${{ env.CCS_VERSION }}
+
+      - name: Download CCS (if cache miss)
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
-          wget -q https://software-dl.ti.com/ccs/esd/CCSv12/CCS_${CCS_VERSION}/CCS${CCS_VERSION}_linux-x64.tar.gz -O /tmp/ccs.tar.gz
+          set -euo pipefail
+          URL="https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS${CCS_VERSION}_linux-x64.tar.gz"
+          echo "Downloading: $URL"
+          wget -q "$URL" -O /tmp/ccs.tar.gz
+          ls -l /tmp/ccs.tar.gz
+            SIZE=$(stat -c%s /tmp/ccs.tar.gz)
+          echo "Archive size: $SIZE bytes"
+          [ "$SIZE" -gt 500000000 ] || { echo "Archive too small"; exit 1; }
           mkdir -p /tmp/ccs
           tar -xzf /tmp/ccs.tar.gz -C /tmp/ccs
+          echo "Validate archive (first 10 entries):"
+           #Avoid SIGPIPE by using sed instead of head
+          tar -tzf /tmp/ccs.tar.gz | sed -n '1,10p'
+          echo "Top-level extracted:"
 
-      - name: Silent install CCS
+#      - name: Prepare archive (bind mount, cache, or download)
+#        run: |
+#          set -euo pipefail
+#          mkdir -p ccs_dist
+#          # 1. Host bind (when running under act with: act --bind /abs/host/ccs:/ccs_host)
+#          ls -1 /ccs_host
+#          if [ -f /ccs_host/${CCS_TAR} ]; then
+#            echo "Using host-bound tar: /ccs_host/${CCS_TAR}"
+#            cp /ccs_host/${CCS_TAR} ccs_dist/${CCS_TAR}
+#          fi
+#          # 2. Cache hit already pulled it
+#          if [ -f ccs_dist/${CCS_TAR} ]; then
+#            ls -lh ccs_dist/${CCS_TAR}
+#            exit 0
+#          fi
+#          # 3. Download (fallback)
+#            URL_BASE="https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1"
+#            URL="${URL_BASE}/CCS${CCS_VERSION}_linux-x64.tar.gz"
+#            echo "Downloading ${URL}"
+#            wget -q "${URL}" -O ccs_dist/${CCS_TAR}
+#            ls -lh ccs_dist/${CCS_TAR}
+#
+#      - name: Extract (cached or bound)
+#        run: |
+#          set -euo pipefail
+#          mkdir -p /tmp/ccs
+#          tar -xzf ccs_dist/${CCS_TAR} -C /tmp/ccs
+#          #find /tmp/ccs -maxdepth 2 -type f -name "ccs_setup_*.run" -print
+#          echo "Validate archive (first 10 entries):"
+#           #Avoid SIGPIPE by using sed instead of head
+#          tar -tzf /tmp/ccs.tar.gz | sed -n '1,10p'
+#          echo "Top-level extracted:"
+#          ls -1 /tmp/ccs
+
+#      - name: List CCS components (debug)
+#        run: |
+#          set -euo pipefail
+#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+#          chmod +x "$INSTALLER"
+#          echo "Available components:"
+#          "$INSTALLER" --mode unattended --list-components || true
+#
+#      - name: Install CCS (MSP430 only) with debug trace
+#        run: |
+#          set -euo pipefail
+#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+#          [ -f "$INSTALLER" ] || { echo "Installer not found: $INSTALLER"; exit 1; }
+#          chmod +x "$INSTALLER"
+#          rm -rf "${CCS_INSTALL_DIR}"
+#          mkdir -p "${CCS_INSTALL_DIR}"
+#          echo "Running installer..."
+#          "$INSTALLER" \
+#            --mode unattended \
+#            --prefix "${CCS_INSTALL_DIR}" \
+#            --enable-components PF_MSP430 \
+#            --acceptLicense yes \
+#            --debugtrace /tmp/ccs_debug.log || { echo "Installer exited with failure"; cat /tmp/ccs_debug.log || true; exit 1; }
+#          echo "Installer debug tail:"
+#          tail -n 40 /tmp/ccs_debug.log || true
+#          echo "Post-install directory tree (depth 3):"
+#          find "${CCS_INSTALL_DIR}" -maxdepth 3 -type d -print
+#          # Sanity check
+#          if [ ! -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ] && [ ! -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
+#            echo "ERROR: Eclipse binary not found after install."
+#            echo "Full debug log (last 120 lines):"
+#            tail -n 120 /tmp/ccs_debug.log || true
+#            exit 1
+#          fi
+#
+#      - name: Locate Eclipse
+#        id: loc
+#        run: |
+#          set -euo pipefail
+#          if [ -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
+#            E="${CCS_INSTALL_DIR}/eclipse/eclipse"
+#          elif [ -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ]; then
+#            E="${CCS_INSTALL_DIR}/ccs/eclipse/eclipse"
+#          else
+#            echo "Eclipse not found. Listing:"
+#            find "${CCS_INSTALL_DIR}" -maxdepth 5 -name eclipse -print || true
+#            exit 1
+#          fi
+#          echo "eclipse_bin=$E" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect extracted installer
         run: |
-          /tmp/ccs/ccs_setup_${CCS_VERSION}.bin \
+          set -euo pipefail
+          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+          [ -n "$INSTALLER_DIR" ] || { echo "Installer dir not found"; exit 1; }
+          find "$INSTALLER_DIR" -maxdepth 2 -type f -printf '%P (%k KB)\n' | head -n 40
+          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+          [ -f "$INSTALLER" ] || { echo "Installer binary missing"; exit 1; }
+          chmod +x "$INSTALLER"
+          file "$INSTALLER"
+   
+      - name: Try listing components (variants)
+        run: |
+          set -euo pipefail
+          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+          echo "--- Attempt: --list-components"
+          "$INSTALLER" --mode unattended --list-components || true
+          echo "--- Attempt: --listComponents"
+          "$INSTALLER" --mode unattended --listComponents || true
+   
+      - name: Install CCS unattended
+        run: |
+          set -euo pipefail
+          set -x
+          mkdir -p /opt/ti
+          INSTALLER=$(find /tmp/ccs -maxdepth 4 -type f -name "ccs_setup_*.run" | head -n1)
+          test -n "$INSTALLER"
+          chmod +x "$INSTALLER"
+          "$INSTALLER" --help | sed -n '1,120p' || true
+          PREFIX=/opt/ti/ccs
+          # Choose components: remove --enable-components to install defaults
+          # Example enables only MSP430; adjust as needed.
+          "$INSTALLER" \
             --mode unattended \
-            --prefix ${CCS_INSTALL_DIR} \
+            --unattendedmodeui none \
+            --prefix "$PREFIX" \
             --enable-components PF_MSP430 \
-            --disable-components PF_C2000,PF_ARM,PF_DSP
+            --debuglevel 4
+          INSTALL_RC=${INSTALL_RC:-0}
+          echo "Installer exit code: $INSTALL_RC"
+          if [ $INSTALL_RC -ne 0 ] || [ ! -d "$PREFIX" ]; then
+            exit 1
+          fi
+          echo "Install tree depth 3:"
+          find "$PREFIX" -maxdepth 3 -type d -print
+      
+#      - name: Dump logs (always)
+#        if: always()
+#        run: |
+#          [ -f /tmp/ccs_debug_trace.log ] && tail -n 120 /tmp/ccs_debug_trace.log || true
+#          if [ -d /opt/ti/ccs/install_logs ]; then
+#            ls -1 /opt/ti/ccs/install_logs
+#            tail -n 60 /opt/ti/ccs/install_logs/*.log || true
+#          fi
 
-      - name: Build MSP430 project
+      - name: Locate Eclipse
+        id: loc
         run: |
-          ${CCS_INSTALL_DIR}/eclipse/eclipse \
-            -noSplash \
-            -data ${GITHUB_WORKSPACE}/ccs_workspace \
-            -application com.ti.ccstudio.apps.projectBuild \
-            -ccs.projects ${PROJECT_NAME} \
-            -ccs.configuration ${BUILD_CONFIG}
+          set -euo pipefail
+          if [ -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
+            E="${CCS_INSTALL_DIR}/eclipse/eclipse"
+          elif [ -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ]; then
+            E="${CCS_INSTALL_DIR}/ccs/eclipse/eclipse"
+          else
+            echo "Eclipse not found:"
+            find "${CCS_INSTALL_DIR}" -maxdepth 5 -name eclipse -print || true
+            exit 1
+          fi
+          echo "eclipse_bin=$E" >> "$GITHUB_OUTPUT"
+          "$E" -noSplash -application com.ti.ccstudio.apps.projectBuild -help | head -n 20 || true
 
-      - name: Upload firmware artifacts
-        uses: actions/upload-artifact@v4
+      - name: Verify CCS
+        run: |
+          set -euo pipefail
+          "${{ steps.loc.outputs.eclipse_bin }}" -noSplash -application com.ti.ccstudio.apps.projectBuild -help | head -n 15 || true
+
+      - name: Cache imported workspace (optional)
+        id: ws-cache
+        uses: actions/cache@v4
         with:
-          name: msp430-firmware
-          path: |
-            **/${BUILD_CONFIG}/*.out
-            **/${BUILD_CONFIG}/*.hex
+          path: ccs_workspace
+          key: ccs-ws-${{ env.CCS_VERSION }}-${{ hashFiles('**/.project') }}
 
-      - name: Find and copy hex file
+      - name: Import project (if workspace cache miss)
+        if: steps.ws-cache.outputs.cache-hit != 'true'
+        run: |
+          "${{ steps.loc.outputs.eclipse_bin }}" \
+            -noSplash \
+            -data "${GITHUB_WORKSPACE}/ccs_workspace" \
+            -application com.ti.ccstudio.apps.projectImport \
+            -ccs.location "${GITHUB_WORKSPACE}/${PROJECT_NAME}"
+
+      - name: Build project
+        run: |
+          "${{ steps.loc.outputs.eclipse_bin }}" \
+            -noSplash \
+            -data "${GITHUB_WORKSPACE}/ccs_workspace" \
+            -application com.ti.ccstudio.apps.projectBuild \
+            -ccs.projects "${PROJECT_NAME}" \
+            -ccs.configuration "${BUILD_CONFIG}" \
+            -ccs.cleanBuild
+
+      - name: Collect hex
         run: |
           set -euo pipefail
           mkdir -p build
-          if [ -f "${{ env.PROJECT_DIR }}/Release/${{ env.PROJECT_DIR }}.hex" ]; then
-            HEX_PATH="${{ env.PROJECT_DIR }}/Release/${{ env.PROJECT_DIR }}.hex"
-          elif [ -f "${{ env.PROJECT_DIR }}/Debug/${{ env.PROJECT_DIR }}.hex" ]; then
-            HEX_PATH="${{ env.PROJECT_DIR }}/Debug/${{ env.PROJECT_DIR }}.hex"
-          else
-            echo "No .hex file found in Release or Debug."
-            exit 1
-          fi
-          cp "$HEX_PATH" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.hex"
+          HEX=$(find '${{ env.PROJECT_DIR }}' -type f -path "*/${{ env.BUILD_CONFIG }}/*.hex" | head -n1 || true)
+          [ -z "$HEX" ] && { echo "No hex produced"; exit 1; }
+          cp "$HEX" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.hex"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            ${{ env.PROJECT_DIR }}/${{ env.BUILD_CONFIG }}/*.out
+            build/*.hex
 
       - name: Commit version bump
         run: |
-          set -euo pipefail
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add "${{ env.PROJECT_DIR }}/build/version.txt" "${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h"
-          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add '${{ env.PROJECT_DIR }}/build/version.txt' '${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h'
+          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || true
           git push
 
       - name: Upload firmware artifact
