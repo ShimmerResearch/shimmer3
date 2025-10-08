@@ -207,17 +207,17 @@ jobs:
           [ -f "$INSTALLER" ] || { echo "Installer binary missing"; exit 1; }
           chmod +x "$INSTALLER"
           file "$INSTALLER"
-   
-      - name: Try listing components (variants)
-        run: |
-          set -euo pipefail
-          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
-          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
-          echo "--- Attempt: --list-components"
-          "$INSTALLER" --mode unattended --list-components || true
-          echo "--- Attempt: --listComponents"
-          "$INSTALLER" --mode unattended --listComponents || true
-   
+
+#      - name: Try listing components (variants)
+#        run: |
+#          set -euo pipefail
+#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+#          echo "--- Attempt: --list-components"
+#          "$INSTALLER" --mode unattended --list-components || true
+#          echo "--- Attempt: --listComponents"
+#          "$INSTALLER" --mode unattended --listComponents || true
+
       - name: Install CCS unattended
         run: |
           set -euo pipefail
