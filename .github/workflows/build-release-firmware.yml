@@ -79,11 +79,11 @@ jobs:
       - name: Install prerequisites
         run: |
           set -e
-          apt-get update
-          apt-get install -y wget xz-utils libusb-1.0-0 \
+          sudo apt-get update
+          sudo apt-get install -y wget xz-utils libusb-1.0-0 \
             libxext6 libxrender1 libxtst6 libxi6 libglib2.0-0 libgtk2.0-0 libnss3 ca-certificates \
             tar gzip coreutils findutils libtinfo5
-          rm -rf /var/lib/apt/lists/*
+          #rm -rf /var/lib/apt/lists/*
 
       - name: Cache CCS
         id: ccs-cache
