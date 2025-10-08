@@ -8,9 +8,9 @@
 #include "hal_CAT24C16.h"
 
 #include "CAT24C16.h"
+#include "log_and_stream_globals.h"
 #include "msp430.h"
 #include <stdint.h>
-#include "log_and_stream_globals.h"
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 
