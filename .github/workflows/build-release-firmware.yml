@@ -199,6 +199,7 @@ jobs:
 #          echo "eclipse_bin=$E" >> "$GITHUB_OUTPUT"
 
       - name: Inspect extracted installer
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
@@ -220,6 +221,7 @@ jobs:
 #          "$INSTALLER" --mode unattended --listComponents || true
 
       - name: Install CCS unattended
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           set -x
@@ -312,10 +314,12 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware
+          name: "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
           path: |
             ${{ env.PROJECT_DIR }}/${{ env.BUILD_CONFIG }}/*.out
             build/*.txt
+            Debug/*.txt
+            Release/*.txt
 
       - name: Commit version bump
         run: |
@@ -324,12 +328,6 @@ jobs:
           git add '${{ env.PROJECT_DIR }}/build/version.txt' '${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h'
           git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || true
           git push
-
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: firmware-hex
-          path: Debug/*.hex
 
       - name: Create Git tag
         run: |
@@ -345,7 +343,7 @@ jobs:
           tag_name: ${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}
           name: "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
           generate_release_notes: true
-          files: build/*.hex
+          files: build/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -356,4 +354,4 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/<org>/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
