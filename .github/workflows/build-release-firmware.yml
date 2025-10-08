@@ -45,6 +45,7 @@ jobs:
         with:
           fetch-depth: 0  # Needed for tags and versioning
           submodules: recursive  # Ensures log-and-stream-common is fetched
+          persist-credentials: false
 
       - name: Debug path
         run: pwd
@@ -347,23 +348,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-#      - name: Tag submodule log-and-stream-common
-#        run: |
-#          set -euo pipefail
-#          cd ${{ env.PROJECT_DIR }}/log-and-stream-common
-#          git config user.name "github-actions"
-#          git config user.email "github-actions@github.com"
-#          git tag "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
-#          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
-
-      - name: Inject PAT for submodule push
+      - name: Prepare submodule remote with PAT
         env:
-          GH_USER: marknolan   # or store as secret SUBMODULE_PUSH_USER
+          GH_USER: marknolan
         run: |
           set -euo pipefail
-          git -C '${{ env.PROJECT_DIR }}/log-and-stream-common' remote set-url origin \
-            "https://${GH_USER}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git"
-          git -C '${{ env.PROJECT_DIR }}/log-and-stream-common' remote -v
+          SUB_PATH='${{ env.PROJECT_DIR }}/log-and-stream-common'
+          # Safety: remove any lingering auth header
+          git -C "$SUB_PATH" config --unset-all http.https://github.com/.extraheader || true
+          # Set remote URL with PAT
+          git -C "$SUB_PATH" remote set-url origin "https://${GH_USER}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git"
+          git -C "$SUB_PATH" remote -v
+      
+      - name: Debug submodule auth (temporary)
+        run: |
+          SUB_PATH='${{ env.PROJECT_DIR }}/log-and-stream-common'
+          git -C "$SUB_PATH" config --show-origin -l | grep -i extraheader || echo "No extraheader"
+          git -C "$SUB_PATH" remote -v
+          echo "Token length: ${#TOKEN}"
+        env:
+          TOKEN: ${{ secrets.SUBMODULE_PUSH_TOKEN }}
       
       - name: Tag submodule log-and-stream-common
         working-directory: ${{ env.PROJECT_DIR }}/log-and-stream-common
@@ -375,7 +379,9 @@ jobs:
             echo "Tag $tag already exists. Skipping."
             exit 0
           fi
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "marknolan"
+          git config user.email "marknolan@users.noreply.github.com"
           git tag -a "$tag" -m "Release $tag"
-          git push origin "$tag"
+          # Push via explicit URL (ensures PAT is used even if remote not rewritten)
+          git push "https://marknolan:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git" "$tag"
+
