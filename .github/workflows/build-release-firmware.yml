@@ -29,7 +29,7 @@ permissions:
 env:
   PROJECT_NAME: LogAndStream
   PROJECT_DIR: LogAndStream
-  BUILD_CONFIG: Debug
+  BUILD_CONFIG: ${{ github.event.inputs.build_mode }}
   TAG_PREFIX: LogAndStream_Shimmer3_v
   CCS_VERSION: 12.8.1.00005
   #CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
@@ -301,13 +301,13 @@ jobs:
             -ccs.configuration "${BUILD_CONFIG}" \
             -ccs.cleanBuild
 
-      - name: Collect hex
+      - name: Collect TI TXT
         run: |
           set -euo pipefail
           mkdir -p build
-          HEX=$(find '${{ env.PROJECT_DIR }}' -type f -path "*/${{ env.BUILD_CONFIG }}/*.hex" | head -n1 || true)
-          [ -z "$HEX" ] && { echo "No hex produced"; exit 1; }
-          cp "$HEX" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.hex"
+          TXT=$(find '${{ env.PROJECT_DIR }}' -type f -path "*/${{ env.BUILD_CONFIG }}/*.txt" | head -n1 || true)
+          [ -z "$TXT" ] && { echo "No txt produced"; exit 1; }
+          cp "$TXT" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.txt"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -315,7 +315,7 @@ jobs:
           name: firmware
           path: |
             ${{ env.PROJECT_DIR }}/${{ env.BUILD_CONFIG }}/*.out
-            build/*.hex
+            build/*.txt
 
       - name: Commit version bump
         run: |
