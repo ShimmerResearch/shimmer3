@@ -45,7 +45,6 @@ jobs:
         with:
           fetch-depth: 0  # Needed for tags and versioning
           submodules: recursive  # Ensures log-and-stream-common is fetched
-          token: ${{ secrets.SUBMODULE_PUSH_TOKEN }}
 
       - name: Debug path
         run: pwd
@@ -357,10 +356,18 @@ jobs:
 #          git tag "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
 #          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
 
+      # If submodule needs write pushes later, reset its URL with PAT before tagging:
+      - name: Inject PAT for submodule push
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          # Rewrite only the submodule remote to use PAT (safer than overriding main repo)
+          git submodule foreach 'git remote set-url origin https://${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git'
+          # Optional: verify access (read only)
+          git -C '${{ env.PROJECT_DIR }}/log-and-stream-common' ls-remote origin >/dev/null
+
       - name: Tag submodule log-and-stream-common
         working-directory: ${{ env.PROJECT_DIR }}/log-and-stream-common
-        env:
-          TAG_PREFIX: v
         run: |
           set -euo pipefail
           tag="${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
@@ -369,8 +376,8 @@ jobs:
             echo "Tag $tag already exists. Skipping."
             exit 0
           fi
-            git config user.name "github-actions"
-            git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           #git tag -a "$tag" -m "Release $tag"
           git tag "$tag"
           git push origin "$tag"
