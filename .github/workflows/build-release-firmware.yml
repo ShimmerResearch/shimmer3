@@ -45,7 +45,6 @@ jobs:
         with:
           fetch-depth: 0  # Needed for tags and versioning
           submodules: recursive  # Ensures log-and-stream-common is fetched
-          persist-credentials: false
 
       - name: Debug path
         run: pwd
@@ -347,6 +346,11 @@ jobs:
           files: build/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove actions auth header
+        run: |
+          git config --unset-all http.https://github.com/.extraheader || true
+          git -C '${{ env.PROJECT_DIR }}/log-and-stream-common' config --unset-all http.https://github.com/.extraheader || true
 
       - name: Prepare submodule remote with PAT
         env:
