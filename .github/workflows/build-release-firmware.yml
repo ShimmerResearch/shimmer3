@@ -226,7 +226,7 @@ jobs:
           INSTALLER=$(find /tmp/ccs -maxdepth 4 -type f -name "ccs_setup_*.run" | head -n1)
           test -n "$INSTALLER"
           chmod +x "$INSTALLER"
-          "$INSTALLER" --help | sed -n '1,120p' || true
+          #"$INSTALLER" --help | sed -n '1,120p' || true
           PREFIX=/opt/ti/ccs
           # Choose components: remove --enable-components to install defaults
           # Example enables only MSP430; adjust as needed.
