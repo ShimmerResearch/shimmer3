@@ -32,7 +32,8 @@ env:
   BUILD_CONFIG: Debug
   TAG_PREFIX: LogAndStream_Shimmer3_v
   CCS_VERSION: 12.8.1.00005
-  CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
+  #CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
+  CCS_INSTALL_DIR: /opt/ti/ccs
   CCS_TAR: CCS12.8.1.00005_linux-x64.tar.gz
 
 jobs:
