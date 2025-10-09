@@ -1,5 +1,4 @@
-name: Build MSP430 Firmware
-
+name: Build-MSP430-Firmware
 on:
   # push:
   #   branches:
@@ -7,8 +6,22 @@ on:
   workflow_dispatch:
     inputs:
       increment:
-        description: "Which version part to increment: major, minor, patch"
+        description: "Which version part to increment (vMAJOR.MINOR.PATCH)?"
+        required: true
         default: "patch"
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+      build_mode:
+        description: "Select build mode:"
+        required: true
+        default: "Debug"
+        type: choice
+        options:
+          - Release
+          - Debug
 
 permissions:
   contents: write  # Needed for git commit/push and tag creation
@@ -16,21 +29,24 @@ permissions:
 env:
   PROJECT_NAME: LogAndStream
   PROJECT_DIR: LogAndStream
-  BUILD_CONFIG: Debug
+  BUILD_CONFIG: ${{ github.event.inputs.build_mode }}
   TAG_PREFIX: LogAndStream_Shimmer3_v
   CCS_VERSION: 12.8.1.00005
-  CCS_INSTALL_DIR: /opt/ti/ccs  # Where CCS will be installed
+  #CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
+  CCS_INSTALL_DIR: /opt/ti/ccs
+  CCS_TAR: CCS12.8.1.00005_linux-x64.tar.gz
+  SUBMODULE_FOLDER: log-and-stream-common
+  SUBMODULE_REPO: ShimmerResearch/log-and-stream-common
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code (with submodules)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for tags and versioning
-          submodules: recursive  # Ensures log-and-stream-common is fetched
+          submodules: recursive  # Ensures submodules are fetched
 
       - name: Debug path
         run: pwd
@@ -40,13 +56,21 @@ jobs:
 
       - name: Debug directory structure
         run: |
-          ls -lR ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts
+          ls -lR ${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts
+
+      - name: Normalize line endings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix
+          dos2unix '${{ env.PROJECT_DIR }}'/${{ env.SUBMODULE_FOLDER }}/scripts/*.sh || true
 
       - name: Increment version
         run: |
           set -euo pipefail
-          chmod +x ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh
-          ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh "${{ github.event.inputs.increment || 'patch' }}"
+          inc="${{ github.event.inputs.increment }}"
+          [ -z "$inc" ] && inc=patch
+          chmod +x '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts/increment_version.sh'
+          '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts/increment_version.sh' "$inc"
 
       - name: Save version for next steps
         id: get_version
@@ -57,68 +81,150 @@ jobs:
 
       - name: Install prerequisites
         run: |
+          set -e
           sudo apt-get update
-          sudo apt-get install -y wget xz-utils libusb-1.0-0
+          sudo apt-get install -y wget xz-utils libusb-1.0-0 \
+            libxext6 libxrender1 libxtst6 libxi6 libglib2.0-0 libgtk2.0-0 libnss3 ca-certificates \
+            tar gzip coreutils findutils libtinfo5
+          #rm -rf /var/lib/apt/lists/*
 
-      - name: Download Code Composer Studio v12.8
+      - name: Cache CCS
+        id: ccs-cache
+        uses: actions/cache@v4
+        with:
+            # use the absolute install dir directly
+          path: ${{ env.CCS_INSTALL_DIR }}
+          key: ccs-${{ env.CCS_VERSION }}
+
+      - name: Download CCS (if cache miss)
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
-          wget -q https://software-dl.ti.com/ccs/esd/CCSv12/CCS_${CCS_VERSION}/CCS${CCS_VERSION}_linux-x64.tar.gz -O /tmp/ccs.tar.gz
+          set -euo pipefail
+          URL="https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS${CCS_VERSION}_linux-x64.tar.gz"
+          echo "Downloading: $URL"
+          wget -q "$URL" -O /tmp/ccs.tar.gz
+          ls -l /tmp/ccs.tar.gz
+            SIZE=$(stat -c%s /tmp/ccs.tar.gz)
+          echo "Archive size: $SIZE bytes"
+          [ "$SIZE" -gt 500000000 ] || { echo "Archive too small"; exit 1; }
           mkdir -p /tmp/ccs
           tar -xzf /tmp/ccs.tar.gz -C /tmp/ccs
+          echo "Validate archive (first 10 entries):"
+           #Avoid SIGPIPE by using sed instead of head
+          tar -tzf /tmp/ccs.tar.gz | sed -n '1,10p'
+          echo "Top-level extracted:"
 
-      - name: Silent install CCS
+      - name: Inspect extracted installer
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
-          /tmp/ccs/ccs_setup_${CCS_VERSION}.bin \
+          set -euo pipefail
+          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
+          [ -n "$INSTALLER_DIR" ] || { echo "Installer dir not found"; exit 1; }
+          find "$INSTALLER_DIR" -maxdepth 2 -type f -printf '%P (%k KB)\n' | head -n 40
+          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
+          [ -f "$INSTALLER" ] || { echo "Installer binary missing"; exit 1; }
+          chmod +x "$INSTALLER"
+          file "$INSTALLER"
+
+      - name: Install CCS unattended
+        if: steps.ccs-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          set -x
+          mkdir -p /opt/ti
+          INSTALLER=$(find /tmp/ccs -maxdepth 4 -type f -name "ccs_setup_*.run" | head -n1)
+          test -n "$INSTALLER"
+          chmod +x "$INSTALLER"
+          #"$INSTALLER" --help | sed -n '1,120p' || true
+          PREFIX=/opt/ti/ccs
+          # Choose components: remove --enable-components to install defaults
+          # Example enables only MSP430; adjust as needed.
+          "$INSTALLER" \
             --mode unattended \
-            --prefix ${CCS_INSTALL_DIR} \
+            --unattendedmodeui none \
+            --prefix "$PREFIX" \
             --enable-components PF_MSP430 \
-            --disable-components PF_C2000,PF_ARM,PF_DSP
-
-      - name: Build MSP430 project
+            --debuglevel 4
+          INSTALL_RC=${INSTALL_RC:-0}
+          echo "Installer exit code: $INSTALL_RC"
+          if [ $INSTALL_RC -ne 0 ] || [ ! -d "$PREFIX" ]; then
+            exit 1
+          fi
+          echo "Install tree depth 3:"
+          find "$PREFIX" -maxdepth 3 -type d -print
+      
+      - name: Locate Eclipse
+        id: loc
         run: |
-          ${CCS_INSTALL_DIR}/eclipse/eclipse \
-            -noSplash \
-            -data ${GITHUB_WORKSPACE}/ccs_workspace \
-            -application com.ti.ccstudio.apps.projectBuild \
-            -ccs.projects ${PROJECT_NAME} \
-            -ccs.configuration ${BUILD_CONFIG}
+          set -euo pipefail
+          if [ -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
+            E="${CCS_INSTALL_DIR}/eclipse/eclipse"
+          elif [ -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ]; then
+            E="${CCS_INSTALL_DIR}/ccs/eclipse/eclipse"
+          else
+            echo "Eclipse not found:"
+            find "${CCS_INSTALL_DIR}" -maxdepth 5 -name eclipse -print || true
+            exit 1
+          fi
+          echo "eclipse_bin=$E" >> "$GITHUB_OUTPUT"
+          "$E" -noSplash -application com.ti.ccstudio.apps.projectBuild -help | head -n 20 || true
 
-      - name: Upload firmware artifacts
-        uses: actions/upload-artifact@v4
+      - name: Verify CCS
+        run: |
+          set -euo pipefail
+          "${{ steps.loc.outputs.eclipse_bin }}" -noSplash -application com.ti.ccstudio.apps.projectBuild -help | head -n 15 || true
+
+      - name: Cache imported workspace (optional)
+        id: ws-cache
+        uses: actions/cache@v4
         with:
-          name: msp430-firmware
-          path: |
-            **/${BUILD_CONFIG}/*.out
-            **/${BUILD_CONFIG}/*.hex
+          path: ccs_workspace
+          key: ccs-ws-${{ env.CCS_VERSION }}-${{ hashFiles('**/.project') }}
 
-      - name: Find and copy hex file
+      - name: Import project (if workspace cache miss)
+        if: steps.ws-cache.outputs.cache-hit != 'true'
+        run: |
+          "${{ steps.loc.outputs.eclipse_bin }}" \
+            -noSplash \
+            -data "${GITHUB_WORKSPACE}/ccs_workspace" \
+            -application com.ti.ccstudio.apps.projectImport \
+            -ccs.location "${GITHUB_WORKSPACE}/${PROJECT_NAME}"
+
+      - name: Build project
+        run: |
+          "${{ steps.loc.outputs.eclipse_bin }}" \
+            -noSplash \
+            -data "${GITHUB_WORKSPACE}/ccs_workspace" \
+            -application com.ti.ccstudio.apps.projectBuild \
+            -ccs.projects "${PROJECT_NAME}" \
+            -ccs.configuration "${BUILD_CONFIG}" \
+            -ccs.cleanBuild
+
+      - name: Collect TI TXT
         run: |
           set -euo pipefail
           mkdir -p build
-          if [ -f "${{ env.PROJECT_DIR }}/Release/${{ env.PROJECT_DIR }}.hex" ]; then
-            HEX_PATH="${{ env.PROJECT_DIR }}/Release/${{ env.PROJECT_DIR }}.hex"
-          elif [ -f "${{ env.PROJECT_DIR }}/Debug/${{ env.PROJECT_DIR }}.hex" ]; then
-            HEX_PATH="${{ env.PROJECT_DIR }}/Debug/${{ env.PROJECT_DIR }}.hex"
-          else
-            echo "No .hex file found in Release or Debug."
-            exit 1
-          fi
-          cp "$HEX_PATH" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.hex"
+          TXT=$(find '${{ env.PROJECT_DIR }}' -type f -path "*/${{ env.BUILD_CONFIG }}/*.txt" | head -n1 || true)
+          [ -z "$TXT" ] && { echo "No txt produced"; exit 1; }
+          cp "$TXT" "build/${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}.txt"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
+          path: |
+            ${{ env.PROJECT_DIR }}/${{ env.BUILD_CONFIG }}/*.out
+            build/*.txt
+            Debug/*.txt
+            Release/*.txt
 
       - name: Commit version bump
         run: |
-          set -euo pipefail
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add "${{ env.PROJECT_DIR }}/build/version.txt" "${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h"
-          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add '${{ env.PROJECT_DIR }}/build/version.txt' '${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h'
+          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || true
           git push
-
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: firmware-hex
-          path: Debug/*.hex
 
       - name: Create Git tag
         run: |
@@ -134,15 +240,50 @@ jobs:
           tag_name: ${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}
           name: "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
           generate_release_notes: true
-          files: build/*.hex
+          files: build/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag submodule log-and-stream-common
+      - name: Remove actions auth header
+        run: |
+          git config --unset-all http.https://github.com/.extraheader || true
+          git -C '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}' config --unset-all http.https://github.com/.extraheader || true
+
+      - name: Prepare submodule remote with PAT
         run: |
           set -euo pipefail
-          cd ${{ env.PROJECT_DIR }}/log-and-stream-common
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/<org>/log-and-stream-common.git" "${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}"
+          SUB_PATH='${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}'
+          # Safety: remove any lingering auth header
+          git -C "$SUB_PATH" config --unset-all http.https://github.com/.extraheader || true
+          # Set remote URL with PAT
+          git -C "$SUB_PATH" remote set-url origin "https://${{ secrets.SUBMODULE_PUSH_USER }}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/${{ env.SUBMODULE_REPO }}.git"
+          git -C "$SUB_PATH" remote -v
+      
+      - name: Tag submodule ${{ env.SUBMODULE_FOLDER }}
+        working-directory: ${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}
+        run: |
+          set -euo pipefail
+          tag='${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}'
+          git fetch --tags origin
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists. Skipping."
+            exit 0
+          fi
+          git config user.name "${{ secrets.SUBMODULE_PUSH_USER }}"
+          git config user.email "${{ secrets.SUBMODULE_PUSH_USER }}@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          # Push via explicit URL (ensures PAT is used even if remote not rewritten)
+          git push "https://${{ secrets.SUBMODULE_PUSH_USER }}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/${{ env.SUBMODULE_REPO }}.git" "$tag"
+
+      - name: Create GitHub Release in submodule
+        env:
+          GH_TOKEN: ${{ secrets.SUBMODULE_PUSH_TOKEN }}
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "${{ env.SUBMODULE_REPO }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists in $SUBMODULE_REPO; skipping."
+          else
+            # Add files (e.g., `build/*.txt`) after "$TAG" if you want to attach assets
+            gh release create "$TAG" -R "${{ env.SUBMODULE_REPO }}" --title "$TAG" --generate-notes
+          fi
