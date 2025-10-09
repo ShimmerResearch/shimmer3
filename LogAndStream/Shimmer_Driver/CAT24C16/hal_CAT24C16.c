@@ -52,11 +52,11 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enu
   //Wind down EEPROM and required timing peripherals
   if (!wasI2cRunning)
   {
-    CAT24C16_powerOff();     //turn OFF if it was not already ON
+    CAT24C16_powerOff(); //turn OFF if it was not already ON
   }
-  else if(!wasExpBoardRunning)
+  else if (!wasExpBoardRunning)
   {
-    Board_setExpansionBrdPower(0);  //turn OFF if it was not already ON
+    Board_setExpansionBrdPower(0); //turn OFF if it was not already ON
   }
   if (timer_was_stopped)
   {
