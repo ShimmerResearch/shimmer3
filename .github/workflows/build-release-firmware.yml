@@ -1,4 +1,5 @@
-name: Build-MSP430-Firmware
+name: LogAndStream S3 Build & Release
+
 on:
   # push:
   #   branches:
@@ -31,10 +32,10 @@ env:
   PROJECT_DIR: LogAndStream
   BUILD_CONFIG: ${{ github.event.inputs.build_mode }}
   TAG_PREFIX: LogAndStream_Shimmer3_v
+  JIRA_VERSION_PREFIX: 'L&S_S3_v'   # note the quotes due to &
   CCS_VERSION: 12.8.1.00005
-  #CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
-  CCS_INSTALL_DIR: /opt/ti/ccs
   CCS_TAR: CCS12.8.1.00005_linux-x64.tar.gz
+  CCS_INSTALL_DIR: /opt/ti/ccs
   SUBMODULE_FOLDER: log-and-stream-common
   SUBMODULE_REPO: ShimmerResearch/log-and-stream-common
 
@@ -244,6 +245,66 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Link main repo issues to Jira issues
+      - name: Link GitHub release to Jira
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: DEV
+          GH_TAG_PREFIX: ${{ env.TAG_PREFIX }}
+          JIRA_VERSION_PREFIX: ${{ env.JIRA_VERSION_PREFIX }}
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.get_version.outputs.version }}'
+          RELEASE_TAG="${GH_TAG_PREFIX}${VERSION}"
+          JIRA_VERSION="${JIRA_VERSION_PREFIX}${VERSION}"
+
+          git fetch --tags --quiet || true
+
+          PREV_TAG=$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || echo "")
+          RANGE=$([ -n "$PREV_TAG" ] && echo "$PREV_TAG..$RELEASE_TAG" || echo "$RELEASE_TAG")
+
+          ISSUE_KEYS=$(git log --format='%s%n%b' $RANGE | grep -Eo '[A-Z][A-Z0-9]+-[0-9]+' | sort -u || true)
+          [ -z "$ISSUE_KEYS" ] && echo "No Jira issue keys found; skipping." && exit 0
+
+          PROJECT_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY")
+          PROJECT_ID=$(echo "$PROJECT_JSON" | jq -r '.id // empty')
+          [ -z "$PROJECT_ID" ] && echo "Failed to resolve project id" && echo "$PROJECT_JSON" && exit 1
+
+          VERSIONS_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY/versions")
+
+          # Normalize to an array, then pick the first matching version id (if any)
+          EXISTING_VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg NAME "$JIRA_VERSION" '
+            (.values? // .)                                     # paginated object or bare array
+            | (if type=="array" then . else [] end)             # ensure array
+            | map(select(.name==$NAME)) | .[0]? | .id? // empty # select by name
+          ')
+
+          if [ -z "$EXISTING_VERSION_ID" ]; then
+            CREATE_RESP=$(jq -nc --arg name "$JIRA_VERSION" --arg pid "$PROJECT_ID" --arg date "$(date -u +%Y-%m-%d)" \
+              '{name:$name, projectId:($pid|tonumber), released:true, releaseDate:$date}' \
+              | curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -H 'Content-Type: application/json' \
+                -d @- "$JIRA_BASE_URL/rest/api/3/version")
+            VERSION_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
+            [ -z "$VERSION_ID" ] && echo "Failed to create Jira version" && echo "$CREATE_RESP" && exit 1
+          else
+            VERSION_ID="$EXISTING_VERSION_ID"
+          fi
+
+          while read -r KEY; do
+            [ -z "$KEY" ] && continue
+            curl -s -o /dev/null -w "%{http_code}\n" \
+              -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+              -H 'Content-Type: application/json' \
+              -X PUT \
+              --data "$(jq -nc --arg v "$JIRA_VERSION" '{update:{fixVersions:[{add:{name:$v}}]}}')" \
+              "$JIRA_BASE_URL/rest/api/3/issue/$KEY" | grep -qE '^(204|200)$' || echo "Failed to update $KEY"
+          done <<< "$ISSUE_KEYS"
+
+      # Create tag and release in submodule
       - name: Remove actions auth header
         run: |
           git config --unset-all http.https://github.com/.extraheader || true
@@ -287,3 +348,63 @@ jobs:
             # Add files (e.g., `build/*.txt`) after "$TAG" if you want to attach assets
             gh release create "$TAG" -R "${{ env.SUBMODULE_REPO }}" --title "$TAG" --generate-notes
           fi
+
+      # Link submodule repo issues to Jira issues
+      - name: Link GitHub release to Jira
+        working-directory: ${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: DEV
+          GH_TAG_PREFIX: ${{ env.TAG_PREFIX }}
+          JIRA_VERSION_PREFIX: ${{ env.JIRA_VERSION_PREFIX }}
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.get_version.outputs.version }}'
+          RELEASE_TAG="${GH_TAG_PREFIX}${VERSION}"
+          JIRA_VERSION="${JIRA_VERSION_PREFIX}${VERSION}"
+
+          git fetch --tags --quiet || true
+
+          PREV_TAG=$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || echo "")
+          RANGE=$([ -n "$PREV_TAG" ] && echo "$PREV_TAG..$RELEASE_TAG" || echo "$RELEASE_TAG")
+
+          ISSUE_KEYS=$(git log --format='%s%n%b' $RANGE | grep -Eo '[A-Z][A-Z0-9]+-[0-9]+' | sort -u || true)
+          [ -z "$ISSUE_KEYS" ] && echo "No Jira issue keys found; skipping." && exit 0
+
+          PROJECT_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY")
+          PROJECT_ID=$(echo "$PROJECT_JSON" | jq -r '.id // empty')
+          [ -z "$PROJECT_ID" ] && echo "Failed to resolve project id" && echo "$PROJECT_JSON" && exit 1
+
+          VERSIONS_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY/versions")
+
+          # Normalize to an array, then pick the first matching version id (if any)
+          EXISTING_VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg NAME "$JIRA_VERSION" '
+            (.values? // .)                                     # paginated object or bare array
+            | (if type=="array" then . else [] end)             # ensure array
+            | map(select(.name==$NAME)) | .[0]? | .id? // empty # select by name
+          ')
+
+          if [ -z "$EXISTING_VERSION_ID" ]; then
+            CREATE_RESP=$(jq -nc --arg name "$JIRA_VERSION" --arg pid "$PROJECT_ID" --arg date "$(date -u +%Y-%m-%d)" \
+              '{name:$name, projectId:($pid|tonumber), released:true, releaseDate:$date}' \
+              | curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -H 'Content-Type: application/json' \
+                -d @- "$JIRA_BASE_URL/rest/api/3/version")
+            VERSION_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
+            [ -z "$VERSION_ID" ] && echo "Failed to create Jira version" && echo "$CREATE_RESP" && exit 1
+          else
+            VERSION_ID="$EXISTING_VERSION_ID"
+          fi
+
+          while read -r KEY; do
+            [ -z "$KEY" ] && continue
+            curl -s -o /dev/null -w "%{http_code}\n" \
+              -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+              -H 'Content-Type: application/json' \
+              -X PUT \
+              --data "$(jq -nc --arg v "$JIRA_VERSION" '{update:{fixVersions:[{add:{name:$v}}]}}')" \
+              "$JIRA_BASE_URL/rest/api/3/issue/$KEY" | grep -qE '^(204|200)$' || echo "Failed to update $KEY"
+          done <<< "$ISSUE_KEYS"
