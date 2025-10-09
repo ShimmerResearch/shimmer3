@@ -27,7 +27,8 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf)
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enum EEPROM_RW eepromRW)
 {
   uint8_t timer_was_stopped = 0;
-  uint8_t i2CWasRunning = shimmerStatus.pinPvI2c;
+  uint8_t wasI2cRunning = shimmerStatus.pinPvI2c;
+  uint8_t wasExpBoardRunning = shimmerStatus.pinPvExt;
 
   //Spool up EEPROM and required timing peripherals
   if (TB0CTL == MC_0) //Timer is stopped
@@ -49,9 +50,13 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf, enu
   }
 
   //Wind down EEPROM and required timing peripherals
-  if (!i2CWasRunning)
+  if (!wasI2cRunning)
   {
-    CAT24C16_powerOff();
+    CAT24C16_powerOff();     //turn OFF if it was not already ON
+  }
+  else if(!wasExpBoardRunning)
+  {
+    Board_setExpansionBrdPower(0);  //turn OFF if it was not already ON
   }
   if (timer_was_stopped)
   {
