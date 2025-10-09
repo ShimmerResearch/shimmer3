@@ -35,6 +35,8 @@ env:
   #CCS_INSTALL_DIR: /home/runner/ccs_install  # native path inside container
   CCS_INSTALL_DIR: /opt/ti/ccs
   CCS_TAR: CCS12.8.1.00005_linux-x64.tar.gz
+  SUBMODULE_FOLDER: log-and-stream-common
+  SUBMODULE_REPO: ShimmerResearch/log-and-stream-common
 
 jobs:
   build:
@@ -44,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for tags and versioning
-          submodules: recursive  # Ensures log-and-stream-common is fetched
+          submodules: recursive  # Ensures submodules are fetched
 
       - name: Debug path
         run: pwd
@@ -54,21 +56,21 @@ jobs:
 
       - name: Debug directory structure
         run: |
-          ls -lR ${{ env.PROJECT_DIR }}/log-and-stream-common/scripts
+          ls -lR ${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts
 
       - name: Normalize line endings
         run: |
           sudo apt-get update
           sudo apt-get install -y dos2unix
-          dos2unix '${{ env.PROJECT_DIR }}'/log-and-stream-common/scripts/*.sh || true
+          dos2unix '${{ env.PROJECT_DIR }}'/${{ env.SUBMODULE_FOLDER }}/scripts/*.sh || true
 
       - name: Increment version
         run: |
           set -euo pipefail
           inc="${{ github.event.inputs.increment }}"
           [ -z "$inc" ] && inc=patch
-          chmod +x '${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh'
-          '${{ env.PROJECT_DIR }}/log-and-stream-common/scripts/increment_version.sh' "$inc"
+          chmod +x '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts/increment_version.sh'
+          '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}/scripts/increment_version.sh' "$inc"
 
       - name: Save version for next steps
         id: get_version
@@ -112,92 +114,6 @@ jobs:
           tar -tzf /tmp/ccs.tar.gz | sed -n '1,10p'
           echo "Top-level extracted:"
 
-#      - name: Prepare archive (bind mount, cache, or download)
-#        run: |
-#          set -euo pipefail
-#          mkdir -p ccs_dist
-#          # 1. Host bind (when running under act with: act --bind /abs/host/ccs:/ccs_host)
-#          ls -1 /ccs_host
-#          if [ -f /ccs_host/${CCS_TAR} ]; then
-#            echo "Using host-bound tar: /ccs_host/${CCS_TAR}"
-#            cp /ccs_host/${CCS_TAR} ccs_dist/${CCS_TAR}
-#          fi
-#          # 2. Cache hit already pulled it
-#          if [ -f ccs_dist/${CCS_TAR} ]; then
-#            ls -lh ccs_dist/${CCS_TAR}
-#            exit 0
-#          fi
-#          # 3. Download (fallback)
-#            URL_BASE="https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1"
-#            URL="${URL_BASE}/CCS${CCS_VERSION}_linux-x64.tar.gz"
-#            echo "Downloading ${URL}"
-#            wget -q "${URL}" -O ccs_dist/${CCS_TAR}
-#            ls -lh ccs_dist/${CCS_TAR}
-#
-#      - name: Extract (cached or bound)
-#        run: |
-#          set -euo pipefail
-#          mkdir -p /tmp/ccs
-#          tar -xzf ccs_dist/${CCS_TAR} -C /tmp/ccs
-#          #find /tmp/ccs -maxdepth 2 -type f -name "ccs_setup_*.run" -print
-#          echo "Validate archive (first 10 entries):"
-#           #Avoid SIGPIPE by using sed instead of head
-#          tar -tzf /tmp/ccs.tar.gz | sed -n '1,10p'
-#          echo "Top-level extracted:"
-#          ls -1 /tmp/ccs
-
-#      - name: List CCS components (debug)
-#        run: |
-#          set -euo pipefail
-#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
-#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
-#          chmod +x "$INSTALLER"
-#          echo "Available components:"
-#          "$INSTALLER" --mode unattended --list-components || true
-#
-#      - name: Install CCS (MSP430 only) with debug trace
-#        run: |
-#          set -euo pipefail
-#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
-#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
-#          [ -f "$INSTALLER" ] || { echo "Installer not found: $INSTALLER"; exit 1; }
-#          chmod +x "$INSTALLER"
-#          rm -rf "${CCS_INSTALL_DIR}"
-#          mkdir -p "${CCS_INSTALL_DIR}"
-#          echo "Running installer..."
-#          "$INSTALLER" \
-#            --mode unattended \
-#            --prefix "${CCS_INSTALL_DIR}" \
-#            --enable-components PF_MSP430 \
-#            --acceptLicense yes \
-#            --debugtrace /tmp/ccs_debug.log || { echo "Installer exited with failure"; cat /tmp/ccs_debug.log || true; exit 1; }
-#          echo "Installer debug tail:"
-#          tail -n 40 /tmp/ccs_debug.log || true
-#          echo "Post-install directory tree (depth 3):"
-#          find "${CCS_INSTALL_DIR}" -maxdepth 3 -type d -print
-#          # Sanity check
-#          if [ ! -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ] && [ ! -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
-#            echo "ERROR: Eclipse binary not found after install."
-#            echo "Full debug log (last 120 lines):"
-#            tail -n 120 /tmp/ccs_debug.log || true
-#            exit 1
-#          fi
-#
-#      - name: Locate Eclipse
-#        id: loc
-#        run: |
-#          set -euo pipefail
-#          if [ -x "${CCS_INSTALL_DIR}/eclipse/eclipse" ]; then
-#            E="${CCS_INSTALL_DIR}/eclipse/eclipse"
-#          elif [ -x "${CCS_INSTALL_DIR}/ccs/eclipse/eclipse" ]; then
-#            E="${CCS_INSTALL_DIR}/ccs/eclipse/eclipse"
-#          else
-#            echo "Eclipse not found. Listing:"
-#            find "${CCS_INSTALL_DIR}" -maxdepth 5 -name eclipse -print || true
-#            exit 1
-#          fi
-#          echo "eclipse_bin=$E" >> "$GITHUB_OUTPUT"
-
       - name: Inspect extracted installer
         if: steps.ccs-cache.outputs.cache-hit != 'true'
         run: |
@@ -209,16 +125,6 @@ jobs:
           [ -f "$INSTALLER" ] || { echo "Installer binary missing"; exit 1; }
           chmod +x "$INSTALLER"
           file "$INSTALLER"
-
-#      - name: Try listing components (variants)
-#        run: |
-#          set -euo pipefail
-#          INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
-#          INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
-#          echo "--- Attempt: --list-components"
-#          "$INSTALLER" --mode unattended --list-components || true
-#          echo "--- Attempt: --listComponents"
-#          "$INSTALLER" --mode unattended --listComponents || true
 
       - name: Install CCS unattended
         if: steps.ccs-cache.outputs.cache-hit != 'true'
@@ -247,15 +153,6 @@ jobs:
           echo "Install tree depth 3:"
           find "$PREFIX" -maxdepth 3 -type d -print
       
-#      - name: Dump logs (always)
-#        if: always()
-#        run: |
-#          [ -f /tmp/ccs_debug_trace.log ] && tail -n 120 /tmp/ccs_debug_trace.log || true
-#          if [ -d /opt/ti/ccs/install_logs ]; then
-#            ls -1 /opt/ti/ccs/install_logs
-#            tail -n 60 /opt/ti/ccs/install_logs/*.log || true
-#          fi
-
       - name: Locate Eclipse
         id: loc
         run: |
@@ -350,31 +247,20 @@ jobs:
       - name: Remove actions auth header
         run: |
           git config --unset-all http.https://github.com/.extraheader || true
-          git -C '${{ env.PROJECT_DIR }}/log-and-stream-common' config --unset-all http.https://github.com/.extraheader || true
+          git -C '${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}' config --unset-all http.https://github.com/.extraheader || true
 
       - name: Prepare submodule remote with PAT
-        env:
-          GH_USER: marknolan
         run: |
           set -euo pipefail
-          SUB_PATH='${{ env.PROJECT_DIR }}/log-and-stream-common'
+          SUB_PATH='${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}'
           # Safety: remove any lingering auth header
           git -C "$SUB_PATH" config --unset-all http.https://github.com/.extraheader || true
           # Set remote URL with PAT
-          git -C "$SUB_PATH" remote set-url origin "https://${GH_USER}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git"
+          git -C "$SUB_PATH" remote set-url origin "https://${{ secrets.SUBMODULE_PUSH_USER }}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/${{ env.SUBMODULE_REPO }}.git"
           git -C "$SUB_PATH" remote -v
       
-      - name: Debug submodule auth (temporary)
-        run: |
-          SUB_PATH='${{ env.PROJECT_DIR }}/log-and-stream-common'
-          git -C "$SUB_PATH" config --show-origin -l | grep -i extraheader || echo "No extraheader"
-          git -C "$SUB_PATH" remote -v
-          echo "Token length: ${#TOKEN}"
-        env:
-          TOKEN: ${{ secrets.SUBMODULE_PUSH_TOKEN }}
-      
-      - name: Tag submodule log-and-stream-common
-        working-directory: ${{ env.PROJECT_DIR }}/log-and-stream-common
+      - name: Tag submodule ${{ env.SUBMODULE_FOLDER }}
+        working-directory: ${{ env.PROJECT_DIR }}/${{ env.SUBMODULE_FOLDER }}
         run: |
           set -euo pipefail
           tag='${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}'
@@ -383,9 +269,21 @@ jobs:
             echo "Tag $tag already exists. Skipping."
             exit 0
           fi
-          git config user.name "marknolan"
-          git config user.email "marknolan@users.noreply.github.com"
+          git config user.name "${{ secrets.SUBMODULE_PUSH_USER }}"
+          git config user.email "${{ secrets.SUBMODULE_PUSH_USER }}@users.noreply.github.com"
           git tag -a "$tag" -m "Release $tag"
           # Push via explicit URL (ensures PAT is used even if remote not rewritten)
-          git push "https://marknolan:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/ShimmerResearch/log-and-stream-common.git" "$tag"
+          git push "https://${{ secrets.SUBMODULE_PUSH_USER }}:${{ secrets.SUBMODULE_PUSH_TOKEN }}@github.com/${{ env.SUBMODULE_REPO }}.git" "$tag"
 
+      - name: Create GitHub Release in submodule
+        env:
+          GH_TOKEN: ${{ secrets.SUBMODULE_PUSH_TOKEN }}
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.get_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "${{ env.SUBMODULE_REPO }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists in $SUBMODULE_REPO; skipping."
+          else
+            # Add files (e.g., `build/*.txt`) after "$TAG" if you want to attach assets
+            gh release create "$TAG" -R "${{ env.SUBMODULE_REPO }}" --title "$TAG" --generate-notes
+          fi
