@@ -408,3 +408,45 @@ jobs:
               --data "$(jq -nc --arg v "$JIRA_VERSION" '{update:{fixVersions:[{add:{name:$v}}]}}')" \
               "$JIRA_BASE_URL/rest/api/3/issue/$KEY" | grep -qE '^(204|200)$' || echo "Failed to update $KEY"
           done <<< "$ISSUE_KEYS"
+
+      - name: Mark Jira version as released
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: DEV
+          JIRA_VERSION_PREFIX: ${{ env.JIRA_VERSION_PREFIX }}
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.get_version.outputs.version }}'
+          JIRA_VERSION="${JIRA_VERSION_PREFIX}${VERSION}"
+          RELEASE_DATE="$(date -u +%Y-%m-%d)"
+      
+          PROJECT_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY")
+          PROJECT_ID=$(echo "$PROJECT_JSON" | jq -r '.id // empty')
+          [ -z "$PROJECT_ID" ] && echo "Failed to resolve project id" && echo "$PROJECT_JSON" && exit 1
+      
+          VERSIONS_JSON=$(curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H 'Accept: application/json' "$JIRA_BASE_URL/rest/api/3/project/$JIRA_PROJECT_KEY/versions")
+          VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg NAME "$JIRA_VERSION" '
+            (.values? // .)
+            | (if type=="array" then . else [] end)
+            | map(select(.name==$NAME)) | .[0]? | .id? // empty
+          ')
+      
+          if [ -z "$VERSION_ID" ]; then
+            CREATE_RESP=$(jq -nc --arg name "$JIRA_VERSION" --arg pid "$PROJECT_ID" --arg date "$RELEASE_DATE" \
+              '{name:$name, projectId:($pid|tonumber), released:true, releaseDate:$date}' \
+              | curl -s -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -H 'Content-Type: application/json' \
+                -d @- "$JIRA_BASE_URL/rest/api/3/version")
+            VERSION_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
+            [ -z "$VERSION_ID" ] && echo "Failed to create Jira version" && echo "$CREATE_RESP" && exit 1
+          else
+            HTTP=$(jq -nc --arg date "$RELEASE_DATE" '{released:true, releaseDate:$date}' \
+              | curl -s -o /dev/null -w "%{http_code}\n" -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+                -H 'Content-Type: application/json' -X PUT -d @- \
+                "$JIRA_BASE_URL/rest/api/3/version/$VERSION_ID")
+            echo "Jira update status: $HTTP"
+            echo "$HTTP" | grep -qE '^(200|204)$' || { echo "Failed to mark Jira version released"; exit 1; }
+          fi
