@@ -98,12 +98,12 @@ void UART_config();
 //     uint8_t param_flag, void (*uart_cb)(uint8_t crc_succ));
 //to switch between uart_isr and other isrs
 //the last activated one works
-void DockUart_enable(void);
+void DockUart_init(void);
 
 void UART_setState(uint8_t state);
 
 //reset p6.1 and p7.6 back to sel+input
-void DockUart_disable(void);
+void DockUart_deinit(void);
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len);
 uint16_t getUsedSpaceInDockTxBuf(void);
