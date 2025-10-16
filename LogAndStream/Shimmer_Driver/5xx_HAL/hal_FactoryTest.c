@@ -156,14 +156,14 @@ void sd_card_test(void)
         if (!shimmerStatus.sdPowerOn)
         {
           sdWasOff = 1;
-          SdPowerOn();
+          Board_setSdPower(1);
         }
 
         ShimSd_test1();
 
         if (sdWasOff)
         {
-          SdPowerOff();
+          Board_setSdPower(0);
         }
       }
       sprintf(buffer, " - %s: SD card read/write test\r\n",
@@ -267,7 +267,7 @@ void SPI_test(void)
     {
       if (shimmerStatus.docked)
       {
-        DockUart_disable();
+        DockUart_deinit();
       }
 
       EXG_init();
@@ -286,7 +286,7 @@ void SPI_test(void)
 
       if (shimmerStatus.docked)
       {
-        DockUart_enable();
+        DockUart_init();
       }
     }
   }
