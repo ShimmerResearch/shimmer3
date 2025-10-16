@@ -80,7 +80,6 @@
 
 void Init(void);
 void sleepWhenNoTask(void);
-void ProcessHwRevision(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
 void stopSensingWrapup(void);
@@ -210,12 +209,7 @@ void Init(void)
   I2C_stop(0);
   ShimSdHead_saveBmpCalibrationToSdHeader();
 
-  if (ShimEeprom_isPresent())
-  {
-    ShimEeprom_readAll();
-  }
-
-  ProcessHwRevision();
+  LogAndStream_processDaughterCardId();
 
   LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
@@ -246,11 +240,10 @@ void sleepWhenNoTask(void)
   __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
 }
 
-void ProcessHwRevision(void)
+//Overrides weak function in LogAndStream driver
+void platform_processHwRevision(void)
 {
   shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
-
-  ShimBrd_parseDaughterCardId();
 
   if (ShimEeprom_isPresent())
   {
@@ -282,8 +275,6 @@ void ProcessHwRevision(void)
       expBrd->exp_brd_minor = 0;
     }
   }
-
-  Board_initForRevision();
 }
 
 void InitialiseBt(void)
@@ -431,7 +422,7 @@ uint8_t ShimBrd_doesDeviceSupportBtClassic(void)
 }
 
 //Overrides weak function in LogAndStream driver
-void delay_ms(const uint32_t delay_time_ms)
+void platform_delayMs(const uint32_t delay_time_ms)
 {
   uint32_t ms = delay_time_ms;
   while (ms >= 1000U)

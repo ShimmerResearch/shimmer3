@@ -7,10 +7,13 @@
 
 #include "hal_CAT24C16.h"
 
+#include <stdint.h>
+
 #include "CAT24C16.h"
+#include "hal_Board.h"
 #include "log_and_stream_globals.h"
 #include "msp430.h"
-#include <stdint.h>
+
 extern void BlinkTimerStart(void);
 extern void BlinkTimerStop(void);
 
