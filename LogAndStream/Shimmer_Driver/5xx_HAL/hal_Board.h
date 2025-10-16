@@ -53,7 +53,6 @@ extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
 extern void Board_ledOff(uint8_t ledMask);
 extern void Board_ledToggle(uint8_t ledMask);
-void Board_initForRevision(void);
 
 void SdPowerOff(void);
 void SdPowerOn(void);

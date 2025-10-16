@@ -284,7 +284,8 @@ inline void Board_ledToggle(uint8_t ledMask)
   }
 }
 
-void Board_initForRevision(void)
+//Overrides weak function in LogAndStream driver
+void Board_initGpioForRevision(void)
 {
   shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
 

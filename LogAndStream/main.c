@@ -82,7 +82,6 @@ void Init(void);
 void handleIfDockedStateOnBoot(void);
 void sleepWhenNoTask(void);
 void checkSetupDock(void);
-void ProcessHwRevision(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
 void stopSensingWrapup(void);
@@ -221,12 +220,7 @@ void Init(void)
   I2C_stop(0);
   ShimSdHead_saveBmpCalibrationToSdHeader();
 
-  if (ShimEeprom_isPresent())
-  {
-    ShimEeprom_readAll();
-  }
-
-  ProcessHwRevision();
+  LogAndStream_processDaughterCardId();
 
   ShimSens_startLoggingIfUndockStartEnabled();
 
@@ -321,11 +315,10 @@ void checkSetupDock(void)
   ShimRtc_rwcErrorCheck();
 }
 
+//Overrides weak function in LogAndStream driver
 void ProcessHwRevision(void)
 {
   shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
-
-  ShimBrd_parseDaughterCardId();
 
   if (ShimEeprom_isPresent())
   {
@@ -357,8 +350,6 @@ void ProcessHwRevision(void)
       expBrd->exp_brd_minor = 0;
     }
   }
-
-  Board_initForRevision();
 }
 
 void InitialiseBt(void)
