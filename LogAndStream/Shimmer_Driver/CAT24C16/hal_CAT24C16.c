@@ -9,8 +9,8 @@
 
 #include <stdint.h>
 
-#include "hal_Board.h"
 #include "CAT24C16.h"
+#include "hal_Board.h"
 #include "log_and_stream_globals.h"
 #include "msp430.h"
 
