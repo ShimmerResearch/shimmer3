@@ -241,7 +241,7 @@ void sleepWhenNoTask(void)
 }
 
 //Overrides weak function in LogAndStream driver
-void ProcessHwRevision(void)
+void platform_processHwRevision(void)
 {
   shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
 
@@ -422,7 +422,7 @@ uint8_t ShimBrd_doesDeviceSupportBtClassic(void)
 }
 
 //Overrides weak function in LogAndStream driver
-void delay_ms(const uint32_t delay_time_ms)
+void platform_delayMs(const uint32_t delay_time_ms)
 {
   uint32_t ms = delay_time_ms;
   while (ms >= 1000U)
