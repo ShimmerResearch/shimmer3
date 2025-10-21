@@ -42,13 +42,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
       - name: Checkout code (with submodules)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for tags and versioning
           submodules: recursive  # Ensures submodules are fetched
-
+          ref: ${{ github.ref }}
+        
       - name: Debug path
         run: pwd
 
@@ -220,12 +222,14 @@ jobs:
             Release/*.txt
 
       - name: Commit version bump
+        if: ${{ github.ref_type == 'branch' }}
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add '${{ env.PROJECT_DIR }}/build/version.txt' '${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h'
-          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || true
-          git push
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add ${{ env.PROJECT_DIR }}/build/version.txt ${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h
+          git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+          git push origin HEAD:refs/heads/${{ github.ref_name }}
 
       - name: Create Git tag
         run: |
