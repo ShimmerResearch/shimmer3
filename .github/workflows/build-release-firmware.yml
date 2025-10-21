@@ -227,7 +227,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add ${{ env.PROJECT_DIR }}/build/version.txt ${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h
+          git add "${{ env.PROJECT_DIR }}/build/version.txt" "${{ env.PROJECT_DIR }}/Shimmer_Driver/version.h"
           git commit -m "chore: bump firmware version to v${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
           git push origin HEAD:refs/heads/${{ github.ref_name }}
 
