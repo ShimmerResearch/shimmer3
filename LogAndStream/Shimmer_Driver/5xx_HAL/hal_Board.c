@@ -369,7 +369,7 @@ void Board_sdPowerCycle(void)
   P4DIR &= ~BIT0;          //FLASH_CS_N set as input
   P6DIR &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as input
 
-  Board_setSdPower(1);    //SW_FLASH set high
+  Board_setSdPower(1); //SW_FLASH set high
 }
 
 void Board_sd2Pc(void)
@@ -385,7 +385,7 @@ void Board_sd2Pc(void)
   Board_sdPowerCycle();
 
   //give SD card time to power back up
-  _delay_cycles(SD_PC_STABILIZE_MS*MSP430_MCU_CYCLES_PER_MS);
+  _delay_cycles(SD_PC_STABILIZE_MS * MSP430_MCU_CYCLES_PER_MS);
 
   /* Now tell the dock/PC that a card is present */
   Board_dockDetectN(DOCK_CARD_PRESENT);
@@ -400,7 +400,7 @@ void Board_sd2Mcu(void)
   Board_sdPowerCycle();
 
   //give SD card time to power back up
-  _delay_cycles(SD_MCU_STABILIZE_MS*MSP430_MCU_CYCLES_PER_MS);
+  _delay_cycles(SD_MCU_STABILIZE_MS * MSP430_MCU_CYCLES_PER_MS);
 
   //Mount SD card
   ShimSd_mount(SD_UNMOUNT);
