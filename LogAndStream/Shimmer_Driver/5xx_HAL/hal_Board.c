@@ -41,8 +41,9 @@
 #include "Boards/shimmer_boards.h"
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
-#include "SDCard/shimmer_sd_data_file.h"
+#include "SDCard/shimmer_sd.h"
 #include "log_and_stream_externs.h"
+#include "shimmer_definitions.h"
 
 #define XT1_PORT_DIR P7DIR
 #define XT1_PORT_OUT P7OUT
@@ -369,32 +370,41 @@ void Board_sdPowerCycle(void)
   P6DIR &= ~(BIT6 + BIT7); //ADC6_FLASHDAT2 and ADC7_FLASHDAT1 set as input
 
   Board_setSdPower(1);    //SW_FLASH set high
-  _delay_cycles(1200000); //give SD card time to power back up - 50ms
 }
 
 void Board_sd2Pc(void)
 {
-  //Power cycle the SD card
+  /* Ensure the dock sees "no card" during the entire handover */
+  Board_dockDetectN(DOCK_CARD_NOT_PRESENT);
+
+  /* Cleanly release SD from MCU side before power/route changes */
+  //Unmount SD card
+  ShimSd_mount(SD_UNMOUNT);
+
+  /* Power cycle the SD and hand bus control to the dock/PC side */
   Board_sdPowerCycle();
 
-  //Setup pin to indicate SD ready for dock access
-  Board_dockDetectN(0);
+  //give SD card time to power back up
+  _delay_cycles(SD_PC_STABILIZE_MS*MSP430_MCU_CYCLES_PER_MS);// Convert to MCU ticks
 
-  //Unmount SD card
-  ShimSd_mount(0);
+  /* Now tell the dock/PC that a card is present */
+  Board_dockDetectN(DOCK_CARD_PRESENT);
 }
 
 void Board_sd2Mcu(void)
 {
   //Setup pin to indicate SD not ready for dock access
-  Board_dockDetectN(1);
+  Board_dockDetectN(DOCK_CARD_NOT_PRESENT);
 
   //Power cycle the SD card
   Board_sdPowerCycle();
 
+  //give SD card time to power back up
+  _delay_cycles(SD_MCU_STABILIZE_MS*MSP430_MCU_CYCLES_PER_MS);// Convert to MCU ticks
+
   //Mount SD card
-  ShimSd_mount(0);
-  ShimSd_mount(1);
+  ShimSd_mount(SD_UNMOUNT);
+  ShimSd_mount(SD_MOUNT);
 }
 
 uint8_t Board_checkDockedDetectState(void)
