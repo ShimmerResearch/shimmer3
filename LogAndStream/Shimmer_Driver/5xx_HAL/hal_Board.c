@@ -393,17 +393,19 @@ void Board_sd2Pc(void)
 
 void Board_sd2Mcu(void)
 {
-  //Setup pin to indicate SD not ready for dock access
+  /* Setup pin to indicate SD not ready for dock access */
   Board_dockDetectN(DOCK_CARD_NOT_PRESENT);
 
-  //Power cycle the SD card
+  /* Clears any lingering FatFs work area, BPB/cache, and “mounted” flags if a prior path failed to unmount. */
+  ShimSd_mount(SD_UNMOUNT);
+
+  /* Power cycle the SD card with access to MCU */
   Board_sdPowerCycle();
 
-  //give SD card time to power back up
+  /* Allow time for SD card to stabilize */
   _delay_cycles(SD_MCU_STABILIZE_MS * MSP430_MCU_CYCLES_PER_MS);
 
-  //Mount SD card
-  ShimSd_mount(SD_UNMOUNT);
+  /* Mount SD card */
   ShimSd_mount(SD_MOUNT);
 }
 
