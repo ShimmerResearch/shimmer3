@@ -221,7 +221,10 @@ void Init(void)
    * MAC ID can be used for default Shimmer name and calibration file names.*/
   ShimConfig_loadSensorConfigAndCalib();
 
-  ShimSens_startLoggingIfUndockStartEnabled();
+  if(!shimmerStatus.docked)
+  {
+      ShimSens_startLoggingIfUndockStartEnabled();
+  }
 
   ShimRtc_rwcErrorCheck();
 
