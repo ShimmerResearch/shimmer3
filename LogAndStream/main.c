@@ -811,12 +811,13 @@ void SampleTimerStop(void)
 }
 
 #pragma vector = TIMER0_B0_VECTOR
+
 __interrupt void TIMER0_B0_ISR(void)
 {
   uint16_t timer_b0 = GetTB0();
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-  if(ShimSens_sampleTimerTriggered())
+  if (ShimSens_sampleTimerTriggered())
   {
     __bic_SR_register_on_exit(LPM3_bits);
   }

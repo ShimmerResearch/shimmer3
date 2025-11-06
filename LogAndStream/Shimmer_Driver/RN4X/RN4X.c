@@ -1509,7 +1509,7 @@ uint8_t areBtSetupCommandsRunning(void)
 
 uint8_t isBtModuleOverflowPinHigh(void)
 {
-//  return (P1IN & BIT3);
+  //return (P1IN & BIT3);
   return rn4xStatus.txOverflow;
 }
 

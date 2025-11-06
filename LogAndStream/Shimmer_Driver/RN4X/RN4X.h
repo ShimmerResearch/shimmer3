@@ -261,7 +261,7 @@ typedef volatile struct RN4XSTATTypeDef_t
 {
   uint8_t starting;
   BT_SET_COMMAND_STAGES_t bt_setcommands_step;
-  uint8_t txOverflow :1;
+  uint8_t txOverflow : 1;
   uint8_t txie_reg;
   uint64_t btRtsHighTime;
   rn4678OperationalMode rn4678OpMode;
