@@ -348,7 +348,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
           Board_ledOff(LED_ALL);
           while (1)
           {
-            __delay_cycles(200 * 24000); //200ms
+            __delay_cycles(200 * 24000L); //200ms
             Board_ledToggle(LED_LWR_YELLOW);
           }
         }

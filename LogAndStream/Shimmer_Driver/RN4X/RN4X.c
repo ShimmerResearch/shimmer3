@@ -112,11 +112,6 @@ uint8_t slowRate;
 
 char *btRxFullResponse;
 
-//global bluetooth variables
-volatile enum BT_FIRMWARE_VERSION btFwVer;
-volatile uint8_t command_mode_active;
-
-volatile uint8_t rn4678ClassicBtSampleSetBufferSize;
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
 volatile uint8_t rn4678RtsLockDetected;
 #endif
@@ -717,7 +712,7 @@ void runSetCommands(void)
       /* GY seems to be working in RN42 v4.77 but broken in RN42 v6.15.
        * This could also be the case with other versions. Therefore we
        * must fetch the TX Power from the "Other Settings" using 'O' */
-      if (btFwVer == RN42_V6_15)
+      if (rn4xStatus.btFwVer == RN42_V6_15)
       {
         writeCommandNoRsp("O\r");
       }
@@ -733,7 +728,7 @@ void runSetCommands(void)
       /* For the RN42 v6.15, we need to parse through each line of the
        * "other settings" until we get to TX Power. Note, after factory
        * reset, tx power always reports 0 until it is changed. */
-      if (btFwVer == RN42_V6_15)
+      if (rn4xStatus.btFwVer == RN42_V6_15)
       {
         if (strstr(btRxFullResponse, RN42_OTHER_SETTINGS_TX_POWER))
         {
@@ -1077,11 +1072,11 @@ void runSetCommands(void)
       {
         sprintf(commandbuf, "R,1\r");
         /* Reboot is needed after set commands for RN42 */
-        if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77 || !areBtStatusStringsEnabled())
+        if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77 || !areBtStatusStringsEnabled())
         {
           writeCommand(commandbuf, "Reboot!\r\n");
         }
-        else if (btFwVer == RN42_V6_15)
+        else if (rn4xStatus.btFwVer == RN42_V6_15)
         {
           BT_setWaitForInitialBoot(1);
           writeCommand(commandbuf, "Reboot!\r\n%REBOOT");
@@ -1107,7 +1102,7 @@ void runSetCommands(void)
     else
     {
       /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
-      if (btFwVer == RN4678_V1_23_0)
+      if (rn4xStatus.btFwVer == RN4678_V1_23_0)
       {
         if (rn4xStatus.bt_setcommands_step == RN4678_REENTER_CMD_MODE)
         {
@@ -1286,7 +1281,7 @@ void cmdQuietModeEnter(void)
 {
   /* From testing, RN42 FW v4.77 responds back with "Quiet\r\n". RN42 v6.15 and
    * RN4678 v1.00.5 and v1.23 respond back with "AOK\r\nCMD> " */
-  if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+  if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77)
   {
     //The Q command makes the module non-discoverable.
     writeCommand("Q\r", "Quiet\r\n");
@@ -1696,7 +1691,7 @@ uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 uint8_t BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
   /* If it's the RN4678 and 1Mbps isn't supported, only allow a fixed number of sensor data packets to be in the TX buffer */
-  return BT_write_rn4678_with_buf(buf, len, responseType, rn4678ClassicBtSampleSetBufferSize);
+  return BT_write_rn4678_with_buf(buf, len, responseType, rn4xStatus.rn4678ClassicBtSampleSetBufferSize);
 }
 
 uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
@@ -1951,7 +1946,7 @@ const char *BT_getDesiredRnTxPowerForBtVerSetCmd(void)
     return rn4678TxPower_str[rn4678TxPower];
   }
   /* Note: Leading zeros are not returned for 'GY' in the RN4X */
-  else if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+  else if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77)
   {
     return rn42TxPowerPreAug2012_set_str[rn42TxPowerPreAug2012];
   }
@@ -1968,7 +1963,7 @@ const char *BT_getDesiredRnTxPowerForBtVerGetCmd(void)
     return rn4678TxPower_str[rn4678TxPower];
   }
   /* Note: Leading zeros are not returned for 'GY' in the RN4X */
-  else if (btFwVer == RN41_V4_77 || btFwVer == RN42_V4_77)
+  else if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77)
   {
     return rn42TxPowerPreAug2012_get_str[rn42TxPowerPreAug2012];
   }
@@ -2251,7 +2246,7 @@ void setBtModulePower(uint8_t isEnabled)
 
 uint8_t isBtDeviceUnknown(void)
 {
-  return (btFwVer == BT_FW_VER_UNKNOWN);
+  return (rn4xStatus.btFwVer == BT_FW_VER_UNKNOWN);
 }
 
 uint8_t isBtDeviceRn41orRN42(void)
@@ -2261,30 +2256,30 @@ uint8_t isBtDeviceRn41orRN42(void)
 
 uint8_t isBtDeviceRn41(void)
 {
-  return (btFwVer == RN41_V4_77);
+  return (rn4xStatus.btFwVer == RN41_V4_77);
 }
 
 uint8_t isBtDeviceRn42(void)
 {
-  return (btFwVer == RN42_V4_77 || btFwVer == RN42_V6_15 || btFwVer == RN42_V6_30);
+  return (rn4xStatus.btFwVer == RN42_V4_77 || rn4xStatus.btFwVer == RN42_V6_15 || rn4xStatus.btFwVer == RN42_V6_30);
 }
 
 uint8_t isBtDeviceRn4678(void)
 {
-  return (btFwVer == RN4678_V1_00_5 || btFwVer == RN4678_V1_11_0 || btFwVer == RN4678_V1_13_5
-      || btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0);
+  return (rn4xStatus.btFwVer == RN4678_V1_00_5 || rn4xStatus.btFwVer == RN4678_V1_11_0 || rn4xStatus.btFwVer == RN4678_V1_13_5
+      || rn4xStatus.btFwVer == RN4678_V1_22_0 || rn4xStatus.btFwVer == RN4678_V1_23_0);
 }
 
 uint8_t doesBtDeviceSupport1Mbps(void)
 {
   /* Bug with RN4678 v1.13.5 in-which 1Mbps doesn't work so not adding it
    * here */
-  return (btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0);
+  return (rn4xStatus.btFwVer == RN4678_V1_22_0 || rn4xStatus.btFwVer == RN4678_V1_23_0);
 }
 
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
 {
-  btFwVer = btFwVerNew;
+  rn4xStatus.btFwVer = btFwVerNew;
 
   /* Write function needs to be updated depending BT FW version */
   updateBtWriteFunctionPtr();
@@ -2298,7 +2293,7 @@ void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
 
 enum BT_FIRMWARE_VERSION getBtFwVersion(void)
 {
-  return btFwVer;
+  return rn4xStatus.btFwVer;
 }
 
 void updateBtWriteFunctionPtr(void)
@@ -2333,12 +2328,12 @@ uint8_t areBtStatusStringsEnabled(void)
 
 void setRnCommandModeActive(uint8_t state)
 {
-  command_mode_active = state;
+  rn4xStatus.command_mode_active = state;
 }
 
 uint8_t isRnCommandModeActive(void)
 {
-  return command_mode_active;
+  return rn4xStatus.command_mode_active;
 }
 
 char *getTxCmdBufPtr(void)
@@ -2423,7 +2418,7 @@ void calculateClassicBtTxSampleSetBufferSize(uint8_t len, uint16_t samplingRateT
   /* Len + 1U for DATA_PACKET bytes header.
    * *sampleSetsToBuffer for X number of sample sets in buffer */
   /* Note: this doesn't include CRC bytes*/
-  rn4678ClassicBtSampleSetBufferSize = ((len + 1U) * sampleSetsToBuffer);
+  rn4xStatus.rn4678ClassicBtSampleSetBufferSize = ((len + 1U) * sampleSetsToBuffer);
 }
 
 uint8_t getDefaultBaudForBtVersion(void)
@@ -2550,7 +2545,7 @@ void setRebootRequired(uint8_t state)
    * issues when trying to connect to the sensors. We don't know if this is a
    * problem with other commands so the safest thing is to ignore doing a
    * reboot for RN42 v4.77 based sensors. */
-  if (btFwVer == RN42_V4_77)
+  if (rn4xStatus.btFwVer == RN42_V4_77)
   {
     btRebootRequired = 0;
   }
@@ -2733,6 +2728,21 @@ void string2hexString(char *input, char *output)
   }
   //insert NULL at the end of the output string
   output[i++] = '\0';
+}
+
+void checkForBtRtsLock(void)
+{
+  if (rn4xStatus.btRtsHighTime != 0
+      && ((rn4xStatus.btRtsHighTime - RTC_get64()) >= 32768))
+  {
+    /* TODO */
+    Board_ledOff(LED_ALL);
+    while (1)
+    {
+      __delay_cycles(200 * 24000L); //200ms
+      Board_ledToggle(LED_LWR_RED);
+    }
+  }
 }
 
 #pragma vector = USCI_A1_VECTOR

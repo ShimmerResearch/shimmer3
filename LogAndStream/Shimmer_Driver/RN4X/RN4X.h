@@ -261,11 +261,17 @@ typedef volatile struct RN4XSTATTypeDef_t
 {
   uint8_t starting;
   BT_SET_COMMAND_STAGES_t bt_setcommands_step;
+  uint8_t command_mode_active;
+  enum BT_FIRMWARE_VERSION btFwVer;
+
   uint8_t txOverflow : 1;
-  uint8_t txie_reg;
   uint64_t btRtsHighTime;
+  uint8_t txie_reg;
+
   rn4678OperationalMode rn4678OpMode;
   rn4678ConnectionType rn4678ConnectionState;
+  uint8_t rn4678ClassicBtSampleSetBufferSize;
+
 } RN4XSTATTypeDef;
 
 //set a callback function cb that runs when Bt is successfully started
@@ -455,5 +461,6 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
+void checkForBtRtsLock(void);
 
 #endif //RN4X_H
