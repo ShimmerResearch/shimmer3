@@ -2736,7 +2736,7 @@ void string2hexString(char *input, char *output)
 
 void checkForBtRtsLock(void)
 {
-  if (rn4xStatus.btRtsHighTime != 0 && ((rn4xStatus.btRtsHighTime - RTC_get64()) >= 32768))
+  if (rn4xStatus.btRtsHighTime != 0 && ((RTC_get64() - rn4xStatus.btRtsHighTime) >= 32768))
   {
     /* TODO */
     Board_ledOff(LED_ALL);
