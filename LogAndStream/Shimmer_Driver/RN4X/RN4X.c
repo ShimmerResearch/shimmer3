@@ -68,13 +68,13 @@
 #include "log_and_stream_includes.h"
 #include "version.h"
 
-uint8_t starting;
+RN4XSTATTypeDef rn4xStatus;
+
 void (*runSetCommands_cb)(void);
 void (*baudRateChange_cb)(void);
 uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 uint8_t btRebootRequired; //boolean for checking if new commands are added
-volatile RN4XSTATTypeDef_t rn4xStatus;
 uint8_t receiveBuffer[8];
 
 char expectedCommandResponse[62U], advertisingName[17], newAutoMaster[13],
@@ -89,7 +89,6 @@ rn4678TxPower_et rn4678TxPower;
 rn42TxPowerPreAug2012_et rn42TxPowerPreAug2012;
 rn42TxPowerPostAug2012_et rn42TxPowerPostAug2012;
 
-BT_SET_COMMAND_STAGES_t bt_setcommands_step;
 uint8_t command_received, bt_setcommands_start;
 uint8_t bt_runmastercommands_step, bt_runmastercommands_start;
 uint8_t bt_getmac_step, bt_getmac_start;
@@ -110,10 +109,6 @@ uint8_t doesBtConfigNeedUpdating, btStatusStringsAreEnabled;
 uint8_t (*dataAvailableFuncPtr)(uint8_t data) = 0;
 
 uint8_t slowRate;
-
-rn4678OperationalMode rn4678OpMode;
-
-rn4678ConnectionType rn4678ConnectionState;
 
 char *btRxFullResponse;
 
@@ -398,9 +393,9 @@ void runSetCommands(void)
   if (command_received)
   {
     command_received = 0;
-    if (bt_setcommands_step == WAIT_FOR_BOOT)
+    if (rn4xStatus.bt_setcommands_step == WAIT_FOR_BOOT)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       //if (isBtDeviceRn4678())
       //{
       //    BT_setWaitForInitialBoot(1);
@@ -416,9 +411,9 @@ void runSetCommands(void)
       msp430_clock_disable();
     }
 
-    if (bt_setcommands_step == CMD_MODE_START)
+    if (rn4xStatus.bt_setcommands_step == CMD_MODE_START)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
 
       //if (isBtDeviceRn4678())
       //{
@@ -433,9 +428,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_VERSION)
+    if (rn4xStatus.bt_setcommands_step == GET_VERSION)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (getVersion)
       {
         BT_setGetVersion(0);
@@ -446,17 +441,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == MODULE_QUIET_1)
+    if (rn4xStatus.bt_setcommands_step == MODULE_QUIET_1)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       cmdQuietModeEnter();
       return;
     }
 
     //reset factory defaults
-    if (bt_setcommands_step == RESET_FACTORY_DEFAULTS)
+    if (rn4xStatus.bt_setcommands_step == RESET_FACTORY_DEFAULTS)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (resetDefaultsRequest)
       {
         sprintf(commandbuf, "SF,1\r");
@@ -467,17 +462,17 @@ void runSetCommands(void)
     }
 
     //default is slave (== 0), otherwise set mode
-    if (bt_setcommands_step == GET_OPERATING_MODE)
+    if (rn4xStatus.bt_setcommands_step == GET_OPERATING_MODE)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GM\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_OPERATING_MODE)
+    if (rn4xStatus.bt_setcommands_step == SET_OPERATING_MODE)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("M", btRxFullResponse);
       if (doesBtConfigNeedUpdating)
       {
@@ -488,9 +483,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_MAC_ADDRESS)
+    if (rn4xStatus.bt_setcommands_step == GET_MAC_ADDRESS)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (getMacAddress)
       {
         BT_setGetMacAddress(0);
@@ -509,9 +504,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == SET_MASTER_MAC)
+    if (rn4xStatus.bt_setcommands_step == SET_MASTER_MAC)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       //NOTE: main.c doesn't seem to call this command
       if (radioMode == AUTO_CONNECT_MASTER_MODE)
       {
@@ -522,17 +517,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_AUTHENTICATION)
+    if (rn4xStatus.bt_setcommands_step == GET_AUTHENTICATION)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GA\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_AUTHENTICATION)
+    if (rn4xStatus.bt_setcommands_step == SET_AUTHENTICATION)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("A", btRxFullResponse);
       if (doesBtConfigNeedUpdating)
       {
@@ -543,9 +538,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == ENABLE_ENCRYPTION)
+    if (rn4xStatus.bt_setcommands_step == ENABLE_ENCRYPTION)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       //device default is off
       if (encrypt)
       {
@@ -561,17 +556,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_ADVERTISING_NAME)
+    if (rn4xStatus.bt_setcommands_step == GET_ADVERTISING_NAME)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GN\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_ADVERTISING_NAME)
+    if (rn4xStatus.bt_setcommands_step == SET_ADVERTISING_NAME)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("N", btRxFullResponse);
       if (doesBtConfigNeedUpdating)
       {
@@ -585,17 +580,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_PIN)
+    if (rn4xStatus.bt_setcommands_step == GET_PIN)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GP\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_PIN)
+    if (rn4xStatus.bt_setcommands_step == SET_PIN)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       //default is none
       if (doesBtConfigNeedUpdating)
       {
@@ -607,9 +602,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == SET_SVC_CLASS_REQUEST)
+    if (rn4xStatus.bt_setcommands_step == SET_SVC_CLASS_REQUEST)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (setSvcClassRequest)
       {
         sprintf(commandbuf, "SC,%s\r", newSvcClass);
@@ -619,9 +614,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == SET_DEV_CLASS_REQUEST)
+    if (rn4xStatus.bt_setcommands_step == SET_DEV_CLASS_REQUEST)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (setDevClassRequest)
       {
         sprintf(commandbuf, "SD,%s\r", newDevClass);
@@ -631,9 +626,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == SET_SVC_NAME_REQUEST)
+    if (rn4xStatus.bt_setcommands_step == SET_SVC_NAME_REQUEST)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (setSvcNameRequest)
       {
         sprintf(commandbuf, "SS,%s\r", newSvcName);
@@ -642,9 +637,9 @@ void runSetCommands(void)
         return;
       }
     }
-    if (bt_setcommands_step == RN42_GET_REMOTE_CONFIGURATION_TIMER)
+    if (rn4xStatus.bt_setcommands_step == RN42_GET_REMOTE_CONFIGURATION_TIMER)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (isBtDeviceRn41orRN42())
       {
         setDmaWaitForReturnNewLine();
@@ -653,9 +648,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == RN42_SET_REMOTE_CONFIGURATION_TIMER)
+    if (rn4xStatus.bt_setcommands_step == RN42_SET_REMOTE_CONFIGURATION_TIMER)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (isBtDeviceRn41orRN42())
       {
         parseRnGetResponse("T", btRxFullResponse);
@@ -674,17 +669,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_INQUIRY_SCAN_WINDOW)
+    if (rn4xStatus.bt_setcommands_step == GET_INQUIRY_SCAN_WINDOW)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GI\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_INQUIRY_SCAN_WINDOW)
+    if (rn4xStatus.bt_setcommands_step == SET_INQUIRY_SCAN_WINDOW)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("I", btRxFullResponse);
       if (doesBtConfigNeedUpdating)
       {
@@ -694,17 +689,17 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_PAGING_TIME)
+    if (rn4xStatus.bt_setcommands_step == GET_PAGING_TIME)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       writeCommandNoRsp("GJ\r");
       return;
     }
 
-    if (bt_setcommands_step == SET_PAGING_TIME)
+    if (rn4xStatus.bt_setcommands_step == SET_PAGING_TIME)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("J", btRxFullResponse);
       if (doesBtConfigNeedUpdating)
       {
@@ -715,9 +710,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == GET_BT_POWER_LEVEL)
+    if (rn4xStatus.bt_setcommands_step == GET_BT_POWER_LEVEL)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       setDmaWaitForReturnNewLine();
       /* GY seems to be working in RN42 v4.77 but broken in RN42 v6.15.
        * This could also be the case with other versions. Therefore we
@@ -733,7 +728,7 @@ void runSetCommands(void)
       return;
     }
 
-    if (bt_setcommands_step == SET_BT_POWER_LEVEL)
+    if (rn4xStatus.bt_setcommands_step == SET_BT_POWER_LEVEL)
     {
       /* For the RN42 v6.15, we need to parse through each line of the
        * "other settings" until we get to TX Power. Note, after factory
@@ -749,7 +744,7 @@ void runSetCommands(void)
         /* Role swith is the last line in the "Other Settings "*/
         else if (strstr(btRxFullResponse, RN42_OTHER_SETTINGS_ROLE_SWCH))
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
         }
         else
         {
@@ -759,7 +754,7 @@ void runSetCommands(void)
       }
       else
       {
-        bt_setcommands_step++;
+        rn4xStatus.bt_setcommands_step++;
         parseRnGetResponse("Y", btRxFullResponse);
       }
 
@@ -775,24 +770,24 @@ void runSetCommands(void)
     if (isBtDeviceRn41orRN42())
     {
       /* Skip to next stage */
-      if (bt_setcommands_step == SET_BT_POWER_LEVEL + 1)
+      if (rn4xStatus.bt_setcommands_step == SET_BT_POWER_LEVEL + 1)
       {
-        bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
+        rn4xStatus.bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
       }
     }
     else
     {
-      if (bt_setcommands_step == RN4678_GET_BT_MODE)
+      if (rn4xStatus.bt_setcommands_step == RN4678_GET_BT_MODE)
       {
-        bt_setcommands_step++;
+        rn4xStatus.bt_setcommands_step++;
         setDmaWaitForReturnNewLine();
         writeCommandNoRsp("GG\r");
         return;
       }
 
-      if (bt_setcommands_step == RN4678_SET_BT_MODE)
+      if (rn4xStatus.bt_setcommands_step == RN4678_SET_BT_MODE)
       {
-        bt_setcommands_step++;
+        rn4xStatus.bt_setcommands_step++;
         parseRnGetResponse("G", btRxFullResponse);
         if (doesBtConfigNeedUpdating)
         {
@@ -803,17 +798,17 @@ void runSetCommands(void)
         }
       }
 
-      if (bt_setcommands_step == RN4678_GET_FAST_MODE)
+      if (rn4xStatus.bt_setcommands_step == RN4678_GET_FAST_MODE)
       {
-        bt_setcommands_step++;
+        rn4xStatus.bt_setcommands_step++;
         setDmaWaitForReturnNewLine();
         writeCommandNoRsp("GQ\r");
         return;
       }
 
-      if (bt_setcommands_step == RN4678_SET_FAST_MODE)
+      if (rn4xStatus.bt_setcommands_step == RN4678_SET_FAST_MODE)
       {
-        bt_setcommands_step++;
+        rn4xStatus.bt_setcommands_step++;
         parseRnGetResponse("Q", btRxFullResponse);
         if (doesBtConfigNeedUpdating)
         {
@@ -828,27 +823,27 @@ void runSetCommands(void)
       if (!ShimBt_isBleCurrentlyEnabled() || shimmerStatus.btInSyncMode)
       {
         /* Skip to next stage */
-        if (bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_FAST_MODE + 1)
         {
-          bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
+          rn4xStatus.bt_setcommands_step = GET_STAT_STR_PREFIX_AND_SUFFIX;
         }
       }
       else
       {
         /* BLE commands for RN4678 functionality */
         /* https://ww1.microchip.com/downloads/en/DeviceDoc/RN4678-Bluetooth-Dual-Mode-Module-Command-Reference-User-Guide-DS50002506C.pdf */
-        if (bt_setcommands_step == RN4678_GET_MODEL_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_GET_MODEL_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
 
           setDmaWaitForReturnNewLine();
           writeCommandNoRsp("GDM\r");
           return;
         }
 
-        if (bt_setcommands_step == RN4678_SET_MODEL_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_MODEL_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           parseRnGetResponse("DM", btRxFullResponse);
           //Sets the model string in BLE Device Information Service.
           if (doesBtConfigNeedUpdating)
@@ -860,18 +855,18 @@ void runSetCommands(void)
           }
         }
 
-        if (bt_setcommands_step == RN4678_GET_MANUFACTURER_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_GET_MANUFACTURER_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
 
           setDmaWaitForReturnNewLine();
           writeCommandNoRsp("GDN\r");
           return;
         }
 
-        if (bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_MANUFACTURER_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           parseRnGetResponse("DN", btRxFullResponse);
           //Sets the manufacturer string in BLE Device Information service
           if (doesBtConfigNeedUpdating)
@@ -883,18 +878,18 @@ void runSetCommands(void)
           }
         }
 
-        if (bt_setcommands_step == RN4678_GET_SOFTWARE_REVISION_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_GET_SOFTWARE_REVISION_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
 
           setDmaWaitForReturnNewLine();
           writeCommandNoRsp("GDR\r");
           return;
         }
 
-        if (bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_SOFTWARE_REVISION_STRING)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           parseRnGetResponse("DR", btRxFullResponse);
           if (doesBtConfigNeedUpdating)
           {
@@ -906,17 +901,17 @@ void runSetCommands(void)
           }
         }
 
-        if (bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
+        if (rn4xStatus.bt_setcommands_step == RN4678_GET_CONNECTION_PARAMETERS)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           setDmaWaitForReturnNewLine();
           writeCommandNoRsp("GT\r");
           return;
         }
 
-        if (bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_CONNECTION_PARAMETERS)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           parseRnGetResponse("T", btRxFullResponse);
           if (doesBtConfigNeedUpdating)
           {
@@ -930,9 +925,9 @@ void runSetCommands(void)
     }
 
     /* Get current status string prefix and suffix */
-    if (bt_setcommands_step == GET_STAT_STR_PREFIX_AND_SUFFIX)
+    if (rn4xStatus.bt_setcommands_step == GET_STAT_STR_PREFIX_AND_SUFFIX)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
 #if BT_RN42_STAT_STR_ENABLED
       btStatusStringsAreEnabled = 1;
 #else
@@ -945,9 +940,9 @@ void runSetCommands(void)
     }
 
     /* Check if the status string suffix and prefix are correctly set */
-    if (bt_setcommands_step == UPDATE_STAT_STR_PREFIX_AND_SUFFIX)
+    if (rn4xStatus.bt_setcommands_step == UPDATE_STAT_STR_PREFIX_AND_SUFFIX)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       parseRnGetResponse("O", btRxFullResponse);
 
       if (doesBtConfigNeedUpdating)
@@ -996,9 +991,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == UPDATE_BAUD_RATE_1)
+    if (rn4xStatus.bt_setcommands_step == UPDATE_BAUD_RATE_1)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (updateBaudDuringBoot)
       {
         uint8_t defaultBaud = getDefaultBaudForBtVersion();
@@ -1015,9 +1010,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == UPDATE_BAUD_RATE_2)
+    if (rn4xStatus.bt_setcommands_step == UPDATE_BAUD_RATE_2)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (updateBaudDuringBoot && isBtDeviceRn4678())
       {
         /* BT module rebooted here so no need to do it again */
@@ -1028,9 +1023,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == UPDATE_BAUD_RATE_3)
+    if (rn4xStatus.bt_setcommands_step == UPDATE_BAUD_RATE_3)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (updateBaudDuringBoot)
       {
         BT_setUpdateBaudDuringBoot(0U);
@@ -1059,9 +1054,9 @@ void runSetCommands(void)
      * required if any set commands have been called up to this point in the
      * boot sequence). Therefore we must reenter command mode for the RN4X
      * here before calling a reboot. */
-    if (bt_setcommands_step == REENTER_CMD_MODE)
+    if (rn4xStatus.bt_setcommands_step == REENTER_CMD_MODE)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (!isRnCommandModeActive())
       {
         /* Experimentally found that a delay is needed after the baud
@@ -1075,9 +1070,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == REBOOT)
+    if (rn4xStatus.bt_setcommands_step == REBOOT)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (btRebootRequired)
       {
         sprintf(commandbuf, "R,1\r");
@@ -1104,9 +1099,9 @@ void runSetCommands(void)
     if (!ShimBt_isBleCurrentlyEnabled() || shimmerStatus.btInSyncMode)
     {
       /* Skip to next stage */
-      if (bt_setcommands_step == REBOOT + 1)
+      if (rn4xStatus.bt_setcommands_step == REBOOT + 1)
       {
-        bt_setcommands_step = MODULE_WAKEUP;
+        rn4xStatus.bt_setcommands_step = MODULE_WAKEUP;
       }
     }
     else
@@ -1114,9 +1109,9 @@ void runSetCommands(void)
       /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
       if (btFwVer == RN4678_V1_23_0)
       {
-        if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
+        if (rn4xStatus.bt_setcommands_step == RN4678_REENTER_CMD_MODE)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           if (!isRnCommandModeActive())
           {
             btCmdModeStart();
@@ -1124,16 +1119,16 @@ void runSetCommands(void)
           }
         }
 
-        if (bt_setcommands_step == MODULE_QUIET_2)
+        if (rn4xStatus.bt_setcommands_step == MODULE_QUIET_2)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           cmdQuietModeEnter();
           return;
         }
 
-        if (bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
+        if (rn4xStatus.bt_setcommands_step == RN4678_SET_BLE_LOCAL_ADV_NAME)
         {
-          bt_setcommands_step++;
+          rn4xStatus.bt_setcommands_step++;
           /* Append MAC ID to end of BLE advertising name */
 
           /* Note: We were using sprintf with "%02x" to make this a
@@ -1163,9 +1158,9 @@ void runSetCommands(void)
         }
 
         /* TODO We haven't been able to get this working yet, RN4678 always shows as "Generic Computer" */
-        //if (bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
+        //if (rn4xStatus.bt_setcommands_step == RN4678_SET_BLE_APPEARANCE)
         //{
-        //    bt_setcommands_step++;
+        //    rn4xStatus.bt_setcommands_step++;
         //    sprintf(commandbuf, "IA,19,4005\r"); //0x0540 Generic Sensor
         //    writeCommandBufAndExpectAok();
         //    return;
@@ -1173,16 +1168,16 @@ void runSetCommands(void)
       }
       else
       {
-        if (bt_setcommands_step == REBOOT + 1)
+        if (rn4xStatus.bt_setcommands_step == REBOOT + 1)
         {
-          bt_setcommands_step = MODULE_WAKEUP;
+          rn4xStatus.bt_setcommands_step = MODULE_WAKEUP;
         }
       }
     }
 
-    if (bt_setcommands_step == MODULE_WAKEUP)
+    if (rn4xStatus.bt_setcommands_step == MODULE_WAKEUP)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       if (isRnCommandModeActive())
       {
         cmdQuietModeExit();
@@ -1190,9 +1185,9 @@ void runSetCommands(void)
       }
     }
 
-    if (bt_setcommands_step == CMD_MODE_STOP)
+    if (rn4xStatus.bt_setcommands_step == CMD_MODE_STOP)
     {
-      bt_setcommands_step++;
+      rn4xStatus.bt_setcommands_step++;
       //exit command mode
       if (isRnCommandModeActive())
       {
@@ -1202,9 +1197,9 @@ void runSetCommands(void)
     }
 
     //arriving here = all done perfectly
-    if (bt_setcommands_step == FINISH)
+    if (rn4xStatus.bt_setcommands_step == FINISH)
     {
-      bt_setcommands_step = WAIT_FOR_BOOT;
+      rn4xStatus.bt_setcommands_step = WAIT_FOR_BOOT;
       bt_setcommands_start = 0;
       setRnCommandModeActive(0);
 
@@ -1514,7 +1509,8 @@ uint8_t areBtSetupCommandsRunning(void)
 
 uint8_t isBtModuleOverflowPinHigh(void)
 {
-  return (P1IN & BIT3);
+//  return (P1IN & BIT3);
+  return rn4xStatus.txOverflow;
 }
 
 HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len)
@@ -1538,7 +1534,7 @@ void BT_init(void)
   bt_getmac_step = 0;
   bt_getmac_start = 0;
   bt_setcommands_start = 0;
-  bt_setcommands_step = WAIT_FOR_BOOT;
+  rn4xStatus.bt_setcommands_step = WAIT_FOR_BOOT;
   bt_runmastercommands_step = 0;
   bt_runmastercommands_start = 0;
   BT_setWaitForInitialBoot(0);
@@ -1625,7 +1621,7 @@ void BT_init(void)
 
 void btInit(void)
 {
-  starting = 1;
+  rn4xStatus.starting = 1;
 
   //Turn on power (SW_BT P4.3 on SR30 and newer)
   setBtModulePower(1);
@@ -1648,7 +1644,7 @@ void start1(void)
 
 void start2(void)
 {
-  if (starting)
+  if (rn4xStatus.starting)
   {
     initRN2();
     msp430_register_timer_cb(start3, 5, 0); //5 ms
@@ -1657,14 +1653,14 @@ void start2(void)
 
 void start3(void)
 {
-  if (starting)
+  if (rn4xStatus.starting)
   {
     initRN3();
     setupUART(ShimBt_getBtBaudRateToUse());
 
     msp430_register_timer_cb(runSetCommands, 15, 0); //15 ms
 
-    starting = 0;
+    rn4xStatus.starting = 0;
   }
 }
 
@@ -1673,7 +1669,7 @@ void BT_disable(void)
   disableRN();
   //Turn off power (SW_BT P4.3 on SR30 and newer)
   setBtModulePower(0);
-  starting = 0;
+  rn4xStatus.starting = 0;
   DMA2AndCtsDisable();
 
   /* When RN42 is turned off it reverts to 115200 baud on next boot */
@@ -2071,7 +2067,7 @@ void BT_rst_MessageProgress(void)
 
   command_received = 0;
   bt_setbaudrate_step = 0;
-  bt_setcommands_step = WAIT_FOR_BOOT;
+  rn4xStatus.bt_setcommands_step = WAIT_FOR_BOOT;
   bt_setcommands_start = 0;
   bt_runmastercommands_step = 0;
   bt_runmastercommands_start = 0;
@@ -2236,16 +2232,16 @@ void setBtModulePower(uint8_t isEnabled)
   {
     P4OUT |= BIT3;
 
-    if (rn4678OpMode != RN4678_OP_MODE_NOT_USED)
+    if (rn4xStatus.rn4678OpMode != RN4678_OP_MODE_NOT_USED)
     {
-      setRn4678OperationalModePins(rn4678OpMode);
+      setRn4678OperationalModePins(rn4xStatus.rn4678OpMode);
     }
   }
   else
   {
     P4OUT &= ~BIT3;
 
-    if (rn4678OpMode != RN4678_OP_MODE_NOT_USED)
+    if (rn4xStatus.rn4678OpMode != RN4678_OP_MODE_NOT_USED)
     {
       setRn4678OperationalModePins(RN4678_OP_MODE_DISABLE);
     }
@@ -2364,7 +2360,7 @@ void clearExpectedResponseBuf(void)
 
 void setRn4678OperationalMode(rn4678OperationalMode mode)
 {
-  rn4678OpMode = mode;
+  rn4xStatus.rn4678OpMode = mode;
 }
 
 void setRn4678OperationalModePins(rn4678OperationalMode mode)
@@ -2398,17 +2394,17 @@ void setRn4678OperationalModePins(rn4678OperationalMode mode)
 
 uint8_t isRn4678ConnectionEstablished(void)
 {
-  return (rn4678ConnectionState != RN4678_DISCONNECTED);
+  return (rn4xStatus.rn4678ConnectionState != RN4678_DISCONNECTED);
 }
 
 uint8_t isRn4678ConnectionBle(void)
 {
-  return (rn4678ConnectionState == RN4678_CONNECTED_BLE);
+  return (rn4xStatus.rn4678ConnectionState == RN4678_CONNECTED_BLE);
 }
 
 void setRn4678ConnectionState(rn4678ConnectionType state)
 {
-  rn4678ConnectionState = state;
+  rn4xStatus.rn4678ConnectionState = state;
 
   /* Write function needs to be updated depending on whether BLE is connected
    * or not in order to optimise how many bytes are transferred per BLE

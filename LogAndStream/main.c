@@ -811,32 +811,31 @@ void SampleTimerStop(void)
 }
 
 #pragma vector = TIMER0_B0_VECTOR
-
 __interrupt void TIMER0_B0_ISR(void)
 {
   uint16_t timer_b0 = GetTB0();
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-  if (shimmerStatus.sensing && !shimmerStatus.configuring)
+  if(ShimSens_sampleTimerTriggered())
   {
-    if (sensing.isSampling == SAMPLING_COMPLETE)
-    {
-      ShimSens_saveData();
-    }
+    __bic_SR_register_on_exit(LPM3_bits);
+  }
+}
 
-    //start ADC conversion
-    if (sensing.nbrMcuAdcChans)
-    {
-      ShimSens_saveTimestampToPacket();
-      DMA0_enable();
-      ADC_startConversion();
-    }
-    else
-    {
-      //no analog channels, so go straight to digital
-      ShimSens_gatherData();
-      __bic_SR_register_on_exit(LPM3_bits);
-    }
+uint8_t platform_gatherData(void)
+{
+  //start ADC conversion
+  if (sensing.nbrMcuAdcChans)
+  {
+    DMA0_enable();
+    ADC_startConversion();
+    return 0; /* Don't wake MCU */
+  }
+  else
+  {
+    //no analog channels, so go straight to digital
+    ShimSens_gatherData();
+    return 1; /* Wake MCU */
   }
 }
 
