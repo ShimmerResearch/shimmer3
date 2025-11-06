@@ -257,6 +257,13 @@ typedef enum
   RN4678_CONNECTED_BLE
 } rn4678ConnectionType;
 
+typedef volatile struct RN4XSTATTypeDef_t
+{
+    uint8_t txOverflow          : 1;
+    uint8_t txie_reg;
+    uint64_t btRtsHighTime;
+} RN4XSTATTypeDef;
+
 //set a callback function cb that runs when Bt is successfully started
 void BT_startDone_cb(void (*cb)(void));
 

@@ -74,8 +74,7 @@ void (*baudRateChange_cb)(void);
 uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 uint8_t btRebootRequired; //boolean for checking if new commands are added
-volatile uint8_t txOverflow;
-uint8_t txie_reg;
+volatile RN4XSTATTypeDef_t rn4xStatus;
 uint8_t receiveBuffer[8];
 
 char expectedCommandResponse[62U], advertisingName[17], newAutoMaster[13],
@@ -1530,11 +1529,10 @@ HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len)
 
 void BT_init(void)
 {
-  txOverflow = 0;
+  memset((uint8_t *) &rn4xStatus, 0, sizeof(RN4XSTATTypeDef));
 
   setRn4678ConnectionState(RN4678_DISCONNECTED);
 
-  txie_reg = 0;
   command_received = 0;
   bt_setbaudrate_step = 0;
   bt_getmac_step = 0;
@@ -2040,27 +2038,29 @@ void BT_receiveFunction(uint8_t (*receiveFuncPtr)(uint8_t data))
 
 void BT_rtsInterrupt(uint8_t value)
 {
-  txOverflow = value;
+  rn4xStatus.txOverflow = value;
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
-  if (!txOverflow)
+  if (!rn4xStatus.txOverflow)
   {
     rn4678RtsLockDetected = 0U;
   }
 #endif
 
-  if (txOverflow)
+  if (rn4xStatus.txOverflow)
   { //in disabling sending
-    txie_reg = UCA1IE & UCTXIE;
+    rn4xStatus.txie_reg = UCA1IE & UCTXIE;
     UCA1IE &= ~UCTXIE;
     ShimBt_btTxInProgressSet(0); //false
+    rn4xStatus.btRtsHighTime = RTC_get64();
   }
   else
   { //in resuming sending
-    if (txie_reg)
+    if (rn4xStatus.txie_reg)
     {
       UCA1IE |= UCTXIE;
     }
     ShimBt_sendNextCharIfNotInProgress();
+    rn4xStatus.btRtsHighTime = 0;
   }
 }
 
