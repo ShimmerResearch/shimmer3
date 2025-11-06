@@ -95,6 +95,7 @@ uint8_t bt_getmac_step, bt_getmac_start;
 uint8_t bt_setbaudrate_step, useSpecificAdvertisingName;
 uint8_t charsReceived;
 btOperatingMode radioMode;
+rn4678OperationalMode rn4678OpMode;
 
 uint8_t discoverable, authenticate, encrypt, resetDefaultsRequest, setSvcClassRequest,
     setDevClassRequest, setSvcNameRequest, getMacAddress, getVersion;
@@ -2229,16 +2230,16 @@ void setBtModulePower(uint8_t isEnabled)
   {
     P4OUT |= BIT3;
 
-    if (rn4xStatus.rn4678OpMode != RN4678_OP_MODE_NOT_USED)
+    if (rn4678OpMode != RN4678_OP_MODE_NOT_USED)
     {
-      setRn4678OperationalModePins(rn4xStatus.rn4678OpMode);
+      setRn4678OperationalModePins(rn4678OpMode);
     }
   }
   else
   {
     P4OUT &= ~BIT3;
 
-    if (rn4xStatus.rn4678OpMode != RN4678_OP_MODE_NOT_USED)
+    if (rn4678OpMode != RN4678_OP_MODE_NOT_USED)
     {
       setRn4678OperationalModePins(RN4678_OP_MODE_DISABLE);
     }
@@ -2359,7 +2360,7 @@ void clearExpectedResponseBuf(void)
 
 void setRn4678OperationalMode(rn4678OperationalMode mode)
 {
-  rn4xStatus.rn4678OpMode = mode;
+  rn4678OpMode = mode;
 }
 
 void setRn4678OperationalModePins(rn4678OperationalMode mode)

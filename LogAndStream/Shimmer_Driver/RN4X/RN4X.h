@@ -268,7 +268,6 @@ typedef volatile struct RN4XSTATTypeDef_t
   uint64_t btRtsHighTime;
   uint8_t txie_reg;
 
-  rn4678OperationalMode rn4678OpMode;
   rn4678ConnectionType rn4678ConnectionState;
   uint8_t rn4678ClassicBtSampleSetBufferSize;
 
