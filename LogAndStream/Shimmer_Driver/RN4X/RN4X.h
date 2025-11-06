@@ -259,9 +259,9 @@ typedef enum
 
 typedef volatile struct RN4XSTATTypeDef_t
 {
-    uint8_t txOverflow          : 1;
-    uint8_t txie_reg;
-    uint64_t btRtsHighTime;
+  uint8_t txOverflow : 1;
+  uint8_t txie_reg;
+  uint64_t btRtsHighTime;
 } RN4XSTATTypeDef;
 
 //set a callback function cb that runs when Bt is successfully started

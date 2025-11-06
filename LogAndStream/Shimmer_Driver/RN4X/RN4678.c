@@ -345,12 +345,12 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
         if (btStatusStr[7U] == '%')
         {
           /* TODO */
-            Board_ledOff(LED_ALL);
-            while(1)
-            {
-                __delay_cycles(200*24000); // 200ms
-                Board_ledToggle(LED_LWR_YELLOW);
-            }
+          Board_ledOff(LED_ALL);
+          while (1)
+          {
+            __delay_cycles(200 * 24000); //200ms
+            Board_ledToggle(LED_LWR_YELLOW);
+          }
         }
         else
         {
