@@ -1072,7 +1072,8 @@ void runSetCommands(void)
       {
         sprintf(commandbuf, "R,1\r");
         /* Reboot is needed after set commands for RN42 */
-        if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77 || !areBtStatusStringsEnabled())
+        if (rn4xStatus.btFwVer == RN41_V4_77 || rn4xStatus.btFwVer == RN42_V4_77
+            || !areBtStatusStringsEnabled())
         {
           writeCommand(commandbuf, "Reboot!\r\n");
         }
@@ -1691,7 +1692,8 @@ uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 uint8_t BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
   /* If it's the RN4678 and 1Mbps isn't supported, only allow a fixed number of sensor data packets to be in the TX buffer */
-  return BT_write_rn4678_with_buf(buf, len, responseType, rn4xStatus.rn4678ClassicBtSampleSetBufferSize);
+  return BT_write_rn4678_with_buf(
+      buf, len, responseType, rn4xStatus.rn4678ClassicBtSampleSetBufferSize);
 }
 
 uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType)
@@ -2261,13 +2263,15 @@ uint8_t isBtDeviceRn41(void)
 
 uint8_t isBtDeviceRn42(void)
 {
-  return (rn4xStatus.btFwVer == RN42_V4_77 || rn4xStatus.btFwVer == RN42_V6_15 || rn4xStatus.btFwVer == RN42_V6_30);
+  return (rn4xStatus.btFwVer == RN42_V4_77 || rn4xStatus.btFwVer == RN42_V6_15
+      || rn4xStatus.btFwVer == RN42_V6_30);
 }
 
 uint8_t isBtDeviceRn4678(void)
 {
-  return (rn4xStatus.btFwVer == RN4678_V1_00_5 || rn4xStatus.btFwVer == RN4678_V1_11_0 || rn4xStatus.btFwVer == RN4678_V1_13_5
-      || rn4xStatus.btFwVer == RN4678_V1_22_0 || rn4xStatus.btFwVer == RN4678_V1_23_0);
+  return (rn4xStatus.btFwVer == RN4678_V1_00_5 || rn4xStatus.btFwVer == RN4678_V1_11_0
+      || rn4xStatus.btFwVer == RN4678_V1_13_5 || rn4xStatus.btFwVer == RN4678_V1_22_0
+      || rn4xStatus.btFwVer == RN4678_V1_23_0);
 }
 
 uint8_t doesBtDeviceSupport1Mbps(void)
@@ -2732,8 +2736,7 @@ void string2hexString(char *input, char *output)
 
 void checkForBtRtsLock(void)
 {
-  if (rn4xStatus.btRtsHighTime != 0
-      && ((rn4xStatus.btRtsHighTime - RTC_get64()) >= 32768))
+  if (rn4xStatus.btRtsHighTime != 0 && ((rn4xStatus.btRtsHighTime - RTC_get64()) >= 32768))
   {
     /* TODO */
     Board_ledOff(LED_ALL);
