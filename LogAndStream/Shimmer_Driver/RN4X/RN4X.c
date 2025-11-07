@@ -2740,12 +2740,7 @@ void checkForBtRtsLock(void)
   if (rn4xStatus.btRtsHighTime != 0 && ((RTC_get64() - rn4xStatus.btRtsHighTime) >= 32768))
   {
     /* TODO */
-    Board_ledOff(LED_ALL);
-    while (1)
-    {
-      __delay_cycles(200 * 24000L); //200ms
-      Board_ledToggle(LED_LWR_RED);
-    }
+    ShimTask_NORM_set(TASK_BT_ERROR_RTS_LOCK);
   }
 }
 

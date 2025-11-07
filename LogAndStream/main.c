@@ -648,6 +648,11 @@ __interrupt void TIMER0_B1_ISR(void)
 
       LogAndStream_blinkTimerCommon();
 
+      if (ShimBt_checkForBtDataRateTestBlockage())
+      {
+          __bic_SR_register_on_exit(LPM3_bits);
+      }
+
       if (!shimmerStatus.booting && checkIfBattReadNeeded())
       {
         __bic_SR_register_on_exit(LPM3_bits);
