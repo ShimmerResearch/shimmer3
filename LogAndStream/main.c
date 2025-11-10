@@ -647,8 +647,11 @@ __interrupt void TIMER0_B1_ISR(void)
       //clk_1000 = 100.0 ms = 0.1s
       TB0CCR3 += clk_1000;
 
+      //TODO temporarily flashing error LED sequence to highlight RN4678 issue
       if (getLatestBtError() != BT_ERROR_NONE)
       {
+        ShimLeds_incrementCounters();
+
         if (ShimLeds_isBlinkTimerCnt200ms())
         {
           Board_ledOn(LED_LWR_RED);
