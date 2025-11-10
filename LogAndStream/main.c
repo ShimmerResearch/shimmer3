@@ -676,7 +676,13 @@ __interrupt void TIMER0_B1_ISR(void)
 
       if (ShimBt_checkForBtDataRateTestBlockage())
       {
-        saveBtError(BT_ERROR_BLOCKAGE);
+        saveBtError(BT_ERROR_DATA_RATE_TEST_BLOCKAGE);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
+
+      if (checkForBtRtsLock())
+      {
+        saveBtError(BT_ERROR_RTS_LOCK);
         __bic_SR_register_on_exit(LPM3_bits);
       }
 
@@ -848,8 +854,6 @@ __interrupt void TIMER0_B0_ISR(void)
 {
   uint16_t timer_b0 = GetTB0();
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
-
-  checkForBtRtsLock();
 
   if (ShimSens_sampleTimerTriggered())
   {

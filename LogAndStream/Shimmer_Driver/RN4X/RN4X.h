@@ -157,7 +157,7 @@ typedef enum
   BT_ERROR_NONE = 0,
   BT_ERROR_RTS_LOCK,
   BT_ERROR_UNSOLICITED_REBOOT,
-  BT_ERROR_BLOCKAGE,
+  BT_ERROR_DATA_RATE_TEST_BLOCKAGE,
   BT_ERROR_DISCONNECT_WHILE_STREAMING,
   BT_ERROR_COUNT
 } btError_t;
@@ -470,7 +470,7 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
-void checkForBtRtsLock(void);
+uint8_t checkForBtRtsLock(void);
 void saveBtError(btError_t btError);
 btError_t getLatestBtError(void);
 

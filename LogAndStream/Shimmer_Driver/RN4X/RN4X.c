@@ -120,6 +120,7 @@ volatile uint8_t rn4678RtsLockDetected;
 char *daughtCardIdStrPtrForBle;
 
 volatile btError_t latestBtError;
+volatile uint8_t btRtsLockCounter;
 
 const char *const hex = "0123456789ABCDEF";
 
@@ -1567,6 +1568,7 @@ void BT_init(void)
 #endif
 
   latestBtError = BT_ERROR_NONE;
+  btRtsLockCounter = 0;
 
 #if ADVERTISING_NAME_IS_OUTPUT
   BT_setAdvertisingName(ADVERTISING_NAME_OUTPUT);
@@ -2049,7 +2051,6 @@ void BT_rtsInterrupt(uint8_t value)
     rn4xStatus.txie_reg = UCA1IE & UCTXIE;
     UCA1IE &= ~UCTXIE;
     ShimBt_btTxInProgressSet(0); //false
-    rn4xStatus.btRtsHighTime = RTC_get64();
   }
   else
   { //in resuming sending
@@ -2058,7 +2059,6 @@ void BT_rtsInterrupt(uint8_t value)
       UCA1IE |= UCTXIE;
     }
     ShimBt_sendNextCharIfNotInProgress();
-    rn4xStatus.btRtsHighTime = 0;
   }
 }
 
@@ -2739,12 +2739,23 @@ void string2hexString(char *input, char *output)
   output[i++] = '\0';
 }
 
-void checkForBtRtsLock(void)
+uint8_t checkForBtRtsLock(void)
 {
-  if (rn4xStatus.btRtsHighTime != 0 && ((RTC_get64() - rn4xStatus.btRtsHighTime) >= 32768))
+  if (shimmerStatus.btConnected && rn4xStatus.txOverflow)
   {
-    saveBtError(BT_ERROR_RTS_LOCK);
+    btRtsLockCounter++;
+
+    /* Each count is 100ms. Checking for a blockage longer than 2s */
+    if (btRtsLockCounter > 20)
+    {
+      return 1;
+    }
   }
+  else
+  {
+    btRtsLockCounter = 0;
+  }
+  return 0;
 }
 
 void saveBtError(btError_t btError)
@@ -2760,7 +2771,7 @@ void saveBtError(btError_t btError)
     case BT_ERROR_UNSOLICITED_REBOOT:
       eepromBtSetting->btCntUnsolicitedReboot++;
       break;
-    case BT_ERROR_BLOCKAGE:
+    case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
       eepromBtSetting->btCntDataRateTestBlockage++;
       break;
     case BT_ERROR_DISCONNECT_WHILE_STREAMING:
