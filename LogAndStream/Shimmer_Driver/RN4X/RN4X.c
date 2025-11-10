@@ -2761,7 +2761,7 @@ void saveBtError(btError_t btError)
       eepromBtSetting->btCntUnsolicitedReboot++;
       break;
     case BT_ERROR_BLOCKAGE:
-      eepromBtSetting->btCntBlockage++;
+      eepromBtSetting->btCntDataRateTestBlockage++;
       break;
     case BT_ERROR_DISCONNECT_WHILE_STREAMING:
       eepromBtSetting->btCntDisconnectWhileStreaming++;

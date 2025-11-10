@@ -203,14 +203,14 @@ void bt_module_test(void)
   //return stat.isBtPoweredOn;
 
   gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
-  ShimFactoryTest_sendReport(" - Counts: ");
-  sprintf(buffer, "\tTX blockages = %d", eepromBtSetting->btCntBlockage);
+  ShimFactoryTest_sendReport(" - Counts:\r\n");
+  sprintf(buffer, "   - BT data-rate test blockages = %d\r\n", eepromBtSetting->btCntDataRateTestBlockage);
   ShimFactoryTest_sendReport(buffer);
-  sprintf(buffer, "\tDisconnects = %d", eepromBtSetting->btCntDisconnectWhileStreaming);
+  sprintf(buffer, "   - BT disconnects while streaming = %d\r\n", eepromBtSetting->btCntDisconnectWhileStreaming);
   ShimFactoryTest_sendReport(buffer);
-  sprintf(buffer, "\tRTS Lockups = %d", eepromBtSetting->btCntRtsLockup);
+  sprintf(buffer, "   - BT RTS Lockups = %d\r\n", eepromBtSetting->btCntRtsLockup);
   ShimFactoryTest_sendReport(buffer);
-  sprintf(buffer, "\tUnsolicited Reboots = %d", eepromBtSetting->btCntUnsolicitedReboot);
+  sprintf(buffer, "   - BT unsolicited reboots = %d\r\n", eepromBtSetting->btCntUnsolicitedReboot);
   ShimFactoryTest_sendReport(buffer);
 }
 
