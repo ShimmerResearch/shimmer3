@@ -201,6 +201,17 @@ void bt_module_test(void)
   //    ShimFactoryTest_sendReport(" - FAIL\r\n");
   //}
   //return stat.isBtPoweredOn;
+
+  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+  ShimFactoryTest_sendReport(" - Counts: ");
+  sprintf(buffer, "\tTX blockages = %d", eepromBtSetting->btCntBlockage);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "\tDisconnects = %d", eepromBtSetting->btCntDisconnectWhileStreaming);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "\tRTS Lockups = %d", eepromBtSetting->btCntRtsLockup);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "\tUnsolicited Reboots = %d", eepromBtSetting->btCntUnsolicitedReboot);
+  ShimFactoryTest_sendReport(buffer);
 }
 
 void I2C_test(void)

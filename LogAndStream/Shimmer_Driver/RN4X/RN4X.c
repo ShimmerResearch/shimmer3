@@ -119,6 +119,8 @@ volatile uint8_t rn4678RtsLockDetected;
 
 char *daughtCardIdStrPtrForBle;
 
+volatile btError_t latestBtError;
+
 const char *const hex = "0123456789ABCDEF";
 
 const char *const rn4678TxPower_str[]
@@ -1564,6 +1566,8 @@ void BT_init(void)
   rn4678RtsLockDetected = 0U;
 #endif
 
+  latestBtError = BT_ERROR_NONE;
+
 #if ADVERTISING_NAME_IS_OUTPUT
   BT_setAdvertisingName(ADVERTISING_NAME_OUTPUT);
 #else
@@ -2739,9 +2743,43 @@ void checkForBtRtsLock(void)
 {
   if (rn4xStatus.btRtsHighTime != 0 && ((RTC_get64() - rn4xStatus.btRtsHighTime) >= 32768))
   {
-    /* TODO */
-    ShimTask_NORM_set(TASK_BT_ERROR_RTS_LOCK);
+    saveBtError(BT_ERROR_RTS_LOCK);
   }
+}
+
+void saveBtError(btError_t btError)
+{
+  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+
+  latestBtError = btError;
+  switch (btError)
+  {
+    case BT_ERROR_RTS_LOCK:
+      eepromBtSetting->btCntRtsLockup++;
+      break;
+    case BT_ERROR_UNSOLICITED_REBOOT:
+      eepromBtSetting->btCntUnsolicitedReboot++;
+      break;
+    case BT_ERROR_BLOCKAGE:
+      eepromBtSetting->btCntBlockage++;
+      break;
+    case BT_ERROR_DISCONNECT_WHILE_STREAMING:
+      eepromBtSetting->btCntDisconnectWhileStreaming++;
+      break;
+    default:
+      break;
+  }
+  ShimTask_NORM_set(TASK_UPDATE_DEBUG_COUNT);
+}
+
+btError_t getLatestBtError(void)
+{
+  return latestBtError;
+}
+
+void resetLatestBtError(void)
+{
+  latestBtError = BT_ERROR_NONE;
 }
 
 #pragma vector = USCI_A1_VECTOR

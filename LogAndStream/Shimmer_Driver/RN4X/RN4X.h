@@ -152,6 +152,16 @@ typedef enum BT_SET_COMMAND_STAGES
   FINISH
 } BT_SET_COMMAND_STAGES_t;
 
+typedef enum
+{
+  BT_ERROR_NONE = 0,
+  BT_ERROR_RTS_LOCK,
+  BT_ERROR_UNSOLICITED_REBOOT,
+  BT_ERROR_BLOCKAGE,
+  BT_ERROR_DISCONNECT_WHILE_STREAMING,
+  BT_ERROR_COUNT
+} btError_t;
+
 //powerup state is reset == low (true); mike conrad of roving networks sez:
 //wait about 1s to 2s after reset toggle
 #define BT_DELAY_REBOOT_TICKS 48000000UL //2s @24MHz
@@ -461,5 +471,7 @@ void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
 void checkForBtRtsLock(void);
+void saveBtError(btError_t btError);
+btError_t getLatestBtError(void);
 
 #endif //RN4X_H

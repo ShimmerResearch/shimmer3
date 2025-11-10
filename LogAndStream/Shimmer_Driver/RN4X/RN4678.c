@@ -344,8 +344,7 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
         /* "%REBOOT%" -> RN4678 */
         if (btStatusStr[7U] == '%')
         {
-          /* TODO */
-          ShimTask_NORM_set(TASK_BT_ERROR_REBOOT);
+          saveBtError(BT_ERROR_UNSOLICITED_REBOOT);
         }
         else
         {
