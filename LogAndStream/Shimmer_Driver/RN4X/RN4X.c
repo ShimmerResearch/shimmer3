@@ -1509,8 +1509,11 @@ uint8_t areBtSetupCommandsRunning(void)
 
 uint8_t isBtModuleOverflowPinHigh(void)
 {
-  //return (P1IN & BIT3);
-  return rn4xStatus.txOverflow;
+  /* rn4xStatus.txOverflow state bit is not updated in time for when this check
+   * is needed (i.e. checking within the TX callback while rn4xStatus.txOverflow
+   * is only updated from a I/O interrupt) so we need to directly check the pin
+   * state here. */
+  return (P1IN & BIT3);
 }
 
 HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len)
