@@ -84,18 +84,18 @@ void print_mcu_details(void)
 {
   ShimFactoryTest_sendReport("MCU:\r\n");
 
-  char * uid = HAL_GetUID();
-//  sprintf(buffer, " - Unique ID = 0x%08" PRIX32 "%08" PRIX32 "%08" PRIX32
-//      "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "\r\n",
-//      (uid + 0) & 0xFF,
-//      (uid + 1) & 0xFF,
-//      (uid + 2) & 0xFF,
-//      (uid + 3) & 0xFF,
-//      (uid + 4) & 0xFF,
-//      (uid + 5) & 0xFF,
-//      (uid + 6) & 0xFF,
-//      (uid + 7) & 0xFF);
-//  ShimFactoryTest_sendReport(buffer);
+  char *uid = HAL_GetUID();
+  //sprintf(buffer, " - Unique ID = 0x%08" PRIX32 "%08" PRIX32 "%08" PRIX32
+  //    "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "\r\n",
+  //    (uid + 0) & 0xFF,
+  //    (uid + 1) & 0xFF,
+  //    (uid + 2) & 0xFF,
+  //    (uid + 3) & 0xFF,
+  //    (uid + 4) & 0xFF,
+  //    (uid + 5) & 0xFF,
+  //    (uid + 6) & 0xFF,
+  //    (uid + 7) & 0xFF);
+  //ShimFactoryTest_sendReport(buffer);
 
   ShimFactoryTest_sendReport(" - Last reset reason = ");
   print_last_reset_reason();
@@ -114,60 +114,61 @@ void print_last_reset_reason(void)
 {
   switch (SYSRSTIV)
   {
-  case SYSRSTIV_NONE:
-    ShimFactoryTest_sendReport("No Interrupt pending");
-    break;
-  case SYSRSTIV_BOR:
-    ShimFactoryTest_sendReport("Brownout (BOR) (highest priority)");
-    break;
-  case SYSRSTIV_RSTNMI:
-    ShimFactoryTest_sendReport("RST/NMI (BOR)");
-    break;
-  case SYSRSTIV_DOBOR:
-    ShimFactoryTest_sendReport("PMMSWBOR (BOR)");
-    break;
-  case SYSRSTIV_LPM5WU:
-    ShimFactoryTest_sendReport("Wakeup from LPMx.5 (BOR)");
-    break;
-  case SYSRSTIV_SECYV:
-    ShimFactoryTest_sendReport("Security violation (BOR)");
-    break;
-  case SYSRSTIV_SVSL:
-    ShimFactoryTest_sendReport("SVSL (POR)");
-    break;
-  case SYSRSTIV_SVSH:
-    ShimFactoryTest_sendReport("SVSH (POR)");
-    break;
-  case SYSRSTIV_SVML_OVP:
-    ShimFactoryTest_sendReport("SVML_OVP (POR)");
-    break;
-  case SYSRSTIV_SVMH_OVP:
-    ShimFactoryTest_sendReport("SVMH_OVP (POR)");
-    break;
-  case SYSRSTIV_DOPOR:
-    ShimFactoryTest_sendReport("PMMSWPOR (POR)");
-    break;
-  case SYSRSTIV_WDTTO:
-    ShimFactoryTest_sendReport("WDT time out (PUC)");
-    break;
-  case SYSRSTIV_WDTKEY:
-    ShimFactoryTest_sendReport("WDT password violation (PUC)");
-    break;
-  case SYSRSTIV_KEYV:
-    ShimFactoryTest_sendReport("Flash password violation (PUC)");
-    break;
-  case SYSRSTIV_PLLUL:
-    ShimFactoryTest_sendReport("PLL unlock");
-    break;
-  case SYSRSTIV_PERF:
-    ShimFactoryTest_sendReport("PERF peripheral/configuration area fetch (PUC)");
-    break;
-  case SYSRSTIV_PMMKEY:
-    ShimFactoryTest_sendReport("PMM password violation (PUC)");
-    break;
-  default:
-    ShimFactoryTest_sendReport("Unknown");
-    break;
+    case SYSRSTIV_NONE:
+      ShimFactoryTest_sendReport("No Interrupt pending");
+      break;
+    case SYSRSTIV_BOR:
+      ShimFactoryTest_sendReport("Brownout (BOR) (highest priority)");
+      break;
+    case SYSRSTIV_RSTNMI:
+      ShimFactoryTest_sendReport("RST/NMI (BOR)");
+      break;
+    case SYSRSTIV_DOBOR:
+      ShimFactoryTest_sendReport("PMMSWBOR (BOR)");
+      break;
+    case SYSRSTIV_LPM5WU:
+      ShimFactoryTest_sendReport("Wakeup from LPMx.5 (BOR)");
+      break;
+    case SYSRSTIV_SECYV:
+      ShimFactoryTest_sendReport("Security violation (BOR)");
+      break;
+    case SYSRSTIV_SVSL:
+      ShimFactoryTest_sendReport("SVSL (POR)");
+      break;
+    case SYSRSTIV_SVSH:
+      ShimFactoryTest_sendReport("SVSH (POR)");
+      break;
+    case SYSRSTIV_SVML_OVP:
+      ShimFactoryTest_sendReport("SVML_OVP (POR)");
+      break;
+    case SYSRSTIV_SVMH_OVP:
+      ShimFactoryTest_sendReport("SVMH_OVP (POR)");
+      break;
+    case SYSRSTIV_DOPOR:
+      ShimFactoryTest_sendReport("PMMSWPOR (POR)");
+      break;
+    case SYSRSTIV_WDTTO:
+      ShimFactoryTest_sendReport("WDT time out (PUC)");
+      break;
+    case SYSRSTIV_WDTKEY:
+      ShimFactoryTest_sendReport("WDT password violation (PUC)");
+      break;
+    case SYSRSTIV_KEYV:
+      ShimFactoryTest_sendReport("Flash password violation (PUC)");
+      break;
+    case SYSRSTIV_PLLUL:
+      ShimFactoryTest_sendReport("PLL unlock");
+      break;
+    case SYSRSTIV_PERF:
+      ShimFactoryTest_sendReport(
+          "PERF peripheral/configuration area fetch (PUC)");
+      break;
+    case SYSRSTIV_PMMKEY:
+      ShimFactoryTest_sendReport("PMM password violation (PUC)");
+      break;
+    default:
+      ShimFactoryTest_sendReport("Unknown");
+      break;
   }
 }
 
