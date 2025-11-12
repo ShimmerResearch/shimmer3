@@ -4354,6 +4354,8 @@ void SendResponse(void)
     #endif
             memcpy(resPacket + packet_length, &bmpX80Calib[0], bmpCalibByteLen);
             packet_length += bmpCalibByteLen;
+
+            bmpx80CalibrationCoefficientsResponse = 0;
         }
         else if (mpu9150SamplingRateResponse)
         {
