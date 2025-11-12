@@ -72,5 +72,7 @@ uint8_t Board_isBtnPressed(void);
 uint8_t Board_isSdInserted(void);
 uint8_t Board_isDocked(void);
 void Board_dockDetectN(uint8_t state);
+void Board_saveLastResetReason(void);
+uint16_t Board_getLastResetReason(void);
 
 #endif /* HAL_BOARD_H */

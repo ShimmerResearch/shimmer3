@@ -381,7 +381,8 @@ void InitialiseBt(void)
     }
   }
 
-  if (ShimEeprom_isPresent() && ShimEeprom_areRadioDetailsIncorrect())
+  if (ShimEeprom_isPresent()
+      && (ShimEeprom_areRadioDetailsIncorrect() || ShimEeprom_checkBtErrorCounts()))
   {
     ShimEeprom_updateRadioDetails();
     ShimEeprom_writeRadioDetails();
@@ -646,7 +647,44 @@ __interrupt void TIMER0_B1_ISR(void)
       //clk_1000 = 100.0 ms = 0.1s
       TB0CCR3 += clk_1000;
 
-      LogAndStream_blinkTimerCommon();
+      //TODO temporarily flashing error LED sequence to highlight RN4678 issue
+      if (getLatestBtError() != BT_ERROR_NONE)
+      {
+        ShimLeds_incrementCounters();
+
+        if (ShimLeds_isBlinkTimerCnt200ms())
+        {
+          Board_ledOn(LED_LWR_RED);
+          Board_ledOn(LED_LWR_GREEN);
+          Board_ledOn(LED_LWR_YELLOW);
+          Board_ledOff(LED_UPR_BLUE);
+          Board_ledOff(LED_UPR_GREEN);
+        }
+        else
+        {
+          Board_ledOff(LED_LWR_RED);
+          Board_ledOff(LED_LWR_GREEN);
+          Board_ledOff(LED_LWR_YELLOW);
+          Board_ledOn(LED_UPR_BLUE);
+          Board_ledOn(LED_UPR_GREEN);
+        }
+      }
+      else
+      {
+        LogAndStream_blinkTimerCommon();
+      }
+
+      if (ShimBt_checkForBtDataRateTestBlockage())
+      {
+        saveBtError(BT_ERROR_DATA_RATE_TEST_BLOCKAGE);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
+
+      if (checkForBtRtsLock())
+      {
+        saveBtError(BT_ERROR_RTS_LOCK);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
 
       if (!shimmerStatus.booting && checkIfBattReadNeeded())
       {
@@ -817,26 +855,26 @@ __interrupt void TIMER0_B0_ISR(void)
   uint16_t timer_b0 = GetTB0();
   TB0CCR0 = timer_b0 + ShimConfig_getStoredConfig()->samplingRateTicks;
 
-  if (shimmerStatus.sensing && !shimmerStatus.configuring)
+  if (ShimSens_sampleTimerTriggered())
   {
-    if (sensing.isSampling == SAMPLING_COMPLETE)
-    {
-      ShimSens_saveData();
-    }
+    __bic_SR_register_on_exit(LPM3_bits);
+  }
+}
 
-    //start ADC conversion
-    if (sensing.nbrMcuAdcChans)
-    {
-      ShimSens_saveTimestampToPacket();
-      DMA0_enable();
-      ADC_startConversion();
-    }
-    else
-    {
-      //no analog channels, so go straight to digital
-      ShimSens_gatherData();
-      __bic_SR_register_on_exit(LPM3_bits);
-    }
+uint8_t platform_gatherData(void)
+{
+  //start ADC conversion
+  if (sensing.nbrMcuAdcChans)
+  {
+    DMA0_enable();
+    ADC_startConversion();
+    return 0; /* Don't wake MCU */
+  }
+  else
+  {
+    //no analog channels, so go straight to digital
+    ShimSens_gatherData();
+    return 1; /* Wake MCU */
   }
 }
 
