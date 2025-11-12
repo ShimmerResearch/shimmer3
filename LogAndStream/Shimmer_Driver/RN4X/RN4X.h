@@ -473,5 +473,6 @@ void string2hexString(char *input, char *output);
 uint8_t checkForBtRtsLock(void);
 void saveBtError(btError_t btError);
 btError_t getLatestBtError(void);
+void resetLatestBtError(void);
 
 #endif //RN4X_H

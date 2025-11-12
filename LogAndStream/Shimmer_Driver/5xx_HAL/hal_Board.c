@@ -36,6 +36,9 @@
  ******************************************************************************/
 
 #include "hal_Board.h"
+
+#include <stdint.h>
+
 #include "msp430.h"
 
 #include "Boards/shimmer_boards.h"
@@ -53,6 +56,8 @@
 #define XT2_PORT_SEL P5SEL
 #define XT1_ENABLE   (BIT0 + BIT1)
 #define XT2_ENABLE   (BIT2 + BIT3)
+
+uint16_t lastResetReason;
 
 /******************************************************************************
  * @brief  Initialize the board - configure ports
@@ -197,6 +202,8 @@ void Board_init(void)
   //SW_I2C
   Board_setI2cPower(0);
   P8DIR |= BIT4; //set as output
+
+  Board_saveLastResetReason();
 }
 
 /******************************************************************************
@@ -509,4 +516,14 @@ void Board_dockDetectN(uint8_t state)
   {
     P6OUT &= ~BIT0; //DETECT_N set low
   }
+}
+
+void Board_saveLastResetReason(void)
+{
+  lastResetReason = SYSRSTIV;
+}
+
+uint16_t Board_getLastResetReason(void)
+{
+  return lastResetReason;
 }

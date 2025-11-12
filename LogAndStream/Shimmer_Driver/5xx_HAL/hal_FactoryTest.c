@@ -112,7 +112,7 @@ void print_mcu_details(void)
 
 void print_last_reset_reason(void)
 {
-  switch (SYSRSTIV)
+  switch (Board_getLastResetReason())
   {
     case SYSRSTIV_NONE:
       ShimFactoryTest_sendReport("No Interrupt pending");
