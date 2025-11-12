@@ -103,6 +103,13 @@ void uartSendNextChar() {
       uart_messageInProgress = 0; //false
 }
 
+void DockUart_writeBlocking(uint8_t *buf, uint8_t len)
+{
+    UART_write(buf, len);
+  while (uart_messageInProgress)
+    ;
+}
+
 void UART_write(uint8_t *buf, uint8_t len) {
    if(uart_messageInProgress)
       return;   //fail

@@ -51,14 +51,14 @@
 #define DEVICE_VER            3      //Represents SR30. 0-3 for shimmer1 to shimmer3
 #if FW_IS_LOGANDSTREAM
 #define FW_IDENTIFIER         3      //Two byte firmware identifier number:  3 for BTSD, 2 for SDLog, 1 for BTStream,
-#define FW_VER_MAJOR          0      //Major version number: 0-65535
-#define FW_VER_MINOR          16     //Minor version number: 0-255
+#define FW_VER_MAJOR          1      //Major version number: 0-65535
+#define FW_VER_MINOR          0     //Minor version number: 0-255
 #else
 #define FW_IDENTIFIER         2     //Two byte firmware identifier number: always 2 for SDLog
 #define FW_VER_MAJOR          0     //Major version number: 0-65535
 #define FW_VER_MINOR          22    //Minor version number: 0-255
 #endif
-#define FW_VER_REL            0     //internal version number: 0-255
+#define FW_VER_REL            15     //internal version number: 0-255
 
 typedef uint8_t bool;
 #define TRUE    (1)
@@ -603,7 +603,10 @@ typedef enum
    TASK_SDLOG_CFG_UPDATE    = (0x00000001UL << 12U),
 //   TASK_STOPSENSING         = (0x00000001UL << 13U),
    TASK_STARTSENSING        = (0x00000001UL << 14U),
-   TASK_WR2SD               = (0x00000001UL << 15U)
+   TASK_WR2SD               = (0x00000001UL << 15U),
+   TASK_FACTORY_TEST               = (0x00000001UL << 16U),
+   TASK_UPDATE_DEBUG_COUNT               = (0x00000001UL << 17U)
+
 } TASK_FLAGS;
 #define TASK_SIZE    32
 

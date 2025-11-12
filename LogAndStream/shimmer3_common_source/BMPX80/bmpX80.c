@@ -201,3 +201,20 @@ uint8_t isBmp280InUse(void)
 {
     return bmpInUse == BMP280_IN_USE;
 }
+
+uint8_t get_bmp_calib_data_bytes_len(void)
+{
+  if (isBmp180InUse())
+  {
+    return BMP180_CALIB_DATA_SIZE;
+  }
+  else if (isBmp280InUse())
+  {
+    return BMP280_CALIB_DATA_SIZE;
+  }
+  else
+  {
+    return 0;
+  }
+}
+

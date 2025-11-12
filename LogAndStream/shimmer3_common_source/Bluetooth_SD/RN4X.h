@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "../EEPROM/shimmer_eeprom.h"
+
 /* Utilsed while harmonising LogAndStream and SDLog code bases. This separates the code that is implemented in one FW and not the other. */
 #define FW_IS_LOGANDSTREAM 1
 /* Enables BLE if FW is LogAndStream and the RN4678 is detected */
@@ -72,14 +74,6 @@ enum BT_FIRMWARE_VERSION
     RN4678_V1_22_0,
     RN4678_V1_23_0,
     RN41_V4_77,
-};
-
-enum BT_HARDWARE_VERSION
-{
-    RN42 = 0U,
-    RN4678 = 1U,
-    RN41 = 2U,
-    BT_HW_VER_UNKNOWN = 0xFF,
 };
 
 /* Order here needs to be maintained as it's saved to the EEPROM */
@@ -186,11 +180,21 @@ enum BT_SET_COMMAND_STAGES
     FINISH
 };
 
+typedef enum
+{
+  BT_ERROR_NONE = 0,
+  BT_ERROR_RTS_LOCK,
+  BT_ERROR_UNSOLICITED_REBOOT,
+  BT_ERROR_DATA_RATE_TEST_BLOCKAGE,
+  BT_ERROR_DISCONNECT_WHILE_STREAMING,
+  BT_ERROR_COUNT
+} btError_t;
+
 // powerup state is reset == low (true); mike conrad of roving networks sez:
 // wait about 1s to 2s after reset toggle
 #define BT_DELAY_REBOOT_TICKS           48000000UL // 2s @24MHz
 
-#define RNX_TYPE_EEPROM_ADDRESS         (EEPROM_MAX_SIZE_IN_BYTES - PAGE_SIZE)
+#define RNX_TYPE_EEPROM_ADDRESS         (EEPROM_MAX_SIZE_IN_BYTES - CAT24C16_PAGE_SIZE)
 #define RNX_RADIO_TYPE_IDX              (0U)
 #define RN4678_BAUD_RATE_IDX            (1U)
 
@@ -479,9 +483,10 @@ uint8_t isBtDeviceRn4678(void);
 uint8_t doesBtDeviceSupport1Mbps(void);
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew);
 enum BT_FIRMWARE_VERSION getBtFwVersion(void);
-enum BT_HARDWARE_VERSION getBtHwVersion(void);
+enum RADIO_HARDWARE_VERSION getBtHwVersion(void);
 void updateBtWriteFunctionPtr(void);
 uint8_t getCurrentBtBaudRate(void);
+uint32_t ShimBt_getBtBaudRateToUse(void);
 void setBtRxFullResponsePtr(char *ptr);
 uint8_t getBtClearTxBufFlag(void);
 void setBtClearTxBufFlag(uint8_t val);
@@ -528,5 +533,10 @@ void pushByteToBtRxBufIfNotFull(uint8_t c);
 void clearBtRxBuf(void);
 uint8_t isBtStarting(void);
 #endif
+
+uint8_t checkForBtRtsLock(void);
+void saveBtError(btError_t btError);
+btError_t getLatestBtError(void);
+void resetLatestBtError(void);
 
 #endif //RN4X_H

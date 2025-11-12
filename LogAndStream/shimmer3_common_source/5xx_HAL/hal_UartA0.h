@@ -67,6 +67,7 @@
 
 //extern void UART_reg2Uca0();
 
+void DockUart_writeBlocking(uint8_t *buf, uint8_t len);
 extern void UART_write(uint8_t *buf, uint8_t len);
 
 //initializes the uart_num_registered_cmds value

@@ -47,6 +47,12 @@
 #define LED_BLUE	0x10
 #define LED_ALL		0xFF
 
+#define LED_LWR_RED                   LED_RED
+#define LED_LWR_GREEN                 LED_GREEN0
+#define LED_LWR_YELLOW                LED_GREEN1
+#define LED_UPR_GREEN                 LED_YELLOW
+#define LED_UPR_BLUE                  LED_BLUE
+
 extern void Board_init(void);
 extern void Board_ledOn(uint8_t ledMask);
 extern void Board_ledOff(uint8_t ledMask);

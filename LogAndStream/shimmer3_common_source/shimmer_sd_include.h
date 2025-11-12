@@ -16,10 +16,12 @@
 #include "5xx_HAL/hal_pmm.h"
 #include "5xx_HAL/hal_SDCard.h"
 #include "5xx_HAL/hal_UCS.h"
+#include "5xx_HAL/hal_FactoryTest.h"
 #include "Bluetooth_SD/RN4X.h"
 //#include "Bluetooth/RN42.h"
 #include "BMPX80/bmpX80.h"
 #include "CAT24C16/cat24c16.h"
+#include "EEPROM/shimmer_eeprom.h"
 #include "EXG/exg.h"
 #include "EXG/ads1292.h"
 #include "FatFs/ff.h"
@@ -32,6 +34,7 @@
 #include "shimmer_calibration/shimmer_calibration.h"
 #include "Bluetooth_SD/shimmer_bt_comms.h"
 #include "Bluetooth_SD/sd_sync.h"
-#include "shimmer_boards/shimmer_boards.h"
+#include "Boards/shimmer_boards.h"
+#include "Test/shimmer_test.h"
 
 #endif

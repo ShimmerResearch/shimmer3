@@ -23,7 +23,7 @@
 #include "../LSM303AHTR/lsm303ahtr.h"
 #include "../BMPX80/bmpX80.h"
 #include "../Bluetooth_SD/RN4X.h"
-#include "../shimmer_boards/shimmer_boards.h"
+#include "../Boards/shimmer_boards.h"
 
 uint8_t shimmerCalib_ram[SHIMMER_CALIB_RAM_MAX], shimmerCalib_macId[5],
         shimmerCalib_ramTemp[SHIMMER_CALIB_RAM_MAX];
@@ -346,7 +346,7 @@ void ShimmerCalib_default(uint8_t sensor)
         for (sc1.range = 0; sc1.range < SC_SENSOR_RANGE_MAX_ANALOG_ACCEL;
                 sc1.range++)
         {
-            if (isLnAccelKxtc9_2050Present())
+            if (ShimBrd_isLnAccelKxtc9_2050Present())
             {
                 bias = 2253;
                 sensitivity = 92;
@@ -432,19 +432,19 @@ void ShimmerCalib_default(uint8_t sensor)
             bias = 0;
             if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_2G)
             {
-                sensitivity = isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
+                sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
             }
             else if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_4G)
             {
-                sensitivity = isWrAccelInUseLsm303dlhc() ? 815 : 836;
+                sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 815 : 836;
             }
             else if (sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_8G)
             {
-                sensitivity = isWrAccelInUseLsm303dlhc() ? 408 : 418;
+                sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 408 : 418;
             }
             else
             { //(sc1.range == SC_SENSOR_RANGE_LSM303DLHC_ACCEL_16G)
-                sensitivity = isWrAccelInUseLsm303dlhc() ? 135 : 209;
+                sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 135 : 209;
             }
             bias = (((bias & 0x00ff) << 8) | ((bias & 0xff00) >> 8));
             sensitivity = (((sensitivity & 0x00ff) << 8)
@@ -455,11 +455,11 @@ void ShimmerCalib_default(uint8_t sensor)
             sc1.data.dd.sens_x = sensitivity;
             sc1.data.dd.sens_y = sensitivity;
             sc1.data.dd.sens_z = sensitivity;
-            sc1.data.dd.align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
-            sc1.data.dd.align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
+            sc1.data.dd.align_xx = ShimBrd_isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+            sc1.data.dd.align_xy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : -100;
             sc1.data.dd.align_xz = 0;
-            sc1.data.dd.align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
-            sc1.data.dd.align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
+            sc1.data.dd.align_yx = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : 100;
+            sc1.data.dd.align_yy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 100 : 0;
             sc1.data.dd.align_yz = 0;
             sc1.data.dd.align_zx = 0;
             sc1.data.dd.align_zy = 0;
@@ -472,7 +472,7 @@ void ShimmerCalib_default(uint8_t sensor)
         sc1.id = sensor;
         sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
         sc1.range = 0;
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             for (sc1.range = 0; sc1.range < SC_SENSOR_RANGE_MAX_LSM303DLHC_MAG;
                     sc1.range++)
@@ -548,11 +548,11 @@ void ShimmerCalib_default(uint8_t sensor)
         sc1.data.dd.bias_x = bias;
         sc1.data.dd.bias_y = bias;
         sc1.data.dd.bias_z = bias;
-        sc1.data.dd.align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
-        sc1.data.dd.align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
+        sc1.data.dd.align_xx = ShimBrd_isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        sc1.data.dd.align_xy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : -100;
         sc1.data.dd.align_xz = 0;
-        sc1.data.dd.align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
-        sc1.data.dd.align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
+        sc1.data.dd.align_yx = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        sc1.data.dd.align_yy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 100 : 0;
         sc1.data.dd.align_yz = 0;
         sc1.data.dd.align_zx = 0;
         sc1.data.dd.align_zy = 0;

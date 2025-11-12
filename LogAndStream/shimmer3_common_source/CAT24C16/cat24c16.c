@@ -84,7 +84,7 @@ void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
 
         __delay_cycles(120000); //5ms
         //bounds check
-        margin = PAGE_SIZE - (mem_ptr % PAGE_SIZE);
+        margin = CAT24C16_PAGE_SIZE - (mem_ptr % CAT24C16_PAGE_SIZE);
         this_write = min(margin, address + length - mem_ptr);
 
         //set byte address
@@ -102,4 +102,3 @@ void CAT24C16_write(uint16_t address, uint16_t length, uint8_t *data)
             inc_addr = 1;
     }
 }
-

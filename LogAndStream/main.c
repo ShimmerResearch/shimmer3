@@ -175,7 +175,6 @@ void ReadWriteSDTest(void);
 void SamplingClkAssignment(uint8_t *storedConfigPtr);
 uint16_t getBmpX80SamplingTimeInTicks(void);
 uint16_t getBmpX80SamplingTimeDiffFrom9msInTicks(void);
-void updateBtDetailsInEeprom(void);
 void eepromRead(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf);
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
@@ -222,7 +221,8 @@ uint8_t currentBuffer, sendAck, inquiryResponse,
         btCommsBaudRateResponse, derivedChannelResponse, infomemResponse,
         rwcResponse, stopLogging, stopStreaming, isStreaming, isLogging,
         btVbattResponse, skip65ms, calibRamResponse, btVerResponse,
-        useAckPrefixForInstreamResponses;
+        useAckPrefixForInstreamResponses,
+        bmpx80CalibrationCoefficientsResponse;
 volatile uint8_t gAction;
 uint8_t args[MAX_COMMAND_ARG_SIZE];
 uint8_t resPacket[RESPONSE_PACKET_SIZE + 2]; //+2 for crc checksum bytes;
@@ -235,7 +235,7 @@ FIL dataFile;
 /* make dir for SDLog files*/
 uint8_t dirName[64], expDirName[32], sdHeadText[SDHEAD_LEN],
         bmpX80Calib[BMP280_CALIB_DATA_SIZE], expIdName[MAX_CHARS],
-        shimmerName[MAX_CHARS], daughtCardId[PAGE_SIZE], firstTsFlag,
+        shimmerName[MAX_CHARS], daughtCardId[CAT24C16_PAGE_SIZE], firstTsFlag,
         fileName[64],
         configTimeText[UINT32_LEN], //,exp_id_name[MAX_CHARS], shimmername[MAX_CHARS], centername[MAX_CHARS],
         txBuff0[DATA_PACKET_SIZE + 2], txBuff1[DATA_PACKET_SIZE + 2],
@@ -336,7 +336,7 @@ bool isIcm20948GyroEn = FALSE;
 #define SKIP65MS            1
 
 // bluetooth variables
-uint8_t rnx_radio_eeprom[PAGE_SIZE];
+uint8_t rnx_radio_eeprom[CAT24C16_PAGE_SIZE];
 
 #if !BT_DMA_USED_FOR_RX
 bool areNewBytesInBtRxBuf = FALSE;
@@ -598,6 +598,20 @@ void main(void)
             Write2SD();
         }
 
+        if (taskList & TASK_FACTORY_TEST)
+        {
+            TaskClear(TASK_FACTORY_TEST);
+            ShimFactoryTest_run();
+        }
+        if (taskList & TASK_UPDATE_DEBUG_COUNT)
+        {
+            TaskClear(TASK_UPDATE_DEBUG_COUNT);
+            if (ShimEeprom_isPresent())
+            {
+              ShimEeprom_writeRadioDetails();
+            }
+        }
+
     }
 }
 
@@ -621,7 +635,13 @@ void Init(void)
     // Needs to be here before LED functions are called:
     battCritical = FALSE;
 
+    ShimEeprom_init();
+    ShimBrd_init();
+
     Board_init();
+
+    ShimBrd_setHwId(DEVICE_VER);
+
 #if FACTORY_TEST
     Board_ledOn(LED_YELLOW);
     __delay_cycles(480000);
@@ -734,10 +754,10 @@ void Init(void)
     mpu9150GyroRangeResponse = 0;
     bmp180CalibrationCoefficientsResponse = 0;
     bmp280CalibrationCoefficientsResponse = 0;
+    bmpx80CalibrationCoefficientsResponse = 0;
     setBmpInUse(BMP180_IN_USE);
-    setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
-    setGyroInUse(GYRO_NONE_IN_USE);
-    setEepromIsPresent(0);
+    ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+    ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
     mpu9150SamplingRateResponse = 0;
     mpu9150AccelRangeResponse = 0;
     bmpX80OversamplingRatioResponse = 0;
@@ -847,14 +867,15 @@ void Init(void)
     detectI2cSlaves();
     loadBmpCalibration();
 
-    memset(daughtCardId, 0, PAGE_SIZE);
-    eepromRead(DAUGHT_CARD_ID, PAGE_SIZE, daughtCardId);
+    if (ShimEeprom_isPresent())
+    {
+      ShimEeprom_readAll();
+    }
 
     ProcessHwRevision();
-    Board_init_for_revision(isAds1292Present(daughtCardId[DAUGHT_CARD_ID]),
-                            isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
-                                                             daughtCardId[DAUGHT_CARD_REV],
-                                                             daughtCardId[DAUGHT_CARD_SPECIAL_REV]));
+    ShimBrd_parseDaughterCardId();
+    Board_init_for_revision(ShimBrd_isAds1292Present(),
+                            ShimBrd_isRn4678PresentAndCmdModeSupport());
 
     BlinkTimerStop();
 
@@ -945,30 +966,30 @@ void detectI2cSlaves(void)
 
     if(i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303AHTR_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303AHTR_IN_USE);
     }
     else if(i2cSlavePresent(LSM303DHLC_ACCEL_ADDR))
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303DLHC_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_LSM303DLHC_IN_USE);
     }
     else
     {
-        setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
+        ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_NONE_IN_USE);
     }
 
-    setEepromIsPresent(i2cSlavePresent(CAT24C16_ADDR));
+    ShimEeprom_setIsPresent(i2cSlavePresent(CAT24C16_ADDR));
 
     if (i2cSlavePresent(ICM20948_ADDR))
     {
-        setGyroInUse(GYRO_ICM20948_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_ICM20948_IN_USE);
     }
     else if (i2cSlavePresent(MPU9150_ADDR))
     {
-        setGyroInUse(GYRO_MPU9X50_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_MPU9X50_IN_USE);
     }
     else
     {
-        setGyroInUse(GYRO_NONE_IN_USE);
+        ShimBrd_setGyroInUse(GYRO_NONE_IN_USE);
     }
 }
 
@@ -1045,32 +1066,28 @@ void loadBmpCalibration(void)
 
 void ProcessHwRevision(void)
 {
-    uint8_t srId = daughtCardId[DAUGHT_CARD_ID];
-    uint8_t srRevMajor = daughtCardId[DAUGHT_CARD_REV];
-    uint8_t srRevMinor = daughtCardId[DAUGHT_CARD_SPECIAL_REV];
+    shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
 
-    parseDaughterCardId(srId);
-
-    if (isEepromIsPresent())
+    if (ShimEeprom_isPresent())
     {
         // Some board batches don't have the LSM303AHTR placed, in these
         // cases, the ICM-20948's channels are used instead
-        if (isSubstitutionNeededForWrAccel(srId, srRevMajor, srRevMinor))
+        if (ShimBrd_isSubstitutionNeededForWrAccel())
         {
-            setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
+            ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
         }
         else
         {
             // If the hardware is any board other then the above, overwrite the
             // special rev with 171 (used as a failsafe) to let Consensys know
             // what sensors are on-board
-            if (are2ndGenSensorsPresentAndUnknownBoard(srId))
+            if (ShimBrd_are2ndGenSensorsPresentAndUnknownBoard())
             {
-                daughtCardId[DAUGHT_CARD_SPECIAL_REV] = 171;
+                expBrd->exp_brd_minor = 171;
             }
         }
 
-        if(areGsrControlsPinsReversed(srId, srRevMajor, srRevMinor))
+        if(ShimBrd_areGsrControlsPinsReversed())
         {
             setGsrRangePinsAreReversed(1);
         }
@@ -1079,11 +1096,11 @@ void ProcessHwRevision(void)
     {
         // The EEPROM is not present on the SR31-6-0 so the firmware needs mock
         // the version number so that Consensys knows which sensors are on-board
-        if (are2ndGenImuSensorsPresent())
+        if (ShimBrd_are2ndGenImuSensorsPresent())
         {
-            daughtCardId[DAUGHT_CARD_ID] = SHIMMER3_IMU;
-            daughtCardId[DAUGHT_CARD_REV] = 6;
-            daughtCardId[DAUGHT_CARD_SPECIAL_REV] = 0;
+            expBrd->exp_brd_id = SHIMMER3_IMU;
+            expBrd->exp_brd_major = 6;
+            expBrd->exp_brd_minor = 0;
         }
     }
 }
@@ -1093,9 +1110,7 @@ void InitialiseBt(void)
     // This is the start of all BT initialisation
     /* The RN4678 operational mode need to be set before BT_init() is called so
      * that the pins are set correctly prior to communication with the module */
-    if (isRn4678PresentAndCmdModeSupport(daughtCardId[DAUGHT_CARD_ID],
-                                   daughtCardId[DAUGHT_CARD_REV],
-                                   daughtCardId[DAUGHT_CARD_SPECIAL_REV]))
+    if (ShimBrd_isRn4678PresentAndCmdModeSupport())
     {
         setRn4678OperationalMode(RN4678_OP_MODE_APPLICATION);
     }
@@ -1138,19 +1153,11 @@ void InitialiseBt(void)
     }
 #endif
 
-    /* Read previous baud rate from the EEPROM if it is present */
     uint8_t initialBaudRate = BAUD_115200;
-    memset(rnx_radio_eeprom, 0xFF, sizeof(rnx_radio_eeprom) / sizeof(rnx_radio_eeprom[0]));
-    if (isEepromIsPresent())
+    /* Read previous baud rate from the EEPROM if it is present */
+    if (ShimEeprom_isPresent() && ShimEeprom_getRadioDetails()->baudRate <= BAUD_1000000)
     {
-        // Read Bluetooth configuration parameters from EEPROM
-        /* Variable to help initialise BT radio RN42/4678 type information to EEPROM */
-        eepromRead(RNX_TYPE_EEPROM_ADDRESS, PAGE_SIZE, rnx_radio_eeprom);
-
-        if (rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] <= BAUD_1000000)
-        {
-            initialBaudRate = rnx_radio_eeprom[RN4678_BAUD_RATE_IDX];
-        }
+      initialBaudRate = ShimEeprom_getRadioDetails()->baudRate;
     }
 
 #if BT_DMA_USED_FOR_RX
@@ -1236,13 +1243,11 @@ void InitialiseBt(void)
         }
     }
 
-    if (isEepromIsPresent()
-            && (rnx_radio_eeprom[RNX_RADIO_TYPE_IDX] != getBtHwVersion()
-            || rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] == 0xFF
-            || (isBtDeviceRn4678() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != getCurrentBtBaudRate())
-            || (isBtDeviceRn41orRN42() && rnx_radio_eeprom[RN4678_BAUD_RATE_IDX] != BAUD_115200)))
+    if (ShimEeprom_isPresent()
+        && (ShimEeprom_areRadioDetailsIncorrect() || ShimEeprom_checkBtErrorCounts()))
     {
-        updateBtDetailsInEeprom();
+        ShimEeprom_updateRadioDetails();
+        ShimEeprom_writeRadioDetails();
     }
 
 #if !FW_IS_LOGANDSTREAM
@@ -1341,18 +1346,18 @@ void StartStreaming(void)
         if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                 || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
                 || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-                || (isWrAccelInUseIcm20948()
+                || (ShimBrd_isWrAccelInUseIcm20948()
                         && ((storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
                         || (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG))))
         {
-            if (isGyroInUseIcm20948())
+            if (ShimBrd_isGyroInUseIcm20948())
             {
                 ICM20948_init();
                 ICM20948_wake(1);
                 volatile uint8_t icm_id = ICM20948_getId();    // should be 0xEA
                 volatile uint8_t mag_id = ICM20948_getMagId(); // should be 0x09
             }
-            else if (isGyroInUseMpu9x50())
+            else if (ShimBrd_isGyroInUseMpu9x50())
             {
                 MPU9150_init();
                 MPU9150_wake(1);
@@ -1361,10 +1366,10 @@ void StartStreaming(void)
             i2cEn = 1;
             if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                     || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-                    || (isWrAccelInUseIcm20948()
+                    || (ShimBrd_isWrAccelInUseIcm20948()
                             && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
             {
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICMsampleRateDiv = ICM20948_convertSampleRateDivFromMPU9X50(
                             storedConfig[NV_CONFIG_SETUP_BYTE1],
@@ -1372,31 +1377,31 @@ void StartStreaming(void)
 
                     ICM20948_setGyroSamplingRate(ICMsampleRateDiv);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     MPU9150_setSamplingRate(
                             storedConfig[NV_CONFIG_SETUP_BYTE1]);
                 }
                 if (storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
                 {
-                    if (isGyroInUseIcm20948())
+                    if (ShimBrd_isGyroInUseIcm20948())
                     {
                         ICM20948_setGyroSensitivity(
                                 storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03);
                     }
-                    else if (isGyroInUseMpu9x50())
+                    else if (ShimBrd_isGyroInUseMpu9x50())
                     {
                         MPU9150_setGyroSensitivity(
                                 storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x03); //This needs to go after the wake?
                     }
                 }
                 if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-                        || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
+                        || (ShimBrd_isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
                 {
                     uint8_t wrAccelRange = (storedConfig[NV_CONFIG_SETUP_BYTE3] & 0xC0) >> 6;
-                    if (isGyroInUseIcm20948())
+                    if (ShimBrd_isGyroInUseIcm20948())
                     {
-                        if (isWrAccelInUseIcm20948())
+                        if (ShimBrd_isWrAccelInUseIcm20948())
                         {
                             // Use setting design for WR accel - re-map to suit the ICM-20948
                             wrAccelRange = (storedConfig[NV_CONFIG_SETUP_BYTE0] & 0x0C) >> 2;
@@ -1417,7 +1422,7 @@ void StartStreaming(void)
                         }
                         ICM20948_setAccelRange(wrAccelRange);
                     }
-                    else if (isGyroInUseMpu9x50())
+                    else if (ShimBrd_isGyroInUseMpu9x50())
                     {
                         MPU9150_setAccelRange(wrAccelRange);
                     }
@@ -1430,24 +1435,24 @@ void StartStreaming(void)
                 //No idea why
                 //timing delays or other I2C commands to gyro/accel core do not seem to have the same effect?!?
                 //Only relevant first time mag is accessed after powering up MPU9150
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICM20948_wake(0);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     MPU9150_wake(0);
                 }
             }
             if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-                || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
+                || (ShimBrd_isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
             {
                 uint16_t samplingRateTicks = *(uint16_t*) (storedConfig + NV_SAMPLING_RATE);
-                if (isGyroInUseIcm20948())
+                if (ShimBrd_isGyroInUseIcm20948())
                 {
                     ICM20948_setMagSamplingRateFromShimmerRate(samplingRateTicks);
                 }
-                else if (isGyroInUseMpu9x50())
+                else if (ShimBrd_isGyroInUseMpu9x50())
                 {
                     if (samplingRateTicks >= clk_120)
                     {
@@ -1468,14 +1473,14 @@ void StartStreaming(void)
             }
         }
 
-        if (!isWrAccelInUseIcm20948()
+        if (!ShimBrd_isWrAccelInUseIcm20948()
                 && ((storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
                 || (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
         {
             if (!i2cEn)
             {
                 //Initialise I2C
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_init();
                 }
@@ -1487,7 +1492,7 @@ void StartStreaming(void)
             }
             if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
             {
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_accelInit(
                             ((storedConfig[NV_CONFIG_SETUP_BYTE0] & 0xF0) >> 4), //sampling rate
@@ -1506,7 +1511,7 @@ void StartStreaming(void)
             }
             if (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
             {
-                if (isWrAccelInUseLsm303dlhc())
+                if (ShimBrd_isWrAccelInUseLsm303dlhc())
                 {
                     LSM303DLHC_magInit(
                             ((storedConfig[NV_CONFIG_SETUP_BYTE2] & 0x1C) >> 2), //sampling rate
@@ -1627,8 +1632,7 @@ void StartStreaming(void)
                 EXG_start(1);
             }
 
-            if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-                    && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+            if (ShimBrd_areADS1292RClockLinesTied())
             {
                 /* Check if unit is SR47-4 or greater.
                  * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
@@ -1688,26 +1692,26 @@ inline void StopSensing(void)
     if ((storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
             || (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-            || (isWrAccelInUseIcm20948()
+            || (ShimBrd_isWrAccelInUseIcm20948()
                     && ((storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
                         || (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG))))
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             ICM20948_setMagMode(AK09916_PWR_DOWN);
             ICM20948_wake(0);
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_wake(0);
         }
     }
 
-    if (!isWrAccelInUseIcm20948()
+    if (!ShimBrd_isWrAccelInUseIcm20948()
             && ((storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
             || (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
     {
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             LSM303DLHC_sleep();
         }
@@ -1969,7 +1973,7 @@ void ConfigureChannels(void)
     {
         *channel_contents_ptr++ = X_LSM303DLHC_MAG;
 
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             *channel_contents_ptr++ = Z_LSM303DLHC_MAG;
             *channel_contents_ptr++ = Y_LSM303DLHC_MAG;
@@ -2059,12 +2063,12 @@ void ConfigureChannels(void)
 
     isIcm20948AccelEn = FALSE;
     isIcm20948GyroEn = FALSE;
-    if(isGyroInUseIcm20948() && storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
+    if(ShimBrd_isGyroInUseIcm20948() && storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
     {
         isIcm20948GyroEn = TRUE;
     }
     if((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
-            || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
+            || (ShimBrd_isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)))
     {
         isIcm20948AccelEn = TRUE;
     }
@@ -2159,6 +2163,11 @@ void HandleBtRfCommStateChange(bool isOpen)
     }
     else
     { //BT is disconnected
+        if (isStreaming)
+        {
+          saveBtError(BT_ERROR_DISCONNECT_WHILE_STREAMING);
+        }
+
 #if FW_IS_LOGANDSTREAM
         btstreamReady = 0;
         enableBtstream = 0;
@@ -2492,165 +2501,116 @@ __interrupt void TIMER0_B1_ISR(void)
                 __bic_SR_register_on_exit(LPM3_bits);
 #endif
 
-        if (blinkStatus && !initializing)
+        //TODO temporarily flashing error LED sequence to highlight RN4678 issue
+        if (getLatestBtError() != BT_ERROR_NONE)
         {
-            // below are settings for green0, yellow and red leds, battery charge status
-            if (toggleLedRed)
+//          ShimLeds_incrementCounters();
+//
+//          if (ShimLeds_isBlinkTimerCnt200ms())
+          if (blinkCnt20 % 2)
+          {
+            Board_ledOn(LED_LWR_RED);
+            Board_ledOn(LED_LWR_GREEN);
+            Board_ledOn(LED_LWR_YELLOW);
+            Board_ledOff(LED_UPR_BLUE);
+            Board_ledOff(LED_UPR_GREEN);
+          }
+          else
+          {
+            Board_ledOff(LED_LWR_RED);
+            Board_ledOff(LED_LWR_GREEN);
+            Board_ledOff(LED_LWR_YELLOW);
+            Board_ledOn(LED_UPR_BLUE);
+            Board_ledOn(LED_UPR_GREEN);
+          }
+        }
+        else
+        {
+            if (blinkStatus && !initializing)
             {
-                Board_ledOff(LED_GREEN0 + LED_YELLOW);
-                Board_ledOn(LED_RED);
-            }
-            else
-            {
-                Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
-            }
-            if (P2IN & BIT3 || !blinkCnt50)
-            {
-                BattBlinkOn();
-            }
-
-            // code for keeping LED_GREEN0 on when user button pressed
-            if ((!(P1IN & BIT6)))
-            {
-                Board_ledOn(LED_GREEN0);
-            }
-
-            // below are settings for green1, blue, yellow and red leds
-
-            if (!docked && (SD_ERROR || !SD_IN_SLOT) && sdErrorFlash)
-            {   // bad file = yellow/red alternating
-                if (fileBadCnt-- > 0)
+                // below are settings for green0, yellow and red leds, battery charge status
+                if (toggleLedRed)
                 {
-                    if (fileBadCnt & 0x01)
+                    Board_ledOff(LED_GREEN0 + LED_YELLOW);
+                    Board_ledOn(LED_RED);
+                }
+                else
+                {
+                    Board_ledOff(LED_GREEN0 + LED_YELLOW + LED_RED);
+                }
+                if (P2IN & BIT3 || !blinkCnt50)
+                {
+                    BattBlinkOn();
+                }
+
+                // code for keeping LED_GREEN0 on when user button pressed
+                if ((!(P1IN & BIT6)))
+                {
+                    Board_ledOn(LED_GREEN0);
+                }
+
+                // below are settings for green1, blue, yellow and red leds
+
+                if (!docked && (SD_ERROR || !SD_IN_SLOT) && sdErrorFlash)
+                {   // bad file = yellow/red alternating
+                    if (fileBadCnt-- > 0)
                     {
+                        if (fileBadCnt & 0x01)
+                        {
+                            Board_ledOn(LED_YELLOW);
+                            Board_ledOff(LED_RED);
+                        }
+                        else
+                        {
+                            Board_ledOff(LED_YELLOW);
+                            Board_ledOn(LED_RED);
+                        }
+                    }
+                    else
+                    {
+                        fileBadCnt = 255;
                         Board_ledOn(LED_YELLOW);
                         Board_ledOff(LED_RED);
                     }
-                    else
-                    {
-                        Board_ledOff(LED_YELLOW);
-                        Board_ledOn(LED_RED);
-                    }
                 }
-                else
+                if (rwcErrorFlash && (!sensing))
                 {
-                    fileBadCnt = 255;
-                    Board_ledOn(LED_YELLOW);
-                    Board_ledOff(LED_RED);
-                }
-            }
-            if (rwcErrorFlash && (!sensing))
-            {
-                if (!(P1OUT & BIT1))
-                {
-                    Board_ledOn(LED_GREEN1);
-                    Board_ledOff(LED_BLUE);
-                }
-                else
-                {
-                    Board_ledOff(LED_GREEN1);
-                    Board_ledOn(LED_BLUE);
-                }
-            }
-            else
-            {
-#if FW_IS_LOGANDSTREAM
-                // good file - green1:
-                if (syncEnabled)
-                { // sync not implemented yet
-                    if (!sensing)
-                    { //standby or configuring
-                        if (configuring)
-                        { //configuring
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                        else
-                        {                       //standby
-                            if (!blinkCnt20)
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                    }
-                    else
-                    {                           //sensing
-                        if (!(blinkCnt20 % 10))
-                        {
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
-                            else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                    }
-                    // good file - blue:
-                    if (btPowerOn)
+                    if (!(P1OUT & BIT1))
                     {
-                        Board_ledOn(LED_BLUE);
-                    }
-                    else
-                    {
+                        Board_ledOn(LED_GREEN1);
                         Board_ledOff(LED_BLUE);
                     }
+                    else
+                    {
+                        Board_ledOff(LED_GREEN1);
+                        Board_ledOn(LED_BLUE);
+                    }
                 }
                 else
                 {
-                    if (!sensing)
-                    { //standby or configuring
-                        if (configuring)
-                        { //configuring
-                            if (!(P1OUT & BIT1))
-                                Board_ledOn(LED_GREEN1);
+    #if FW_IS_LOGANDSTREAM
+                    // good file - green1:
+                    if (syncEnabled)
+                    { // sync not implemented yet
+                        if (!sensing)
+                        { //standby or configuring
+                            if (configuring)
+                            { //configuring
+                                if (!(P1OUT & BIT1))
+                                    Board_ledOn(LED_GREEN1);
+                                else
+                                    Board_ledOff(LED_GREEN1);
+                            }
                             else
-                                Board_ledOff(LED_GREEN1);
-                        }
-                        else if (isBtConnected() && !configuring)
-                        {
-                            Board_ledOn(LED_BLUE);
-                            Board_ledOff(LED_GREEN1);     // nothing to show
-                        }
-                        else if (isRn4678ConnectionEstablished())
-                        {
-                            /* BT connection established but RFComm not open */
-                            if (P1OUT & BIT2)
-                                Board_ledOff(LED_BLUE);
-                            else
-                                Board_ledOn(LED_BLUE);
-
-                            Board_ledOff(LED_GREEN1);         // nothing to show
+                            {                       //standby
+                                if (!blinkCnt20)
+                                    Board_ledOn(LED_GREEN1);
+                                else
+                                    Board_ledOff(LED_GREEN1);
+                            }
                         }
                         else
-                        {                           //standby
-                            if (!blinkCnt20)
-                                Board_ledOn(LED_BLUE);
-                            else
-                                Board_ledOff(LED_BLUE);
-
-                            Board_ledOff(LED_GREEN1);         // nothing to show
-                        }
-                    }
-                    else
-                    {                           //sensing
-                        // sdlogReady, btstreamReady, enableSdlog, enableBtstream
-                        // btstream only
-                        if ((enableBtstream && btstreamReady)
-                                && !(sdlogReady && enableSdlog))
-                        {
-                            if (!(blinkCnt20 % 10))
-                            {
-                                if (!(P1OUT & BIT2))
-                                    Board_ledOn(LED_BLUE);
-                                else
-                                    Board_ledOff(LED_BLUE);
-                            }
-                            Board_ledOff(LED_GREEN1);     // nothing to show
-                        }
-                        // sdlog only
-                        else if (!(enableBtstream && btstreamReady)
-                                && (sdlogReady && enableSdlog))
-                        {
+                        {                           //sensing
                             if (!(blinkCnt20 % 10))
                             {
                                 if (!(P1OUT & BIT1))
@@ -2658,101 +2618,188 @@ __interrupt void TIMER0_B1_ISR(void)
                                 else
                                     Board_ledOff(LED_GREEN1);
                             }
-                            Board_ledOff(LED_BLUE);       // nothing to show
                         }
-                        // btstream & sdlog
-                        else if ((enableBtstream && btstreamReady)
-                                && (sdlogReady && enableSdlog))
-                        {
-                            if (!(blinkCnt20 % 10))
-                            {
-                                if ((P1OUT & BIT2) || (P1OUT & BIT1))
-                                    Board_ledOff(LED_BLUE + LED_GREEN1);
-                                else
-                                {
-                                    if (lastLedGroup2)
-                                    {
-                                        Board_ledOn(LED_BLUE);
-                                        lastLedGroup2 ^= 1;
-                                    }
-                                    else
-                                    {
-                                        Board_ledOn(LED_GREEN1);
-                                        lastLedGroup2 ^= 1;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Board_ledOff(LED_GREEN1 + LED_BLUE); // nothing to show
-                        }
-                    }
-                }
-#else
-                // good file - green1:
-                if (!sensing)
-                {   //standby or configuring
-                    if (configuring)
-                    { //configuring
-                        if (!(P1OUT & BIT1))
-                            Board_ledOn(LED_GREEN1);
-                        else
-                            Board_ledOff(LED_GREEN1);
-                    }
-                    else
-                    {                            //standby
-                        if (!blinkCnt20)
-                            Board_ledOn(LED_GREEN1);
-                        else
-                            Board_ledOff(LED_GREEN1);
-                    }
-                }
-                else
-                {                              //sensing
-                    if (blinkCnt20 < 10)
-                        Board_ledOn(LED_GREEN1);
-                    else
-                        Board_ledOff(LED_GREEN1);
-                }
-
-                // good file - blue:
-                /* Toggle blue LED while a connection is established */
-                if (btPowerOn && isBtConnected())
-                {
-                    Board_ledToggle(LED_BLUE);
-                }
-                /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
-                else if (!getRcFirstOffsetRxed()
-                        && sensing
-                        && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-                        && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                {
-                    Board_ledOn(LED_BLUE);
-                }
-                else
-                {
-                    /* Flash twice if sync is not successfull */
-                    if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
-                            && !docked
-                            && sensing
-                            && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
-                            && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
-                                    || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
-                    {
-                        if (getSyncCnt() > 3)
+                        // good file - blue:
+                        if (btPowerOn)
                         {
                             Board_ledOn(LED_BLUE);
                         }
-                        //TODO should there be an else here?
+                        else
+                        {
+                            Board_ledOff(LED_BLUE);
+                        }
                     }
                     else
                     {
-                        Board_ledOff(LED_BLUE);
+                        if (!sensing)
+                        { //standby or configuring
+                            if (configuring)
+                            { //configuring
+                                if (!(P1OUT & BIT1))
+                                    Board_ledOn(LED_GREEN1);
+                                else
+                                    Board_ledOff(LED_GREEN1);
+                            }
+                            else if (isBtConnected() && !configuring)
+                            {
+                                Board_ledOn(LED_BLUE);
+                                Board_ledOff(LED_GREEN1);     // nothing to show
+                            }
+                            else if (isRn4678ConnectionEstablished())
+                            {
+                                /* BT connection established but RFComm not open */
+                                if (P1OUT & BIT2)
+                                    Board_ledOff(LED_BLUE);
+                                else
+                                    Board_ledOn(LED_BLUE);
+
+                                Board_ledOff(LED_GREEN1);         // nothing to show
+                            }
+                            else
+                            {                           //standby
+                                if (!blinkCnt20)
+                                    Board_ledOn(LED_BLUE);
+                                else
+                                    Board_ledOff(LED_BLUE);
+
+                                Board_ledOff(LED_GREEN1);         // nothing to show
+                            }
+                        }
+                        else
+                        {                           //sensing
+                            // sdlogReady, btstreamReady, enableSdlog, enableBtstream
+                            // btstream only
+                            if ((enableBtstream && btstreamReady)
+                                    && !(sdlogReady && enableSdlog))
+                            {
+                                if (!(blinkCnt20 % 10))
+                                {
+                                    if (!(P1OUT & BIT2))
+                                        Board_ledOn(LED_BLUE);
+                                    else
+                                        Board_ledOff(LED_BLUE);
+                                }
+                                Board_ledOff(LED_GREEN1);     // nothing to show
+                            }
+                            // sdlog only
+                            else if (!(enableBtstream && btstreamReady)
+                                    && (sdlogReady && enableSdlog))
+                            {
+                                if (!(blinkCnt20 % 10))
+                                {
+                                    if (!(P1OUT & BIT1))
+                                        Board_ledOn(LED_GREEN1);
+                                    else
+                                        Board_ledOff(LED_GREEN1);
+                                }
+                                Board_ledOff(LED_BLUE);       // nothing to show
+                            }
+                            // btstream & sdlog
+                            else if ((enableBtstream && btstreamReady)
+                                    && (sdlogReady && enableSdlog))
+                            {
+                                if (!(blinkCnt20 % 10))
+                                {
+                                    if ((P1OUT & BIT2) || (P1OUT & BIT1))
+                                        Board_ledOff(LED_BLUE + LED_GREEN1);
+                                    else
+                                    {
+                                        if (lastLedGroup2)
+                                        {
+                                            Board_ledOn(LED_BLUE);
+                                            lastLedGroup2 ^= 1;
+                                        }
+                                        else
+                                        {
+                                            Board_ledOn(LED_GREEN1);
+                                            lastLedGroup2 ^= 1;
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Board_ledOff(LED_GREEN1 + LED_BLUE); // nothing to show
+                            }
+                        }
                     }
+    #else
+                    // good file - green1:
+                    if (!sensing)
+                    {   //standby or configuring
+                        if (configuring)
+                        { //configuring
+                            if (!(P1OUT & BIT1))
+                                Board_ledOn(LED_GREEN1);
+                            else
+                                Board_ledOff(LED_GREEN1);
+                        }
+                        else
+                        {                            //standby
+                            if (!blinkCnt20)
+                                Board_ledOn(LED_GREEN1);
+                            else
+                                Board_ledOff(LED_GREEN1);
+                        }
+                    }
+                    else
+                    {                              //sensing
+                        if (blinkCnt20 < 10)
+                            Board_ledOn(LED_GREEN1);
+                        else
+                            Board_ledOff(LED_GREEN1);
+                    }
+
+                    // good file - blue:
+                    /* Toggle blue LED while a connection is established */
+                    if (btPowerOn && isBtConnected())
+                    {
+                        Board_ledToggle(LED_BLUE);
+                    }
+                    /* Leave blue LED on solid if it's a node and a sync hasn't occurred yet (first 'outlier' not included) */
+                    else if (!getRcFirstOffsetRxed()
+                            && sensing
+                            && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+                            && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+                    {
+                        Board_ledOn(LED_BLUE);
+                    }
+                    else
+                    {
+                        /* Flash twice if sync is not successfull */
+                        if (((blinkCnt20 == 12) || (blinkCnt20 == 14))
+                                && !docked
+                                && sensing
+                                && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_TIME_SYNC)
+                                && ((!getSyncSuccC() && (sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))
+                                        || (!getSyncSuccN() && !(sdHeadText[SDH_TRIAL_CONFIG0] & SDH_IAMMASTER))))
+                        {
+                            if (getSyncCnt() > 3)
+                            {
+                                Board_ledOn(LED_BLUE);
+                            }
+                            //TODO should there be an else here?
+                        }
+                        else
+                        {
+                            Board_ledOff(LED_BLUE);
+                        }
+                    }
+    #endif
                 }
-#endif
             }
+//            if (ShimBt_checkForBtDataRateTestBlockage())
+//            {
+//              saveBtError(BT_ERROR_DATA_RATE_TEST_BLOCKAGE);
+//              __bic_SR_register_on_exit(LPM3_bits);
+//            }
+
+            if (checkForBtRtsLock())
+            {
+              saveBtError(BT_ERROR_RTS_LOCK);
+              __bic_SR_register_on_exit(LPM3_bits);
+            }
+
         }
         break;
     case 8:
@@ -3330,6 +3377,9 @@ void ProcessCommand(void)
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
         bmp280CalibrationCoefficientsResponse = 1;
         break;
+    case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
+        bmpx80CalibrationCoefficientsResponse = 1;
+        break;
     case GET_MPU9150_SAMPLING_RATE_COMMAND:
         mpu9150SamplingRateResponse = 1;
         break;
@@ -3732,8 +3782,7 @@ void ProcessCommand(void)
                 memcpy((storedConfig + NV_EXG_ADS1292R_1_CONFIG1 + args[1]),
                        (args + 3), args[2]);
 
-                if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-                        && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+                if (ShimBrd_areADS1292RClockLinesTied())
                 {
                     /* Check if unit is SR47-4 or greater.
                      * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
@@ -3752,6 +3801,15 @@ void ProcessCommand(void)
             update_sdconfig = 1;
         }
         break;
+    case SET_FACTORY_TEST:
+    {
+      if (args[0] < FACTORY_TEST_COUNT)
+      {
+        ShimFactoryTest_setup(PRINT_TO_BT_UART, (factory_test_t) args[0]);
+        TaskSet(TASK_FACTORY_TEST);
+      }
+      break;
+    }
     case RESET_TO_DEFAULT_CONFIGURATION_COMMAND:
         SetDefaultConfiguration();
         Config2SdHead();
@@ -3908,8 +3966,7 @@ void ProcessCommand(void)
                  * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
                  * This ensures clock lines on ADS chip are correct
                  */
-                if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-                        && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+                if (ShimBrd_areADS1292RClockLinesTied())
                 {
                     *(args + 3 + NV_EXG_ADS1292R_1_CONFIG2) |= 8;
                 }
@@ -3997,6 +4054,23 @@ void ProcessCommand(void)
         }
         break;
 #endif
+    case RESET_BT_ERROR_COUNTS:
+    {
+#if defined(SHIMMER3)
+      if (ShimEeprom_isPresent())
+      {
+        ShimEeprom_resetBtErrorCounts();
+        ShimEeprom_writeRadioDetails();
+      }
+//      else
+//      {
+//        sendNack = 1;
+//      }
+#else
+//      sendNack = 1;
+#endif
+      break;
+    }
     default:
         ;
     }
@@ -4058,6 +4132,8 @@ void SendResponse(void)
 {
     sc_t sc1;
     uint16_t packet_length = 0;
+
+    uint8_t bmpCalibByteLen;
 
     if (isBtConnected())
     {
@@ -4255,6 +4331,30 @@ void SendResponse(void)
             }
             bmp280CalibrationCoefficientsResponse = 0;
         }
+        else if (bmpx80CalibrationCoefficientsResponse)
+        {
+            bmpCalibByteLen = get_bmp_calib_data_bytes_len();
+            *(resPacket + packet_length++) = PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE;
+            *(resPacket + packet_length++) = 1U + bmpCalibByteLen;
+    #if defined(SHIMMER3)
+            if (isBmp180InUse())
+            {
+              *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP180;
+            }
+            else if (isBmp280InUse())
+            {
+              *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP280;
+            }
+            else
+            {
+              *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP390;
+            }
+    #elif defined(SHIMMER3R)
+            *(resPacket + packet_length++) = PRESSURE_SENSOR_BMP390;
+    #endif
+            memcpy(resPacket + packet_length, &bmpX80Calib[0], bmpCalibByteLen);
+            packet_length += bmpCalibByteLen;
+        }
         else if (mpu9150SamplingRateResponse)
         {
             *(resPacket + packet_length++) = MPU9150_SAMPLING_RATE_RESPONSE;
@@ -4406,7 +4506,7 @@ void SendResponse(void)
         else if (mpu9150MagSensAdjValsResponse)
         {
             // Mag sensitivity adj feature is not present in ICM-20948
-            if(isGyroInUseMpu9x50())
+            if(ShimBrd_isGyroInUseMpu9x50())
             {
                 MPU9150_init();
                 MPU9150_wake(1);
@@ -4479,8 +4579,8 @@ void SendResponse(void)
             //CAT24C16_init();
             //CAT24C16_read(dcMemOffset, dcMemLength, (resPacket+packet_length));
             //CAT24C16_powerOff();
-            memcpy(resPacket + packet_length, daughtCardId + dcMemOffset,
-                   dcMemLength);
+            memcpy(resPacket + packet_length,
+                ShimBrd_getDaughtCardIdPtr() + dcMemOffset, dcMemLength);
             packet_length += dcMemLength;
             dcIdResponse = 0;
         }
@@ -5324,7 +5424,7 @@ void Config2SdHead(void)
      * memcpy(&sdHeadText[SDH_A_ACCEL_CALIBRATION], &storedConfig[NV_A_ACCEL_CALIBRATION], 21);
      */
     ShimmerCalibSyncFromDumpRamAll();
-    memcpy(&sdHeadText[SDH_DAUGHTER_CARD_ID_BYTE0], daughtCardId, 3);
+    memcpy(&sdHeadText[SDH_DAUGHTER_CARD_ID_BYTE0], ShimBrd_getDaughtCardIdPtr(), 3);
 }
 
 void SetDefaultConfiguration(void)
@@ -5359,8 +5459,7 @@ void SetDefaultConfiguration(void)
     /*ADS CHIP 1*/
     storedConfig[NV_EXG_ADS1292R_1_CONFIG1] = 0x02;
     storedConfig[NV_EXG_ADS1292R_1_CONFIG2] = 0x80;
-    if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-            && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+    if (ShimBrd_areADS1292RClockLinesTied())
     {
         /* Check if unit is SR47-4 or greater.
          * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
@@ -5664,7 +5763,7 @@ void ShimmerCalibFromInfo(uint8_t sensor, uint8_t use_sys_time)
         sc1.data_len = SC_DATA_LEN_LSM303DLHC_MAG;
         InfoMem_read((uint8_t*) NV_CONFIG_SETUP_BYTE2, &info_config, 1);
         sc1.range = (info_config & 0xe0) >> 5;
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             sc1.range = (info_config & 0xe0) >> 5;
         }
@@ -5726,7 +5825,7 @@ void ShimmerCalibSyncFromDumpRamSingleSensor(uint8_t sensor)
         scs_infomem_offset = NV_LSM303DLHC_MAG_CALIBRATION;
         scs_sdhead_offset = SDH_LSM303DLHC_MAG_CALIBRATION;
         scs_sdhead_ts = SDH_LSM303DLHC_MAG_CALIB_TS;
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             sc1.range = (storedConfig[NV_CONFIG_SETUP_BYTE2] >> 5) & 0x07;
         }
@@ -6339,26 +6438,26 @@ void CalibDefault(uint8_t sensor)
         address = NV_LSM303DLHC_ACCEL_CALIBRATION;
         if (lsm303_accel_range == RANGE_2G)
         {
-            sensitivity = isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
+            sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 1631 : 1671;
         }
         else if (lsm303_accel_range == RANGE_4G)
         {
-            sensitivity = isWrAccelInUseLsm303dlhc() ? 815 : 836;
+            sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 815 : 836;
         }
         else if (lsm303_accel_range == RANGE_8G)
         {
-            sensitivity = isWrAccelInUseLsm303dlhc() ? 408 : 418;
+            sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 408 : 418;
         }
         else
         {
-            sensitivity = isWrAccelInUseLsm303dlhc() ? 135 : 209;
+            sensitivity = ShimBrd_isWrAccelInUseLsm303dlhc() ? 135 : 209;
         }
-        align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
-        align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
+        align_xx = ShimBrd_isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        align_xy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : -100;
         align_xz = 0;
 
-        align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
-        align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
+        align_yx = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        align_yy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 100 : 0;
         align_yz = 0;
 
         align_zx = 0;
@@ -6402,7 +6501,7 @@ void CalibDefault(uint8_t sensor)
     {
         number_axes = 3;
         bias = 0;
-        if (isWrAccelInUseLsm303dlhc())
+        if (ShimBrd_isWrAccelInUseLsm303dlhc())
         {
             if (lsm303dlhc_mag_range == LSM303_MAG_13GA)
             {
@@ -6455,12 +6554,12 @@ void CalibDefault(uint8_t sensor)
         }
 
         align = TRUE;
-        align_xx = isWrAccelInUseLsm303dlhc() ? (-100) : 0;
-        align_xy = isWrAccelInUseLsm303dlhc() ? 0 : -100;
+        align_xx = ShimBrd_isWrAccelInUseLsm303dlhc() ? (-100) : 0;
+        align_xy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : -100;
         align_xz = 0;
 
-        align_yx = isWrAccelInUseLsm303dlhc() ? 0 : 100;
-        align_yy = isWrAccelInUseLsm303dlhc() ? 100 : 0;
+        align_yx = ShimBrd_isWrAccelInUseLsm303dlhc() ? 0 : 100;
+        align_yy = ShimBrd_isWrAccelInUseLsm303dlhc() ? 100 : 0;
         align_yz = 0;
 
         align_zx = 0;
@@ -6474,7 +6573,7 @@ void CalibDefault(uint8_t sensor)
         number_axes = 3;
         bias = 2047;
         sensitivity = 83;
-        if ((isWrAccelInUseLsm303ahtr() || isWrAccelInUseIcm20948()) && isBmp280InUse())
+        if ((ShimBrd_isWrAccelInUseLsm303ahtr() || ShimBrd_isWrAccelInUseIcm20948()) && isBmp280InUse())
         {
             // Assuming here that new bmp and lsm infer new low-noise accel used
             bias = 2253;
@@ -7160,7 +7259,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS0] & SENSOR_MPU9X50_ICM20948_GYRO)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U + 6U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U + 6U];
@@ -7169,7 +7268,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U + 6U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U + 6U];
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_getGyro(current_buffer_ptr + digi_offset);
         }
@@ -7179,7 +7278,7 @@ void StreamData()
     uint8_t icm20948MagBuf[6] = {0};
     uint8_t icm20948MagRdy = 0;
     if ((storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
-            || (isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
+            || (ShimBrd_isWrAccelInUseIcm20948() && (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)))
     {
         if(icm20948MagRdy = ICM20948_isMagDataRdy())
         {
@@ -7189,7 +7288,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS1] & SENSOR_LSM303XXXX_ACCEL)
     {
-        if(isWrAccelInUseIcm20948())
+        if(ShimBrd_isWrAccelInUseIcm20948())
         {
             // Swap byte order to immitate LSM303 chip
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[1U];
@@ -7205,7 +7304,7 @@ void StreamData()
         }
         else
         {
-            if (isWrAccelInUseLsm303dlhc())
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getAccel(current_buffer_ptr + digi_offset);
             }
@@ -7219,7 +7318,7 @@ void StreamData()
 
     if (storedConfig[NV_SENSORS0] & SENSOR_LSM303XXXX_MAG)
     {
-        if(isWrAccelInUseIcm20948())
+        if(ShimBrd_isWrAccelInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -7242,7 +7341,7 @@ void StreamData()
         }
         else
         {
-            if (isWrAccelInUseLsm303dlhc())
+            if (ShimBrd_isWrAccelInUseLsm303dlhc())
             {
                 LSM303DLHC_getMag(current_buffer_ptr + digi_offset);
             }
@@ -7255,7 +7354,7 @@ void StreamData()
     }
     if (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_ACCEL)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             current_buffer_ptr[digi_offset + 0U] = icm20948AccelGyroBuf[0U];
             current_buffer_ptr[digi_offset + 1U] = icm20948AccelGyroBuf[1U];
@@ -7264,7 +7363,7 @@ void StreamData()
             current_buffer_ptr[digi_offset + 4U] = icm20948AccelGyroBuf[4U];
             current_buffer_ptr[digi_offset + 5U] = icm20948AccelGyroBuf[5U];
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             MPU9150_getAccel(current_buffer_ptr + digi_offset);
         }
@@ -7272,7 +7371,7 @@ void StreamData()
     }
     if (storedConfig[NV_SENSORS2] & SENSOR_MPU9X50_ICM20948_MAG)
     {
-        if (isGyroInUseIcm20948())
+        if (ShimBrd_isGyroInUseIcm20948())
         {
             if(icm20948MagRdy)
             {
@@ -7289,7 +7388,7 @@ void StreamData()
                 memcpy(current_buffer_ptr + digi_offset, other_buffer_ptr + digi_offset, 6);
             }
         }
-        else if (isGyroInUseMpu9x50())
+        else if (ShimBrd_isGyroInUseMpu9x50())
         {
             if (preSampleMpuMag)
             {
@@ -8659,8 +8758,7 @@ void UartProcessCmd()
                                  * If so, amend configuration byte 2 of ADS chip 1 to have bit 3 set to 1.
                                  * This ensures clock lines on ADS chip are correct
                                  */
-                                if ((daughtCardId[DAUGHT_CARD_ID] == EXP_BRD_EXG_UNIFIED)
-                                        && (daughtCardId[DAUGHT_CARD_REV] >= 4))
+                                if (ShimBrd_areADS1292RClockLinesTied())
                                 {
                                     *(uartRxBuf + UART_RXBUF_DATA + 3
                                             + NV_EXG_ADS1292R_1_CONFIG2) |= 8;
@@ -8718,9 +8816,8 @@ void UartProcessCmd()
                                             (uint16_t) uartDcMemLength,
                                             uartRxBuf + UART_RXBUF_DATA + 2U);
                             // Copy new bytes to active daughter card byte array
-                            memcpy(daughtCardId + ((uint8_t) uartDcMemOffset),
-                                   uartRxBuf + UART_RXBUF_DATA + 2,
-                                   uartDcMemLength);
+                            ShimBrd_setDaugherCardIdMemory((uint8_t) uartDcMemOffset,
+                                                           uartRxBuf + UART_RXBUF_DATA + 2, uartDcMemLength);
                             uartSendRspAck = 1;
                         }
                         else
@@ -8879,7 +8976,8 @@ void UartSendRsp()
             //               (uartRespBuf + uart_resp_len));
             //  CAT24C16_powerOff();
 
-            memcpy(uartRespBuf + uart_resp_len, daughtCardId + uartDcMemOffset, uartDcMemLength);
+            memcpy(uartRespBuf + uart_resp_len,
+                ShimBrd_getDaughtCardIdPtr() + uartDcMemOffset, uartDcMemLength);
             uart_resp_len += uartDcMemLength;
         }
     }
@@ -9078,21 +9176,6 @@ uint16_t getBmpX80SamplingTimeDiffFrom9msInTicks(void)
         break;
     }
     return bmpX80SamplingTimeTicks;
-}
-
-void updateBtDetailsInEeprom(void)
-{
-    uint8_t btFwVerAndBaudRate[2];
-    btFwVerAndBaudRate[0] = (uint8_t) getBtHwVersion();
-    if (isBtDeviceRn41orRN42())
-    {
-        btFwVerAndBaudRate[1] = BAUD_115200;
-    }
-    else
-    {
-        btFwVerAndBaudRate[1] = getCurrentBtBaudRate();
-    }
-    eepromWrite(RNX_TYPE_EEPROM_ADDRESS + RNX_RADIO_TYPE_IDX, 2U, &btFwVerAndBaudRate[0]);
 }
 
 uint8_t setTaskNewBtCmdToProcess(void)

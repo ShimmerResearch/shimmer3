@@ -63,6 +63,7 @@
 #include "../5xx_HAL/hal_DMA.h"
 #include "../5xx_HAL/hal_Board.h"
 #include "../msp430_clock/msp430_clock.h"
+#include "../shimmer_sd_include.h"
 
 uint8_t starting;
 void (*runSetCommands_cb)(void);
@@ -147,6 +148,9 @@ volatile uint8_t rn4678RtsLockDetected;
 char *daughtCardIdStrPtrForBle;
 
 uint8_t macIdStr[14], macIdBytes[6];
+
+volatile btError_t latestBtError;
+volatile uint8_t btRtsLockCounter;
 
 const char * const hex = "0123456789ABCDEF";
 
@@ -1763,6 +1767,9 @@ void BT_init(void)
     clearExpectedResponseBuf();
     charsReceived = 0;
 
+    latestBtError = BT_ERROR_NONE;
+    btRtsLockCounter = 0;
+
     setBtClearTxBufFlag(0);
     clearBtTxBuf(1U);
 
@@ -2565,7 +2572,7 @@ enum BT_FIRMWARE_VERSION getBtFwVersion(void)
     return btFwVer;
 }
 
-enum BT_HARDWARE_VERSION getBtHwVersion(void)
+enum RADIO_HARDWARE_VERSION getBtHwVersion(void)
 {
     if (isBtDeviceRn42())
     {
@@ -2605,6 +2612,11 @@ void updateBtWriteFunctionPtr(void)
 uint8_t getCurrentBtBaudRate(void)
 {
     return btBaudRateToUse;
+}
+
+uint32_t ShimBt_getBtBaudRateToUse(void)
+{
+  return btBaudRateToUse;
 }
 
 #if BT_DMA_USED_FOR_RX
@@ -3091,6 +3103,61 @@ uint8_t isBtStarting(void)
     return btIsStarting!=0;
 }
 #endif
+
+uint8_t checkForBtRtsLock(void)
+{
+  if (btConnected && txOverflow)
+  {
+    btRtsLockCounter++;
+
+    /* Each count is 100ms. Checking for a blockage longer than 2s */
+    if (btRtsLockCounter > 20)
+    {
+      return 1;
+    }
+  }
+  else
+  {
+    btRtsLockCounter = 0;
+  }
+  return 0;
+}
+
+void saveBtError(btError_t btError)
+{
+  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+
+  latestBtError = btError;
+  switch (btError)
+  {
+    case BT_ERROR_RTS_LOCK:
+      eepromBtSetting->btCntRtsLockup++;
+      break;
+    case BT_ERROR_UNSOLICITED_REBOOT:
+      eepromBtSetting->btCntUnsolicitedReboot++;
+      break;
+    case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
+      eepromBtSetting->btCntDataRateTestBlockage++;
+      break;
+    case BT_ERROR_DISCONNECT_WHILE_STREAMING:
+      eepromBtSetting->btCntDisconnectWhileStreaming++;
+      break;
+    default:
+      break;
+  }
+  TaskSet(TASK_UPDATE_DEBUG_COUNT);
+}
+
+btError_t getLatestBtError(void)
+{
+  return latestBtError;
+}
+
+void resetLatestBtError(void)
+{
+  latestBtError = BT_ERROR_NONE;
+}
+
 
 #pragma vector=USCI_A1_VECTOR
 __interrupt void USCI_A1_ISR(void)

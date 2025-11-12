@@ -644,8 +644,7 @@ uint8_t Dma2ConversionDone(void)
                             /* "%REBOOT%" -> RN4678 */
                             if (btStatusStr[7U]=='%')
                             {
-                                /* TODO */
-                                _NOP();
+                                saveBtError(BT_ERROR_UNSOLICITED_REBOOT);
                             }
                             else
                             {
@@ -841,6 +840,7 @@ uint8_t Dma2ConversionDone(void)
                 case GET_MPU9150_GYRO_RANGE_COMMAND:
                 case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
                 case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
+                case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
                 case GET_MPU9150_SAMPLING_RATE_COMMAND:
                 case GET_MPU9150_ACCEL_RANGE_COMMAND:
                 case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
@@ -861,6 +861,7 @@ uint8_t Dma2ConversionDone(void)
                 case UPD_SDLOG_CFG_COMMAND:
                 case UPD_CALIB_DUMP_COMMAND:
                 case GET_BT_VERSION_STR_COMMAND:
+                case RESET_BT_ERROR_COUNTS:
                     *(gActionPtr) = data;
                     if(newBtCmdToProcess_cb)
                     {
@@ -892,6 +893,7 @@ uint8_t Dma2ConversionDone(void)
                 case SET_CONFIGTIME_COMMAND:
                 case SET_CRC_COMMAND:
                 case SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE:
+                case SET_FACTORY_TEST:
                     *(gActionPtr) = data;
                     waitingForArgs = 1U;
                     break;
@@ -1760,6 +1762,7 @@ uint8_t processShimmerBtCmd(void)
     case GET_MPU9150_GYRO_RANGE_COMMAND:
     case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
+    case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_MPU9150_SAMPLING_RATE_COMMAND:
     case GET_MPU9150_ACCEL_RANGE_COMMAND:
     case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:
@@ -2032,6 +2035,7 @@ uint8_t isShimmerBtCmd(uint8_t data)
     case GET_MPU9150_GYRO_RANGE_COMMAND:
     case GET_BMP180_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_BMP280_CALIBRATION_COEFFICIENTS_COMMAND:
+    case GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND:
     case GET_MPU9150_SAMPLING_RATE_COMMAND:
     case GET_MPU9150_ACCEL_RANGE_COMMAND:
     case GET_BMPX80_PRES_OVERSAMPLING_RATIO_COMMAND:

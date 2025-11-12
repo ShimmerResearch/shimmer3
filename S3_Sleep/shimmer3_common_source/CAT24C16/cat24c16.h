@@ -5,7 +5,7 @@
 
 #define CAT24C16_ADDR	0x50 //7 bit address I2C address
 							 //lower 3 bits are highest order bits of memory address
-#define PAGE_SIZE		16
+#define CAT24C16_PAGE_SIZE		16
 #define BLOCK_SIZE		256
 #define READ_SIZE		128
 

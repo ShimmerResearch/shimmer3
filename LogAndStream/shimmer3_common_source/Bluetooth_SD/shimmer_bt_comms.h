@@ -164,6 +164,12 @@
 #define GET_BT_VERSION_STR_COMMAND                    0xA1
 #define BT_VERSION_STR_RESPONSE                       0xA2
 #define SET_INSTREAM_RESPONSE_ACK_PREFIX_STATE        0xA3
+#define PRESSURE_CALIBRATION_COEFFICIENTS_RESPONSE    0xA6
+#define GET_PRESSURE_CALIBRATION_COEFFICIENTS_COMMAND 0xA7
+
+#define SET_FACTORY_TEST                              0xA8
+#define RESET_BT_ERROR_COUNTS                         0xB6
+
 #if !USE_OLD_SD_SYNC_APPROACH
 #define SET_SD_SYNC_COMMAND                           0xE0
 #define SD_SYNC_RESPONSE                              0xE1
@@ -172,6 +178,13 @@
 
 //#define BT_RX_COMMS_TIMEOUT_TICKS                     3277U /* 32768*0.1s = 3276.8  */
 #define BT_RX_COMMS_TIMEOUT_TICKS                     328U /* 32768*0.01s = 327.68  */
+
+enum
+{
+  PRESSURE_SENSOR_BMP180 = 0,
+  PRESSURE_SENSOR_BMP280 = 1,
+  PRESSURE_SENSOR_BMP390 = 2
+};
 
 #if BT_DMA_USED_FOR_RX
 uint8_t Dma2ConversionDone(void);
