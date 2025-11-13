@@ -3110,8 +3110,8 @@ uint8_t checkForBtRtsLock(void)
   {
     btRtsLockCounter++;
 
-    /* Each count is 100ms. Checking for a blockage longer than 2s */
-    if (btRtsLockCounter > 20)
+    /* Each count is 100ms. Checking for a blockage longer than 5s */
+    if (btRtsLockCounter > 50)
     {
       return 1;
     }

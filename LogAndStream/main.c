@@ -8384,32 +8384,48 @@ void eepromWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf)
 void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
                      enum EEPROM_RW eepromRW)
 {
-    bool timer_was_stopped = FALSE;
+    uint8_t timer_was_stopped = 0;
+    uint8_t wasI2cRunning = P8OUT & BIT4;
+    uint8_t wasExpBoardRunning = P3OUT &= BIT3;
 
-    // Spool up EEPROM and required timing peripherals
-    if (TB0CTL == MC_0)            // Timer is stopped
+    //Spool up EEPROM and required timing peripherals
+    if (TB0CTL == MC_0) //Timer is stopped
     {
-        BlinkTimerStart();
-        timer_was_stopped = TRUE;
+      BlinkTimerStart();
+      timer_was_stopped = 1;
     }
 
-    CAT24C16_init();
+    if (!wasI2cRunning)
+    {
+      CAT24C16_init();
+    }
 
-    // EEPROM needs to be updated with latest bt baud rate, configure here
+    //EEPROM needs to be updated with latest bt baud rate, configure here
     if (eepromRW == EEPROM_READ)
     {
-        CAT24C16_read(dataAddr, dataSize, dataBuf);
+      CAT24C16_read(dataAddr, dataSize, dataBuf);
     }
     else
     {
-        CAT24C16_write(dataAddr, dataSize, dataBuf);
+      CAT24C16_write(dataAddr, dataSize, dataBuf);
     }
 
-    // Wind down EEPROM and required timing peripherals
-    CAT24C16_powerOff();
-    if (timer_was_stopped == TRUE)
+
+    //Wind down EEPROM and required timing peripherals
+    if (!wasI2cRunning)
     {
-        BlinkTimerStop();
+        /* wait 10ms (assuming 24MHz MCLK) to any on-going I2C comms to finish */
+        _delay_cycles(240000);
+        I2C_Disable();
+      CAT24C16_powerOff(); //turn OFF if it was not already ON
+    }
+    if (!wasExpBoardRunning)
+    {
+      P3OUT &= ~BIT3;
+    }
+    if (timer_was_stopped)
+    {
+      BlinkTimerStop();
     }
 }
 

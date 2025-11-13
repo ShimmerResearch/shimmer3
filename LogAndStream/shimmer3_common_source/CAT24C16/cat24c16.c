@@ -28,8 +28,6 @@ void CAT24C16_powerOn(void)
 void CAT24C16_powerOff(void)
 {
     P8OUT &= ~BIT4;         //disable I2C pull-ups by turning off SW_I2C
-    __delay_cycles(120000); //5ms (assuming 24MHz MCLK) to ensure no writes pending
-    P3OUT &= ~BIT3;
 }
 
 void CAT24C16_read(uint16_t address, uint16_t length, uint8_t *outBuffer)
