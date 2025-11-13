@@ -8386,7 +8386,7 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
 {
     uint8_t timer_was_stopped = 0;
     uint8_t wasI2cRunning = P8OUT & BIT4;
-    uint8_t wasExpBoardRunning = P3OUT &= BIT3;
+    uint8_t wasExpBoardRunning = P3OUT & BIT3;
 
     //Spool up EEPROM and required timing peripherals
     if (TB0CTL == MC_0) //Timer is stopped
@@ -8398,6 +8398,11 @@ void eepromReadWrite(uint16_t dataAddr, uint16_t dataSize, uint8_t *dataBuf,
     if (!wasI2cRunning)
     {
       CAT24C16_init();
+    }
+    else if (!wasExpBoardRunning)
+    {
+        P3OUT |= BIT3;
+        __delay_cycles(48000);  //2ms
     }
 
     //EEPROM needs to be updated with latest bt baud rate, configure here
