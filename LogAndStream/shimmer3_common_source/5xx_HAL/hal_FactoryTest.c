@@ -275,14 +275,14 @@ void bt_module_test(void)
   //{
   ShimFactoryTest_sendReport("BT Module:\r\n");
 
-//  ShimFactoryTest_sendReport(" - MAC ID: ");
-//  memcpy(&buffer[0], ShimBt_macIdStrPtrGet(), 12);
-//  sprintf(&buffer[12], "\r\n");
-//  ShimFactoryTest_sendReport(buffer);
-//
-//  sprintf(buffer, " - %s", ShimBt_getBtVerStrPtr());
-//  ShimFactoryTest_sendReport(buffer);
-//
+  ShimFactoryTest_sendReport(" - MAC ID: ");
+  memcpy(&buffer[0], getMacIdStrPtr(), 12);
+  sprintf(&buffer[12], "\r\n");
+  ShimFactoryTest_sendReport(buffer);
+
+  sprintf(buffer, " - %s", getBtVerStrPtr());
+  ShimFactoryTest_sendReport(buffer);
+
 //  if (strstr(buffer, "RN4678") != NULL && strstr(buffer, "V1.23") == NULL)
 //  {
 //    ShimFactoryTest_sendReport(" - FAIL: incorrect BT firmware version\r\n");
@@ -297,6 +297,8 @@ void bt_module_test(void)
 //  //    ShimFactoryTest_sendReport(" - FAIL\r\n");
 //  //}
 //  //return stat.isBtPoweredOn;
+
+  ShimFactoryTest_sendReport("\r\n");
 
   gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
   ShimFactoryTest_sendReport(" - Counts:\r\n");

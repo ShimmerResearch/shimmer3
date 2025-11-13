@@ -8857,6 +8857,20 @@ void UartProcessCmd()
                         break;
                     }
                 }
+                else if (uartRxBuf[UART_RXBUF_COMP] == UART_COMP_TEST)
+                { //set test
+                  if (uartRxBuf[UART_RXBUF_PROP] < FACTORY_TEST_COUNT)
+                  {
+                    ShimFactoryTest_setup(
+                        PRINT_TO_DOCK_UART, (factory_test_t) uartRxBuf[UART_RXBUF_PROP]);
+                    TaskSet(TASK_FACTORY_TEST);
+                    uartSendRspAck = 1;
+                  }
+                  else
+                  {
+                    uartSendRspBadCmd = 1;
+                  }
+                }
                 else
                 {
                     uartSendRspBadCmd = 1;
