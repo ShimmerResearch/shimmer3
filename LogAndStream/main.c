@@ -2502,7 +2502,9 @@ __interrupt void TIMER0_B1_ISR(void)
 #endif
 
         //TODO temporarily flashing error LED sequence to highlight RN4678 issue
-        if (getLatestBtError() != BT_ERROR_NONE)
+        if (getLatestBtError() == BT_ERROR_UNSOLICITED_REBOOT
+                || getLatestBtError() == BT_ERROR_DATA_RATE_TEST_BLOCKAGE
+                || getLatestBtError() == BT_ERROR_DISCONNECT_WHILE_STREAMING)
         {
 //          ShimLeds_incrementCounters();
 //
