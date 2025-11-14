@@ -159,24 +159,30 @@ void SPI_pollSensors(void)
 
   if (storedConfigPtr->chEnExg1_24Bit)
   {
-    EXG_readData(0, 0, &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg1]);
+    EXG_readData(0, 0,
+        &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg1]);
   }
   else if (storedConfigPtr->chEnExg1_16Bit)
   {
-    EXG_readData(0, 1, &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg1]);
+    EXG_readData(0, 1,
+        &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg1]);
   }
   if (storedConfigPtr->chEnExg2_24Bit)
   {
-    EXG_readData(1, 0, &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2]);
+    EXG_readData(1, 0,
+        &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2]);
     if (!(sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2 + 1] == 0x00
-            || sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2 + 1] == 0xff))
+            || sensing.packetBuffers[sensing.packetBufferIndex]
+                    .dataBuf[sensing.ptr.exg2 + 1]
+                == 0xff))
     {
       _NOP();
     }
   }
   else if (storedConfigPtr->chEnExg2_16Bit)
   {
-    EXG_readData(1, 1, &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2]);
+    EXG_readData(1, 1,
+        &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[sensing.ptr.exg2]);
   }
 
   ShimSens_spiCompleteCb();

@@ -457,9 +457,11 @@ void I2C_pollSensors(void)
       /* This system tries to avoid lock-up scenario in the ICM20948 Mag
        * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
        * if the chip was being read from too often. */
-      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(sensing.packetBuffers[sensing.packetBufferIndex].latestTs))
+      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(
+              sensing.packetBuffers[sensing.packetBufferIndex].latestTs))
       {
-        icm20948MagRdy = ICM20948_getMagAndStatus(sensing.packetBuffers[sensing.packetBufferIndex].latestTs, &icm20948MagBuf[0]);
+        icm20948MagRdy = ICM20948_getMagAndStatus(
+            sensing.packetBuffers[sensing.packetBufferIndex].latestTs, &icm20948MagBuf[0]);
       }
     }
     else
