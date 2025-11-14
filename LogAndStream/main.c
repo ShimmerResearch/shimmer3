@@ -816,10 +816,12 @@ __interrupt void TIMER0_B0_ISR(void)
 
   if (shimmerStatus.sensing && !shimmerStatus.configuring)
   {
-    if (sensing.isSampling == SAMPLING_COMPLETE)
+#if SAVE_DATA_FROM_RTC_INT
+    if (sensing.packetBuffers[sensing.packetBufferIndex].isSampling == SAMPLING_COMPLETE)
     {
       ShimSens_saveData();
     }
+#endif
 
     //start ADC conversion
     if (sensing.nbrMcuAdcChans)

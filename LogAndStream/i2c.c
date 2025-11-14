@@ -414,6 +414,8 @@ void I2C_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
 
+  uint8_t *dataBufPtr = &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[0];
+
   //Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
   if (isIcm20948AccelEn && isIcm20948GyroEn)
   {
@@ -432,16 +434,16 @@ void I2C_pollSensors(void)
   {
     if (ShimBrd_isGyroInUseIcm20948())
     {
-      sensing.dataBuf[sensing.ptr.gyro + 0U] = icm20948AccelGyroBuf[0U + 6U];
-      sensing.dataBuf[sensing.ptr.gyro + 1U] = icm20948AccelGyroBuf[1U + 6U];
-      sensing.dataBuf[sensing.ptr.gyro + 2U] = icm20948AccelGyroBuf[2U + 6U];
-      sensing.dataBuf[sensing.ptr.gyro + 3U] = icm20948AccelGyroBuf[3U + 6U];
-      sensing.dataBuf[sensing.ptr.gyro + 4U] = icm20948AccelGyroBuf[4U + 6U];
-      sensing.dataBuf[sensing.ptr.gyro + 5U] = icm20948AccelGyroBuf[5U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 0U] = icm20948AccelGyroBuf[0U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 1U] = icm20948AccelGyroBuf[1U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 2U] = icm20948AccelGyroBuf[2U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 3U] = icm20948AccelGyroBuf[3U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 4U] = icm20948AccelGyroBuf[4U + 6U];
+      dataBufPtr[sensing.ptr.gyro + 5U] = icm20948AccelGyroBuf[5U + 6U];
     }
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
-      MPU9150_getGyro(&sensing.dataBuf[sensing.ptr.gyro]);
+      MPU9150_getGyro(&dataBufPtr[sensing.ptr.gyro]);
     }
   }
 
@@ -455,9 +457,9 @@ void I2C_pollSensors(void)
       /* This system tries to avoid lock-up scenario in the ICM20948 Mag
        * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
        * if the chip was being read from too often. */
-      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(sensing.latestTs))
+      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(sensing.packetBuffers[sensing.packetBufferIndex].latestTs))
       {
-        icm20948MagRdy = ICM20948_getMagAndStatus(sensing.latestTs, &icm20948MagBuf[0]);
+        icm20948MagRdy = ICM20948_getMagAndStatus(sensing.packetBuffers[sensing.packetBufferIndex].latestTs, &icm20948MagBuf[0]);
       }
     }
     else
@@ -478,27 +480,27 @@ void I2C_pollSensors(void)
     if (ShimBrd_isWrAccelInUseIcm20948())
     {
       //Swap byte order to immitate LSM303 chip
-      sensing.dataBuf[sensing.ptr.accel2 + 0U] = icm20948AccelGyroBuf[1U];
-      sensing.dataBuf[sensing.ptr.accel2 + 1U] = icm20948AccelGyroBuf[0U];
+      dataBufPtr[sensing.ptr.accel2 + 0U] = icm20948AccelGyroBuf[1U];
+      dataBufPtr[sensing.ptr.accel2 + 1U] = icm20948AccelGyroBuf[0U];
 
       //Invert sign of uncalibrated Y-axis to match LSM303 chip placement
       int16_t signInvertBuffer
           = -((int16_t) ((icm20948AccelGyroBuf[3U] << 8) | icm20948AccelGyroBuf[2U]));
-      sensing.dataBuf[sensing.ptr.accel2 + 2U] = (signInvertBuffer >> 8) & 0xFF;
-      sensing.dataBuf[sensing.ptr.accel2 + 3U] = signInvertBuffer & 0xFF;
+      dataBufPtr[sensing.ptr.accel2 + 2U] = (signInvertBuffer >> 8) & 0xFF;
+      dataBufPtr[sensing.ptr.accel2 + 3U] = signInvertBuffer & 0xFF;
 
-      sensing.dataBuf[sensing.ptr.accel2 + 4U] = icm20948AccelGyroBuf[5U];
-      sensing.dataBuf[sensing.ptr.accel2 + 5U] = icm20948AccelGyroBuf[4U];
+      dataBufPtr[sensing.ptr.accel2 + 4U] = icm20948AccelGyroBuf[5U];
+      dataBufPtr[sensing.ptr.accel2 + 5U] = icm20948AccelGyroBuf[4U];
     }
     else
     {
       if (ShimBrd_isWrAccelInUseLsm303dlhc())
       {
-        LSM303DLHC_getAccel(&sensing.dataBuf[sensing.ptr.accel2]);
+        LSM303DLHC_getAccel(&dataBufPtr[sensing.ptr.accel2]);
       }
       else
       {
-        LSM303AHTR_getAccel(&sensing.dataBuf[sensing.ptr.accel2]);
+        LSM303AHTR_getAccel(&dataBufPtr[sensing.ptr.accel2]);
       }
     }
   }
@@ -509,17 +511,17 @@ void I2C_pollSensors(void)
     {
       if (icm20948MagRdy)
       {
-        sensing.dataBuf[sensing.ptr.mag1 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-        sensing.dataBuf[sensing.ptr.mag1 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+        dataBufPtr[sensing.ptr.mag1 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+        dataBufPtr[sensing.ptr.mag1 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
 
-        sensing.dataBuf[sensing.ptr.mag1 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-        sensing.dataBuf[sensing.ptr.mag1 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+        dataBufPtr[sensing.ptr.mag1 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+        dataBufPtr[sensing.ptr.mag1 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
 
         //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
         int16_t signInvertBuffer = -((int16_t) ((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8)
             | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
-        sensing.dataBuf[sensing.ptr.mag1 + 4U] = signInvertBuffer & 0xFF;
-        sensing.dataBuf[sensing.ptr.mag1 + 5U] = (signInvertBuffer >> 8) & 0xFF;
+        dataBufPtr[sensing.ptr.mag1 + 4U] = signInvertBuffer & 0xFF;
+        dataBufPtr[sensing.ptr.mag1 + 5U] = (signInvertBuffer >> 8) & 0xFF;
       }
       else
       {
@@ -530,11 +532,11 @@ void I2C_pollSensors(void)
     {
       if (ShimBrd_isWrAccelInUseLsm303dlhc())
       {
-        LSM303DLHC_getMag(&sensing.dataBuf[sensing.ptr.mag1]);
+        LSM303DLHC_getMag(&dataBufPtr[sensing.ptr.mag1]);
       }
       else
       {
-        LSM303AHTR_getMag(&sensing.dataBuf[sensing.ptr.mag1]);
+        LSM303AHTR_getMag(&dataBufPtr[sensing.ptr.mag1]);
       }
     }
   }
@@ -542,16 +544,16 @@ void I2C_pollSensors(void)
   {
     if (ShimBrd_isGyroInUseIcm20948())
     {
-      sensing.dataBuf[sensing.ptr.accel3 + 0U] = icm20948AccelGyroBuf[0U];
-      sensing.dataBuf[sensing.ptr.accel3 + 1U] = icm20948AccelGyroBuf[1U];
-      sensing.dataBuf[sensing.ptr.accel3 + 2U] = icm20948AccelGyroBuf[2U];
-      sensing.dataBuf[sensing.ptr.accel3 + 3U] = icm20948AccelGyroBuf[3U];
-      sensing.dataBuf[sensing.ptr.accel3 + 4U] = icm20948AccelGyroBuf[4U];
-      sensing.dataBuf[sensing.ptr.accel3 + 5U] = icm20948AccelGyroBuf[5U];
+      dataBufPtr[sensing.ptr.accel3 + 0U] = icm20948AccelGyroBuf[0U];
+      dataBufPtr[sensing.ptr.accel3 + 1U] = icm20948AccelGyroBuf[1U];
+      dataBufPtr[sensing.ptr.accel3 + 2U] = icm20948AccelGyroBuf[2U];
+      dataBufPtr[sensing.ptr.accel3 + 3U] = icm20948AccelGyroBuf[3U];
+      dataBufPtr[sensing.ptr.accel3 + 4U] = icm20948AccelGyroBuf[4U];
+      dataBufPtr[sensing.ptr.accel3 + 5U] = icm20948AccelGyroBuf[5U];
     }
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
-      MPU9150_getAccel(&sensing.dataBuf[sensing.ptr.accel3]);
+      MPU9150_getAccel(&dataBufPtr[sensing.ptr.accel3]);
     }
   }
   if (storedConfigPtr->chEnAltMag)
@@ -560,12 +562,12 @@ void I2C_pollSensors(void)
     {
       if (icm20948MagRdy)
       {
-        sensing.dataBuf[sensing.ptr.mag2 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-        sensing.dataBuf[sensing.ptr.mag2 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
-        sensing.dataBuf[sensing.ptr.mag2 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-        sensing.dataBuf[sensing.ptr.mag2 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
-        sensing.dataBuf[sensing.ptr.mag2 + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
-        sensing.dataBuf[sensing.ptr.mag2 + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
+        dataBufPtr[sensing.ptr.mag2 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+        dataBufPtr[sensing.ptr.mag2 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+        dataBufPtr[sensing.ptr.mag2 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+        dataBufPtr[sensing.ptr.mag2 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+        dataBufPtr[sensing.ptr.mag2 + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
+        dataBufPtr[sensing.ptr.mag2 + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
       }
       else
       {
@@ -576,11 +578,11 @@ void I2C_pollSensors(void)
     {
       if (preSampleMpuMag)
       {
-        MPU9150_getMag(&sensing.dataBuf[sensing.ptr.mag2]);
+        MPU9150_getMag(&dataBufPtr[sensing.ptr.mag2]);
       }
       else if (!mpuMagCount--)
       {
-        MPU9150_getMag(&sensing.dataBuf[sensing.ptr.mag2]);
+        MPU9150_getMag(&dataBufPtr[sensing.ptr.mag2]);
         mpuMagCount = mpuMagFreq;
         MPU9150_startMagMeasurement();
       }
@@ -698,7 +700,7 @@ void I2C_pollSensors(void)
       }
       bmpPressCount = bmpPressFreq;
     }
-    memcpy(&sensing.dataBuf[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
+    memcpy(&dataBufPtr[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
   }
 
   ShimSens_i2cCompleteCb();
