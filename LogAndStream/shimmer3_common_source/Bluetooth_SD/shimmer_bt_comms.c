@@ -644,6 +644,7 @@ uint8_t Dma2ConversionDone(void)
                             /* "%REBOOT%" -> RN4678 */
                             if (btStatusStr[7U]=='%')
                             {
+                                triggerBtRfCommStateChangeCallback(FALSE);
                                 saveBtError(BT_ERROR_UNSOLICITED_REBOOT);
                             }
                             else

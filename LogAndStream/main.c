@@ -1243,9 +1243,14 @@ void InitialiseBt(void)
         }
     }
 
+    uint8_t checkBtErrorCounts = ShimEeprom_checkBtErrorCounts();
     if (ShimEeprom_isPresent()
-        && (ShimEeprom_areRadioDetailsIncorrect() || ShimEeprom_checkBtErrorCounts()))
+        && (ShimEeprom_areRadioDetailsIncorrect() || checkBtErrorCounts))
     {
+        if (checkBtErrorCounts)
+        {
+            ShimEeprom_resetBtErrorCounts();
+        }
         ShimEeprom_updateRadioDetails();
         ShimEeprom_writeRadioDetails();
     }

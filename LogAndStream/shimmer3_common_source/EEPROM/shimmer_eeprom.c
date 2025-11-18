@@ -96,7 +96,6 @@ uint8_t ShimEeprom_checkBtErrorCounts(void)
       || eepromBtSettings.btCntRtsLockup == 0xFFFF
       || eepromBtSettings.btCntDataRateTestBlockage == 0xFFFF)
   {
-    ShimEeprom_resetBtErrorCounts();
     return 1;
   }
   return 0;
