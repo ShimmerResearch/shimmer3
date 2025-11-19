@@ -2497,6 +2497,7 @@ void setBtModulePower(uint8_t isEnabled)
     if (isEnabled)
     {
         P4OUT |= BIT3;
+        _delay_cycles(240000);
 
         if (rn4678OpMode != RN4678_OP_MODE_NOT_USED)
         {
