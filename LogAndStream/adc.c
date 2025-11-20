@@ -179,8 +179,7 @@ void ADC_configureChannels(void)
     DMA0_transferDoneFunction(&Dma0ConversionDone);
     if (adcStartPtr)
     {
-      DMA0_init(adcStartPtr,
-          (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
+      DMA0_init(adcStartPtr, (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
           sensing.nbrMcuAdcChans);
     }
   }
@@ -193,8 +192,7 @@ void ADC_gatherDataStart(void)
   if (storedConfigPtr->chEnGsr)
   {
     //TODO get index right here. Think it should be looking at the previous buffer
-    GSR_range(
-        &ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
+    GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
   }
 }
 
