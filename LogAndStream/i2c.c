@@ -413,8 +413,8 @@ void I2C_configureChannels(void)
 void I2C_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-
-  uint8_t *dataBufPtr = &sensing.packetBuffers[sensing.packetBufferIndex].dataBuf[0];
+  PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
+  uint8_t *dataBufPtr = ShimSens_getDataBuffAtWrIdx();
 
   //Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
   if (isIcm20948AccelEn && isIcm20948GyroEn)
@@ -458,10 +458,10 @@ void I2C_pollSensors(void)
        * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
        * if the chip was being read from too often. */
       if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(
-              sensing.packetBuffers[sensing.packetBufferIndex].latestTs))
+          packetBufPtr->timestampTicks))
       {
-        icm20948MagRdy = ICM20948_getMagAndStatus(
-            sensing.packetBuffers[sensing.packetBufferIndex].latestTs, &icm20948MagBuf[0]);
+        icm20948MagRdy = ICM20948_getMagAndStatus(packetBufPtr->timestampTicks,
+            &icm20948MagBuf[0]);
       }
     }
     else

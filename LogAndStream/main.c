@@ -823,18 +823,21 @@ __interrupt void TIMER0_B0_ISR(void)
     }
 #endif
 
-    //start ADC conversion
-    if (sensing.nbrMcuAdcChans)
+    if (!ShimSens_arePacketBuffsFull())
     {
-      ShimSens_saveTimestampToPacket();
-      DMA0_enable();
-      ADC_startConversion();
-    }
-    else
-    {
-      //no analog channels, so go straight to digital
-      ShimSens_gatherData();
-      __bic_SR_register_on_exit(LPM3_bits);
+      //start ADC conversion
+      if (sensing.nbrMcuAdcChans)
+      {
+        ShimSens_saveTimestampToPacket();
+        DMA0_enable();
+        ADC_startConversion();
+      }
+      else
+      {
+        //no analog channels, so go straight to digital
+        ShimSens_gatherData();
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
     }
   }
 }
