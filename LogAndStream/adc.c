@@ -215,7 +215,7 @@ uint8_t Dma0ConversionDone(void)
         sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
-    ShimSens_gatherData();
+    ShimTask_set(TASK_GATHER_DATA);
     ShimSens_adcCompleteCb();
   }
   return 1;
