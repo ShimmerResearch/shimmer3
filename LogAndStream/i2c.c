@@ -413,7 +413,7 @@ void I2C_configureChannels(void)
 void I2C_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-  PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
+  volatile PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
   uint8_t *dataBufPtr = ShimSens_getDataBuffAtWrIdx();
 
   //Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
