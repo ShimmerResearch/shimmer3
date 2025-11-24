@@ -701,7 +701,7 @@ void I2C_pollSensors(void)
       }
       bmpPressCount = bmpPressFreq;
     }
-//    memcpy(&dataBufPtr[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
+    //memcpy(&dataBufPtr[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
     ShimUtil_memcpy_v(&dataBufPtr[sensing.ptr.pressure], bmpVal, BMPX80_PACKET_SIZE);
   }
 

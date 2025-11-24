@@ -116,7 +116,7 @@ void LSM303AHTR_getMag(volatile uint8_t *buf)
   {
     *buf = OUTX_L_REG_M;
     I2C_Read_Packet_From_Sensor(buf, 6);
-//    memcpy(last_data, buf, 6);
+    //memcpy(last_data, buf, 6);
     ShimUtil_memcpy_vv(last_lsm303ah_mag_data, buf, 6);
     last_lsm303ah_mag_data[6] = 1;
   }
@@ -124,7 +124,7 @@ void LSM303AHTR_getMag(volatile uint8_t *buf)
   {
     if (last_lsm303ah_mag_data[6] == 1)
     {
-//      memcpy(buf, last_data, 6);
+      //memcpy(buf, last_data, 6);
       ShimUtil_memcpy_vv(buf, last_lsm303ah_mag_data, 6);
     }
   }

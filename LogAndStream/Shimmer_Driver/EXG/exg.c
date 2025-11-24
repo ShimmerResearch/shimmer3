@@ -249,7 +249,7 @@ void EXG_readData(uint8_t chip, uint8_t size, volatile uint8_t *buf)
       else
       {
         /*24-bit*/
-//        memcpy(buf + 1, data + 3, 6);
+        //memcpy(buf + 1, data + 3, 6);
         ShimUtil_memcpy_v(buf + 1, data + 3, 6);
       }
     }
@@ -275,7 +275,7 @@ void EXG_readData(uint8_t chip, uint8_t size, volatile uint8_t *buf)
       else
       {
         /*24-bit*/
-//        memcpy(buf + 1, data + 3, 6);
+        //memcpy(buf + 1, data + 3, 6);
         ShimUtil_memcpy_v(buf + 1, data + 3, 6);
       }
     }
