@@ -1711,7 +1711,10 @@ uint8_t BT_write_rn4678_ble(volatile uint8_t *buf, uint8_t len, btResponseType r
   return BT_write_rn4678_with_buf(buf, len, responseType, BLE_MTU_SIZE);
 }
 
-uint8_t BT_write_rn4678_with_buf(volatile uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
+uint8_t BT_write_rn4678_with_buf(volatile uint8_t *buf,
+    uint8_t len,
+    btResponseType responseType,
+    uint8_t sampleSetBufferSize)
 {
   /* Buffer before sending to the BT module */
   if (ShimBt_getSpaceInBtTxBuf() <= len

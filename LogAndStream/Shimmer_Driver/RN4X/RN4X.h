@@ -311,7 +311,9 @@ void BT_disable(void);
 //write data to be transmitted to the Bluetooth module
 //returns 0 if fails, else 1
 //will fail if the function is already being called or the buffer doesn't have the capacity to store buf argument
-extern uint8_t (*ShimBt_writeToTxBufAndSend)(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
+extern uint8_t (*ShimBt_writeToTxBufAndSend)(volatile uint8_t *buf,
+    uint8_t len,
+    btResponseType responseType);
 HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len);
 
 uint8_t BT_write_rn42(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
