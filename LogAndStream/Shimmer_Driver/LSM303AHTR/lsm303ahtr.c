@@ -46,6 +46,10 @@
 #include "msp430.h"
 #include <math.h>
 
+#include "Util/shimmer_util.h"
+
+volatile uint8_t last_lsm303ah_mag_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
+
 void LSM303AHTR_accelInit(uint8_t samplingRate, uint8_t range, uint8_t lowPower, uint8_t highresolution)
 {
   uint8_t i2c_buffer[2], highFreq;
@@ -96,16 +100,15 @@ void LSM303AHTR_magInit(uint8_t samplingrate)
   I2C_Write_Packet_To_Sensor(i2c_buffer, 2);
 }
 
-void LSM303AHTR_getAccel(uint8_t *buf)
+void LSM303AHTR_getAccel(volatile uint8_t *buf)
 {
   I2C_Set_Slave_Address(LSM303AHTR_ACCEL_ADDR);
   *buf = OUT_X_L_A;
   I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
-void LSM303AHTR_getMag(uint8_t *buf)
+void LSM303AHTR_getMag(volatile uint8_t *buf)
 {
-  static uint8_t last_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
   I2C_Set_Slave_Address(LSM303AHTR_MAG_ADDR);
   *buf = STATUS_REG_M;
   I2C_Read_Packet_From_Sensor(buf, 1);
@@ -113,14 +116,16 @@ void LSM303AHTR_getMag(uint8_t *buf)
   {
     *buf = OUTX_L_REG_M;
     I2C_Read_Packet_From_Sensor(buf, 6);
-    memcpy(last_data, buf, 6);
-    last_data[6] = 1;
+//    memcpy(last_data, buf, 6);
+    ShimUtil_memcpy_vv(last_lsm303ah_mag_data, buf, 6);
+    last_lsm303ah_mag_data[6] = 1;
   }
   else
   {
-    if (last_data[6] == 1)
+    if (last_lsm303ah_mag_data[6] == 1)
     {
-      memcpy(buf, last_data, 6);
+//      memcpy(buf, last_data, 6);
+      ShimUtil_memcpy_vv(buf, last_lsm303ah_mag_data, 6);
     }
   }
 }
