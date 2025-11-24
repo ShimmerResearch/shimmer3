@@ -839,9 +839,9 @@ __interrupt void TIMER0_B0_ISR(void)
   //  {
   //    //no analog channels, so go straight to digital
   ////    ShimSens_gatherData();
-  //    ShimTask_set(TASK_GATHER_DATA);
-  //    __bic_SR_register_on_exit(LPM3_bits);
-  //  }
+  //ShimTask_set(TASK_GATHER_DATA);
+  //__bic_SR_register_on_exit(LPM3_bits);
+  //}
   //}
 }
 
