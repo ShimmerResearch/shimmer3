@@ -2275,8 +2275,9 @@ uint8_t isBtDeviceRn42(void)
 
 uint8_t isBtDeviceRn4678(void)
 {
-  return (btFwVer == RN4678_V1_00_5 || btFwVer == RN4678_V1_11_0 || btFwVer == RN4678_V1_13_5
-      || btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0 || btFwVer == RN4678_V1_24_0);
+  return (btFwVer == RN4678_V1_00_5 || btFwVer == RN4678_V1_11_0
+      || btFwVer == RN4678_V1_13_5 || btFwVer == RN4678_V1_22_0
+      || btFwVer == RN4678_V1_23_0 || btFwVer == RN4678_V1_24_0);
 }
 
 uint8_t doesBtDeviceSupport1Mbps(void)
