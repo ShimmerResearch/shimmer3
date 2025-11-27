@@ -1113,7 +1113,7 @@ void runSetCommands(void)
     else
     {
       /* Temporary commands for RN4678 BLE must be set after a reboot - if one was needed. These temporary commands are not supported in V1.00.5 firmware */
-      if (btFwVer == RN4678_V1_23_0)
+      if (btFwVer == RN4678_V1_23_0 || btFwVer == RN4678_V1_24_0)
       {
         if (bt_setcommands_step == RN4678_REENTER_CMD_MODE)
         {
@@ -2275,15 +2275,16 @@ uint8_t isBtDeviceRn42(void)
 
 uint8_t isBtDeviceRn4678(void)
 {
-  return (btFwVer == RN4678_V1_00_5 || btFwVer == RN4678_V1_11_0 || btFwVer == RN4678_V1_13_5
-      || btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0);
+  return (btFwVer == RN4678_V1_00_5 || btFwVer == RN4678_V1_11_0
+      || btFwVer == RN4678_V1_13_5 || btFwVer == RN4678_V1_22_0
+      || btFwVer == RN4678_V1_23_0 || btFwVer == RN4678_V1_24_0);
 }
 
 uint8_t doesBtDeviceSupport1Mbps(void)
 {
   /* Bug with RN4678 v1.13.5 in-which 1Mbps doesn't work so not adding it
    * here */
-  return (btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0);
+  return (btFwVer == RN4678_V1_22_0 || btFwVer == RN4678_V1_23_0 || RN4678_V1_24_0);
 }
 
 void setBtFwVersion(enum BT_FIRMWARE_VERSION btFwVerNew)
