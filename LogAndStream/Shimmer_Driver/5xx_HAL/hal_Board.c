@@ -64,7 +64,7 @@ static uint16_t lastResetReason;
  ******************************************************************************/
 void Board_init(void)
 {
-    Board_saveLastResetReason();
+  Board_saveLastResetReason();
 
   //Setup XT1 and XT2
   XT1_PORT_SEL |= XT1_ENABLE;
