@@ -42,10 +42,7 @@
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
 #include "SDCard/shimmer_sd.h"
-<<<<<<< HEAD
 #include "SDCard/shimmer_sd_data_file.h"
-=======
->>>>>>> refs/remotes/origin/main
 #include "log_and_stream_externs.h"
 #include "shimmer_definitions.h"
 
