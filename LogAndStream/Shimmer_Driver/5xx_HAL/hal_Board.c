@@ -38,6 +38,8 @@
 #include "hal_Board.h"
 #include "msp430.h"
 
+#include <stdint.h>
+
 #include "Boards/shimmer_boards.h"
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
@@ -55,6 +57,8 @@
 #define XT1_ENABLE   (BIT0 + BIT1)
 #define XT2_ENABLE   (BIT2 + BIT3)
 
+static uint16_t lastResetReason;
+
 /******************************************************************************
  * @brief  Initialize the board - configure ports
  * @param  None
@@ -62,6 +66,8 @@
  ******************************************************************************/
 void Board_init(void)
 {
+  Board_saveLastResetReason();
+
   //Setup XT1 and XT2
   XT1_PORT_SEL |= XT1_ENABLE;
   XT2_PORT_SEL |= XT2_ENABLE;
@@ -510,4 +516,14 @@ void Board_dockDetectN(uint8_t state)
   {
     P6OUT &= ~BIT0; //DETECT_N set low
   }
+}
+
+void Board_saveLastResetReason(void)
+{
+  lastResetReason = SYSRSTIV;
+}
+
+uint16_t Board_getLastResetReason(void)
+{
+  return lastResetReason;
 }

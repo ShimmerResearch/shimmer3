@@ -16,6 +16,8 @@
 
 void hal_run_factory_test(factory_test_t factoryTestToRun, char *bufPtr);
 void print_shimmer_model(void);
+void print_mcu_details(void);
+void print_last_reset_reason(void);
 void led_test(void);
 void sd_card_test(void);
 void bt_module_test(void);
