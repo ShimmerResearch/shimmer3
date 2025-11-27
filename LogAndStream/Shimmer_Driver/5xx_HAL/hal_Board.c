@@ -64,6 +64,8 @@ static uint16_t lastResetReason;
  ******************************************************************************/
 void Board_init(void)
 {
+    Board_saveLastResetReason();
+
   //Setup XT1 and XT2
   XT1_PORT_SEL |= XT1_ENABLE;
   XT2_PORT_SEL |= XT2_ENABLE;
@@ -200,8 +202,6 @@ void Board_init(void)
   //SW_I2C
   Board_setI2cPower(0);
   P8DIR |= BIT4; //set as output
-
-  Board_saveLastResetReason();
 }
 
 /******************************************************************************
