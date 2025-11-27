@@ -103,7 +103,7 @@ void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
 /* should be 0 */
-#define IS_SUPPORTED_TCXO 0
+#define IS_SUPPORTED_TCXO      0
 #define FLASH_FOR_RN4678_ERROR 0
 
 uint8_t watchDogWasOnDuringBtStart;
@@ -384,7 +384,7 @@ void InitialiseBt(void)
   {
     if (checkBtErrorCounts)
     {
-        ShimEeprom_resetBtErrorCounts();
+      ShimEeprom_resetBtErrorCounts();
     }
     ShimEeprom_updateRadioDetails();
     ShimEeprom_writeRadioDetails();
