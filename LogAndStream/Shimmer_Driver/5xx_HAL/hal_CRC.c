@@ -7,7 +7,7 @@
 #include "hal_CRC.h"
 #include "msp430.h"
 
-uint16_t CRC_data(uint8_t *buf, uint8_t len)
+uint16_t CRC_data(volatile uint8_t *buf, uint8_t len)
 {
   uint8_t i;
   uint16_t crc_val = 0;
@@ -32,7 +32,7 @@ uint16_t CRC_data(uint8_t *buf, uint8_t len)
   return crc_val;
 }
 
-void calculateCrcAndInsert(uint8_t crcMode, uint8_t *aryPtr, uint8_t len)
+void calculateCrcAndInsert(uint8_t crcMode, volatile uint8_t *aryPtr, uint8_t len)
 {
   uint16_t crc_value;
   if (crcMode != CRC_OFF)

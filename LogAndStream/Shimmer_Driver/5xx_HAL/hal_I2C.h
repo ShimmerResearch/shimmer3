@@ -82,7 +82,7 @@ extern uint8_t I2C_Interrupt_Status(uint8_t mask);
 extern uint8_t TI_USCI_I2C_slave_present(uint8_t slave_address);
 extern uint8_t I2C_Write_Packet_To_Sensor(uint8_t *writeData, uint8_t dataLength);
 
-extern uint8_t I2C_Read_Packet_From_Sensor(uint8_t *readData, uint16_t dataLength);
+extern uint8_t I2C_Read_Packet_From_Sensor(volatile uint8_t *readData, uint16_t dataLength);
 
 void i2cSlaveDiscover(void);
 char i2cSlavePresent(char address);

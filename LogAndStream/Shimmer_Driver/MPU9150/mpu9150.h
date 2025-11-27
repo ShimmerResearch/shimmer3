@@ -98,10 +98,10 @@ uint8_t MPU9150_getId(void);
 void MPU9150_wake(uint8_t wakeup);
 
 //put x, y and z gyro values into buf (big endian)
-void MPU9150_getGyro(uint8_t *buf);
+void MPU9150_getGyro(volatile uint8_t *buf);
 
 //put x, y and z accel values into buf (big endian)
-void MPU9150_getAccel(uint8_t *buf);
+void MPU9150_getAccel(volatile uint8_t *buf);
 
 //val = sensitivity to set
 //0 = �250�/s
@@ -137,7 +137,7 @@ void MPU9150_startMagMeasurement(void);
 //-4096 to 4095
 //if values are 32767 they are not valid
 //either due to data read error or magnetic sensor overflow
-void MPU9150_getMag(uint8_t *buf);
+void MPU9150_getMag(volatile uint8_t *buf);
 
 //read the x, y and z mag sensitivity adjustment values
 void MPU9150_getMagSensitivityAdj(uint8_t *buf);

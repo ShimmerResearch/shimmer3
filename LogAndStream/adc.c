@@ -179,7 +179,7 @@ void ADC_configureChannels(void)
     DMA0_transferDoneFunction(&Dma0ConversionDone);
     if (adcStartPtr)
     {
-      DMA0_init(adcStartPtr, (uint16_t *) &sensing.dataBuf[FIRST_CH_BYTE_IDX],
+      DMA0_init(adcStartPtr, (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
           sensing.nbrMcuAdcChans);
     }
   }
@@ -191,7 +191,8 @@ void ADC_gatherDataStart(void)
 
   if (storedConfigPtr->chEnGsr)
   {
-    GSR_range(&sensing.dataBuf[sensing.ptr.gsr]);
+    //TODO get index right here. Think it should be looking at the previous buffer
+    GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
   }
 }
 
@@ -208,10 +209,11 @@ uint8_t Dma0ConversionDone(void)
   {
     //Destination address for next transfer
     DMA0_repeatTransfer(adcStartPtr,
-        (uint16_t *) &sensing.dataBuf[FIRST_CH_BYTE_IDX], sensing.nbrMcuAdcChans);
+        (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
+        sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
-    ShimSens_gatherData();
+    ShimTask_set(TASK_GATHER_DATA);
     ShimSens_adcCompleteCb();
   }
   return 1;

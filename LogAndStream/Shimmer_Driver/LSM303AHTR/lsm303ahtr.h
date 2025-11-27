@@ -120,10 +120,10 @@ void LSM303AHTR_accelInit(uint8_t samplingrate, uint8_t range, uint8_t lowpower,
 void LSM303AHTR_magInit(uint8_t samplingrate);
 
 //put x, y and z accel values into buf
-void LSM303AHTR_getAccel(uint8_t *buf);
+void LSM303AHTR_getAccel(volatile uint8_t *buf);
 
 //put x, y and z mag values into buf
-void LSM303AHTR_getMag(uint8_t *buf);
+void LSM303AHTR_getMag(volatile uint8_t *buf);
 
 //powers down the LSM303AHTR
 void LSM303AHTR_sleep(void);
