@@ -103,7 +103,8 @@ void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
 /* should be 0 */
-#define IS_SUPPORTED_TCXO 0
+#define IS_SUPPORTED_TCXO      0
+#define FLASH_FOR_RN4678_ERROR 0
 
 uint8_t watchDogWasOnDuringBtStart;
 
@@ -187,8 +188,6 @@ void Init(void)
   P2IFG &= ~BIT3; //clear flag
   P2IE |= BIT3;   //enable interrupt
 
-  LogAndStream_setupDockUndock();
-
   //RwcCheck();
   RTC_init(0);
 
@@ -199,31 +198,36 @@ void Init(void)
   dierecord = (char *) 0x01A0A;
 
   LogAndStream_setBootStage(BOOT_STAGE_I2C);
+  /* Detect connected sensors */
   I2C_start(1);
   detectI2cSlaves();
   I2C_stop(1);
-  /* I2C slave discover leaves the I2C bus configuration in the wrong state so
-   * just reinitialising here. */
+
+  /* Load and process HW version. Needs to be done after EEPROM is detected. */
+  LogAndStream_processDaughterCardId();
+
+  /* Load pressure sensor calibration parameters. */
   I2C_start(0);
   loadBmpCalibration();
   I2C_stop(0);
   ShimSdHead_saveBmpCalibrationToSdHeader();
 
-  LogAndStream_processDaughterCardId();
-
   LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
 
   LogAndStream_setBootStage(BOOT_STAGE_CONFIGURATION);
+  /* setupDockUndock needs to be done after parsing HW version due to ExG pins*/
+  LogAndStream_setupDockUndock();
+
   /* Calibration needs to be loaded after the chips have been detected in
    * order to know which default calib to set for attached chips.
    * It also needs to be loaded after the BT is initialised so that the
    * MAC ID can be used for default Shimmer name and calibration file names.*/
   ShimConfig_loadSensorConfigAndCalib();
 
-  ShimSens_startLoggingIfUndockStartEnabled();
-
   ShimRtc_rwcErrorCheck();
+
+  ShimSens_startLoggingIfUndockStartEnabled();
 
   /* Take initial measurement to update LED state */
   manageReadBatt(1);
@@ -378,8 +382,13 @@ void InitialiseBt(void)
     }
   }
 
-  if (ShimEeprom_isPresent() && ShimEeprom_areRadioDetailsIncorrect())
+  uint8_t checkBtErrorCounts = ShimEeprom_checkBtErrorCounts();
+  if (ShimEeprom_isPresent() && (ShimEeprom_areRadioDetailsIncorrect() || checkBtErrorCounts))
   {
+    if (checkBtErrorCounts)
+    {
+      ShimEeprom_resetBtErrorCounts();
+    }
     ShimEeprom_updateRadioDetails();
     ShimEeprom_writeRadioDetails();
   }
@@ -643,7 +652,48 @@ __interrupt void TIMER0_B1_ISR(void)
       //clk_1000 = 100.0 ms = 0.1s
       TB0CCR3 += clk_1000;
 
+#if FLASH_FOR_RN4678_ERROR
+      //TODO temporarily flashing error LED sequence to highlight RN4678 issue
+      if (getLatestBtError() != BT_ERROR_NONE)
+      {
+        ShimLeds_incrementCounters();
+
+        if (ShimLeds_isBlinkTimerCnt200ms())
+        {
+          Board_ledOn(LED_LWR_RED);
+          Board_ledOn(LED_LWR_GREEN);
+          Board_ledOn(LED_LWR_YELLOW);
+          Board_ledOff(LED_UPR_BLUE);
+          Board_ledOff(LED_UPR_GREEN);
+        }
+        else
+        {
+          Board_ledOff(LED_LWR_RED);
+          Board_ledOff(LED_LWR_GREEN);
+          Board_ledOff(LED_LWR_YELLOW);
+          Board_ledOn(LED_UPR_BLUE);
+          Board_ledOn(LED_UPR_GREEN);
+        }
+      }
+      else
+      {
+        LogAndStream_blinkTimerCommon();
+      }
+#else
       LogAndStream_blinkTimerCommon();
+#endif
+
+      if (ShimBt_checkForBtDataRateTestBlockage())
+      {
+        saveBtError(BT_ERROR_DATA_RATE_TEST_BLOCKAGE);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
+
+      if (checkForBtRtsLock())
+      {
+        saveBtError(BT_ERROR_RTS_LOCK);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
 
       if (!shimmerStatus.booting && checkIfBattReadNeeded())
       {
