@@ -55,12 +55,13 @@
 #define XT1_ENABLE   (BIT0 + BIT1)
 #define XT2_ENABLE   (BIT2 + BIT3)
 
-/******************************************************************************
- * @brief  Initialize the board - configure ports
- * @param  None
- * @return none
- ******************************************************************************/
-void Board_init(void)
+    /******************************************************************************
+     * @brief  Initialize the board - configure ports
+     * @param  None
+     * @return none
+     ******************************************************************************/
+    void
+    Board_init(void)
 {
   //Setup XT1 and XT2
   XT1_PORT_SEL |= XT1_ENABLE;
