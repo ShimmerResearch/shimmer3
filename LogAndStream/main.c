@@ -187,8 +187,6 @@ void Init(void)
   P2IFG &= ~BIT3; //clear flag
   P2IE |= BIT3;   //enable interrupt
 
-  LogAndStream_setupDockUndock();
-
   //RwcCheck();
   RTC_init(0);
 
@@ -199,34 +197,39 @@ void Init(void)
   dierecord = (char *) 0x01A0A;
 
   LogAndStream_setBootStage(BOOT_STAGE_I2C);
+  /* Detect connected sensors */
   I2C_start(1);
   detectI2cSlaves();
   I2C_stop(1);
-  /* I2C slave discover leaves the I2C bus configuration in the wrong state so
-   * just reinitialising here. */
+
+  /* Load and process HW version. Needs to be done after EEPROM is detected. */
+  LogAndStream_processDaughterCardId();
+
+  /* Load pressure sensor calibration parameters. */
   I2C_start(0);
   loadBmpCalibration();
   I2C_stop(0);
   ShimSdHead_saveBmpCalibrationToSdHeader();
 
-  LogAndStream_processDaughterCardId();
-
   LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
 
   LogAndStream_setBootStage(BOOT_STAGE_CONFIGURATION);
+  /* setupDockUndock needs to be done after parsing HW version due to ExG pins*/
+  LogAndStream_setupDockUndock();
+
   /* Calibration needs to be loaded after the chips have been detected in
    * order to know which default calib to set for attached chips.
    * It also needs to be loaded after the BT is initialised so that the
    * MAC ID can be used for default Shimmer name and calibration file names.*/
   ShimConfig_loadSensorConfigAndCalib();
 
+  ShimRtc_rwcErrorCheck();
+
   if (!shimmerStatus.docked)
   {
     ShimSens_startLoggingIfUndockStartEnabled();
   }
-
-  ShimRtc_rwcErrorCheck();
 
   /* Take initial measurement to update LED state */
   manageReadBatt(1);
