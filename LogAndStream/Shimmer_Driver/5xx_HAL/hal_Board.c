@@ -55,7 +55,7 @@
 #define XT1_ENABLE   (BIT0 + BIT1)
 #define XT2_ENABLE   (BIT2 + BIT3)
 
-uint16_t lastResetReason;
+static uint16_t lastResetReason;
 
 /******************************************************************************
  * @brief  Initialize the board - configure ports
