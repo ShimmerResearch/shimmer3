@@ -129,7 +129,7 @@ volatile uint8_t rn4678RtsLockDetected;
 
 char *daughtCardIdStrPtrForBle;
 
-volatile btError_t latestBtError;
+volatile uint8_t latestBtError;
 volatile uint8_t btRtsLockCounter;
 
 const char *const hex = "0123456789ABCDEF";
@@ -2759,6 +2759,7 @@ uint8_t checkForBtRtsLock(void)
     /* Each count is 100ms. Checking for a blockage longer than 2s */
     if (btRtsLockCounter > 20)
     {
+      btRtsLockCounter = 0;
       return 1;
     }
   }
@@ -2769,32 +2770,35 @@ uint8_t checkForBtRtsLock(void)
   return 0;
 }
 
-void saveBtError(btError_t btError)
+void saveBtError(uint8_t btError)
 {
   gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
 
   latestBtError = btError;
-  switch (btError)
+  if (ShimEeprom_isPresent() && eepromBtSetting != NULL)
   {
-    case BT_ERROR_RTS_LOCK:
-      eepromBtSetting->btCntRtsLockup++;
-      break;
-    case BT_ERROR_UNSOLICITED_REBOOT:
-      eepromBtSetting->btCntUnsolicitedReboot++;
-      break;
-    case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
-      eepromBtSetting->btCntDataRateTestBlockage++;
-      break;
-    case BT_ERROR_DISCONNECT_WHILE_STREAMING:
-      eepromBtSetting->btCntDisconnectWhileStreaming++;
-      break;
-    default:
-      break;
+    switch (btError)
+    {
+      case BT_ERROR_RTS_LOCK:
+        eepromBtSetting->btCntRtsLockup++;
+        break;
+      case BT_ERROR_UNSOLICITED_REBOOT:
+        eepromBtSetting->btCntUnsolicitedReboot++;
+        break;
+      case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
+        eepromBtSetting->btCntDataRateTestBlockage++;
+        break;
+      case BT_ERROR_DISCONNECT_WHILE_STREAMING:
+        eepromBtSetting->btCntDisconnectWhileStreaming++;
+        break;
+      default:
+        break;
+    }
+    ShimTask_set(TASK_WRITE_RADIO_DETAILS);
   }
-  ShimTask_set(TASK_UPDATE_DEBUG_COUNT);
 }
 
-btError_t getLatestBtError(void)
+uint8_t getLatestBtError(void)
 {
   return latestBtError;
 }
