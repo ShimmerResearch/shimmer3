@@ -41,8 +41,8 @@
 #include "Boards/shimmer_boards.h"
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
-#include "SDCard/shimmer_sd_data_file.h"
 #include "SDCard/shimmer_sd.h"
+#include "SDCard/shimmer_sd_data_file.h"
 #include "log_and_stream_externs.h"
 
 #define XT1_PORT_DIR P7DIR
