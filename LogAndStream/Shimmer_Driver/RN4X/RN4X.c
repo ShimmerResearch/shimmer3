@@ -129,6 +129,9 @@ volatile uint8_t rn4678RtsLockDetected;
 
 char *daughtCardIdStrPtrForBle;
 
+volatile btError_t latestBtError;
+volatile uint8_t btRtsLockCounter;
+
 const char *const hex = "0123456789ABCDEF";
 
 const char *const rn4678TxPower_str[]
@@ -1515,6 +1518,10 @@ uint8_t areBtSetupCommandsRunning(void)
 
 uint8_t isBtModuleOverflowPinHigh(void)
 {
+  /* rn4xStatus.txOverflow state bit is not updated in time for when this check
+   * is needed (i.e. checking within the TX callback while rn4xStatus.txOverflow
+   * is only updated from a I/O interrupt) so we need to directly check the pin
+   * state here. */
   return (P1IN & BIT3);
 }
 
@@ -1572,6 +1579,9 @@ void BT_init(void)
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
   rn4678RtsLockDetected = 0U;
 #endif
+
+  latestBtError = BT_ERROR_NONE;
+  btRtsLockCounter = 0;
 
 #if ADVERTISING_NAME_IS_OUTPUT
   BT_setAdvertisingName(ADVERTISING_NAME_OUTPUT);
@@ -2738,6 +2748,60 @@ void string2hexString(char *input, char *output)
   }
   //insert NULL at the end of the output string
   output[i++] = '\0';
+}
+
+uint8_t checkForBtRtsLock(void)
+{
+  if (shimmerStatus.btConnected && txOverflow)
+  {
+    btRtsLockCounter++;
+
+    /* Each count is 100ms. Checking for a blockage longer than 2s */
+    if (btRtsLockCounter > 20)
+    {
+      return 1;
+    }
+  }
+  else
+  {
+    btRtsLockCounter = 0;
+  }
+  return 0;
+}
+
+void saveBtError(btError_t btError)
+{
+  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+
+  latestBtError = btError;
+  switch (btError)
+  {
+    case BT_ERROR_RTS_LOCK:
+      eepromBtSetting->btCntRtsLockup++;
+      break;
+    case BT_ERROR_UNSOLICITED_REBOOT:
+      eepromBtSetting->btCntUnsolicitedReboot++;
+      break;
+    case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
+      eepromBtSetting->btCntDataRateTestBlockage++;
+      break;
+    case BT_ERROR_DISCONNECT_WHILE_STREAMING:
+      eepromBtSetting->btCntDisconnectWhileStreaming++;
+      break;
+    default:
+      break;
+  }
+  ShimTask_set(TASK_UPDATE_DEBUG_COUNT);
+}
+
+btError_t getLatestBtError(void)
+{
+  return latestBtError;
+}
+
+void resetLatestBtError(void)
+{
+  latestBtError = BT_ERROR_NONE;
 }
 
 #pragma vector = USCI_A1_VECTOR

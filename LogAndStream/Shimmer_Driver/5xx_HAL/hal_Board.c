@@ -42,6 +42,7 @@
 #include "GSR/gsr.h"
 #include "LEDs/shimmer_leds.h"
 #include "SDCard/shimmer_sd_data_file.h"
+#include "SDCard/shimmer_sd.h"
 #include "log_and_stream_externs.h"
 
 #define XT1_PORT_DIR P7DIR
@@ -381,7 +382,7 @@ void Board_sd2Pc(void)
   Board_dockDetectN(0);
 
   //Unmount SD card
-  ShimSd_mount(0);
+  ShimSd_mount(SD_UNMOUNT);
 }
 
 void Board_sd2Mcu(void)
@@ -393,8 +394,8 @@ void Board_sd2Mcu(void)
   Board_sdPowerCycle();
 
   //Mount SD card
-  ShimSd_mount(0);
-  ShimSd_mount(1);
+  ShimSd_mount(SD_UNMOUNT);
+  ShimSd_mount(SD_MOUNT);
 }
 
 uint8_t Board_checkDockedDetectState(void)
