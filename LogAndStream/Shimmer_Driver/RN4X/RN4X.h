@@ -450,5 +450,9 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
+uint8_t checkForBtRtsLock(void);
+void saveBtError(uint8_t btError);
+uint8_t getLatestBtError(void);
+void resetLatestBtError(void);
 
 #endif //RN4X_H

@@ -36,6 +36,9 @@ void hal_run_factory_test(factory_test_t factoryTestToRun, char *bufPtr)
 
   if (factoryTestToRun == FACTORY_TEST_MAIN || factoryTestToRun == FACTORY_TEST_ICS)
   {
+    print_mcu_details();
+    ShimFactoryTest_sendReport("\r\n");
+
     sd_card_test();
     ShimFactoryTest_sendReport("\r\n");
 
@@ -74,6 +77,98 @@ void print_shimmer_model(void)
   else
   {
     ShimFactoryTest_sendReport(" - FAIL: not set\r\n");
+  }
+}
+
+void print_mcu_details(void)
+{
+  ShimFactoryTest_sendReport("MCU:\r\n");
+
+  char *uid = HAL_GetUID();
+  //sprintf(buffer, " - Unique ID = 0x%08" PRIX32 "%08" PRIX32 "%08" PRIX32
+  //    "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "%08" PRIX32 "\r\n",
+  //    (uid + 0) & 0xFF,
+  //    (uid + 1) & 0xFF,
+  //    (uid + 2) & 0xFF,
+  //    (uid + 3) & 0xFF,
+  //    (uid + 4) & 0xFF,
+  //    (uid + 5) & 0xFF,
+  //    (uid + 6) & 0xFF,
+  //    (uid + 7) & 0xFF);
+  //ShimFactoryTest_sendReport(buffer);
+
+  ShimFactoryTest_sendReport(" - Last reset reason = ");
+  print_last_reset_reason();
+  ShimFactoryTest_sendReport("\r\n");
+
+  ShimFactoryTest_sendReport(" - I/O status:\r\n");
+  sprintf(buffer, "    - Docked: %s\r\n", shimmerStatus.docked ? "Yes" : "No");
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "    - BT connected: %s\r\n", shimmerStatus.btConnected ? "Yes" : "No");
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "    - Button pressed: %s\r\n", shimmerStatus.buttonPressed ? "Yes" : "No");
+  ShimFactoryTest_sendReport(buffer);
+}
+
+void print_last_reset_reason(void)
+{
+  switch (Board_getLastResetReason())
+  {
+    case SYSRSTIV_NONE:
+      ShimFactoryTest_sendReport("No Interrupt pending");
+      break;
+    case SYSRSTIV_BOR:
+      ShimFactoryTest_sendReport("Brownout (BOR) (highest priority)");
+      break;
+    case SYSRSTIV_RSTNMI:
+      ShimFactoryTest_sendReport("RST/NMI (BOR)");
+      break;
+    case SYSRSTIV_DOBOR:
+      ShimFactoryTest_sendReport("PMMSWBOR (BOR)");
+      break;
+    case SYSRSTIV_LPM5WU:
+      ShimFactoryTest_sendReport("Wakeup from LPMx.5 (BOR)");
+      break;
+    case SYSRSTIV_SECYV:
+      ShimFactoryTest_sendReport("Security violation (BOR)");
+      break;
+    case SYSRSTIV_SVSL:
+      ShimFactoryTest_sendReport("SVSL (POR)");
+      break;
+    case SYSRSTIV_SVSH:
+      ShimFactoryTest_sendReport("SVSH (POR)");
+      break;
+    case SYSRSTIV_SVML_OVP:
+      ShimFactoryTest_sendReport("SVML_OVP (POR)");
+      break;
+    case SYSRSTIV_SVMH_OVP:
+      ShimFactoryTest_sendReport("SVMH_OVP (POR)");
+      break;
+    case SYSRSTIV_DOPOR:
+      ShimFactoryTest_sendReport("PMMSWPOR (POR)");
+      break;
+    case SYSRSTIV_WDTTO:
+      ShimFactoryTest_sendReport("WDT time out (PUC)");
+      break;
+    case SYSRSTIV_WDTKEY:
+      ShimFactoryTest_sendReport("WDT password violation (PUC)");
+      break;
+    case SYSRSTIV_KEYV:
+      ShimFactoryTest_sendReport("Flash password violation (PUC)");
+      break;
+    case SYSRSTIV_PLLUL:
+      ShimFactoryTest_sendReport("PLL unlock");
+      break;
+    case SYSRSTIV_PERF:
+      ShimFactoryTest_sendReport(
+          "PERF peripheral/configuration area fetch (PUC)");
+      break;
+    case SYSRSTIV_PMMKEY:
+      ShimFactoryTest_sendReport("PMM password violation (PUC)");
+      break;
+    default:
+      ShimFactoryTest_sendReport("Unknown");
+      break;
   }
 }
 
@@ -201,6 +296,19 @@ void bt_module_test(void)
   //    ShimFactoryTest_sendReport(" - FAIL\r\n");
   //}
   //return stat.isBtPoweredOn;
+
+  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+  ShimFactoryTest_sendReport(" - Counts:\r\n");
+  sprintf(buffer, "   - BT data-rate test blockages = %d\r\n",
+      eepromBtSetting->btCntDataRateTestBlockage);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "   - BT disconnects while streaming = %d\r\n",
+      eepromBtSetting->btCntDisconnectWhileStreaming);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "   - BT RTS Lockups = %d\r\n", eepromBtSetting->btCntRtsLockup);
+  ShimFactoryTest_sendReport(buffer);
+  sprintf(buffer, "   - BT unsolicited reboots = %d\r\n", eepromBtSetting->btCntUnsolicitedReboot);
+  ShimFactoryTest_sendReport(buffer);
 }
 
 void I2C_test(void)
