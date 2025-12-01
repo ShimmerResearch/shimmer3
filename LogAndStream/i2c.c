@@ -413,8 +413,8 @@ void I2C_configureChannels(void)
 void I2C_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-  PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
-  uint8_t *dataBufPtr = &packetBufPtr->dataBuf[0];
+
+  uint8_t *dataBufPtr = sensing.currentBuffer? &sensing.txBuff1[0]:&sensing.txBuff0[0];
 
   //Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
   if (isIcm20948AccelEn && isIcm20948GyroEn)
@@ -452,19 +452,20 @@ void I2C_pollSensors(void)
   if (storedConfigPtr->chEnAltMag
       || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
   {
-    if (ICM20948_isMagSampleSkipEnabled())
-    {
-      /* This system tries to avoid lock-up scenario in the ICM20948 Mag
-       * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
-       * if the chip was being read from too often. */
-      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(packetBufPtr->timestampTicks))
-      {
-        icm20948MagRdy = ICM20948_getMagAndStatus(
-            packetBufPtr->timestampTicks, &icm20948MagBuf[0]);
-      }
-    }
-    else
-    {
+    //TODO get replacement working
+//    if (ICM20948_isMagSampleSkipEnabled())
+//    {
+//      /* This system tries to avoid lock-up scenario in the ICM20948 Mag
+//       * (AK09916) in-which we see a 0.1 ms worth of repeated data samples
+//       * if the chip was being read from too often. */
+//      if (icm20948MagRdy = ICM20948_hasTimeoutPeriodPassed(packetBufPtr->timestampTicks))
+//      {
+//        icm20948MagRdy = ICM20948_getMagAndStatus(
+//            packetBufPtr->timestampTicks, &icm20948MagBuf[0]);
+//      }
+//    }
+//    else
+//    {
       /* Original approach in-which the status 1 register is read first
        * before reading the remaining bytes. This approach was found to
        * work fine <512Hz but after that it would cause packet loss due
@@ -473,7 +474,7 @@ void I2C_pollSensors(void)
       {
         ICM20948_getMag(&icm20948MagBuf[1]);
       }
-    }
+//    }
   }
 
   if (storedConfigPtr->chEnWrAccel)
