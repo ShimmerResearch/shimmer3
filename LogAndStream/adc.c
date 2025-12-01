@@ -192,7 +192,7 @@ void ADC_gatherDataStart(void)
   if (storedConfigPtr->chEnGsr)
   {
     //TODO get index right here. Think it should be looking at the previous buffer
-    if(sensing.currentBuffer==0)
+    if (sensing.currentBuffer == 0)
     {
       GSR_range(&sensing.txBuff0[sensing.ptr.gsr]);
     }
@@ -215,17 +215,15 @@ uint8_t Dma0ConversionDone(void)
   else
   {
     //Destination address for next transfer
-    if(sensing.currentBuffer)
+    if (sensing.currentBuffer)
     {
       DMA0_repeatTransfer(adcStartPtr,
-          (uint16_t *) &sensing.txBuff0[FIRST_CH_BYTE_IDX],
-          sensing.nbrMcuAdcChans);
+          (uint16_t *) &sensing.txBuff0[FIRST_CH_BYTE_IDX], sensing.nbrMcuAdcChans);
     }
     else
     {
       DMA0_repeatTransfer(adcStartPtr,
-          (uint16_t *) &sensing.txBuff1[FIRST_CH_BYTE_IDX],
-          sensing.nbrMcuAdcChans);
+          (uint16_t *) &sensing.txBuff1[FIRST_CH_BYTE_IDX], sensing.nbrMcuAdcChans);
     }
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();

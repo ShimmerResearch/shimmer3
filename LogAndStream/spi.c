@@ -156,7 +156,8 @@ void SPI_configureChannels(void)
 void SPI_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-  uint8_t *dataBufPtr = sensing.currentBuffer? &sensing.txBuff1[0]:&sensing.txBuff0[0];
+  uint8_t *dataBufPtr
+      = sensing.currentBuffer ? &sensing.txBuff1[0] : &sensing.txBuff0[0];
 
   if (storedConfigPtr->chEnExg1_24Bit)
   {
