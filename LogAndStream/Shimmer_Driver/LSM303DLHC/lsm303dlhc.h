@@ -110,10 +110,10 @@ void LSM303DLHC_accelInit(uint8_t samplingrate, uint8_t range, uint8_t lowpower,
 void LSM303DLHC_magInit(uint8_t samplingrate, uint8_t gain);
 
 //put x, y and z accel values into buf
-void LSM303DLHC_getAccel(volatile uint8_t *buf);
+void LSM303DLHC_getAccel(uint8_t *buf);
 
 //put x, y and z mag values into buf
-void LSM303DLHC_getMag(volatile uint8_t *buf);
+void LSM303DLHC_getMag(uint8_t *buf);
 
 //powers down the LSM303DLHC
 void LSM303DLHC_sleep(void);

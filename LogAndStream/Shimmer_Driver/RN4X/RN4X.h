@@ -315,19 +315,19 @@ void BT_disable(void);
 //write data to be transmitted to the Bluetooth module
 //returns 0 if fails, else 1
 //will fail if the function is already being called or the buffer doesn't have the capacity to store buf argument
-extern uint8_t (*ShimBt_writeToTxBufAndSend)(volatile uint8_t *buf,
+extern uint8_t (*ShimBt_writeToTxBufAndSend)(uint8_t *buf,
     uint8_t len,
     btResponseType responseType);
 HAL_StatusTypeDefShimmer BtTransmit(uint8_t *buf, uint8_t len);
 
-uint8_t BT_write_rn42(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
-uint8_t BT_write_rn4678_460800(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
-uint8_t BT_write_rn4678_ble(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
-uint8_t BT_write_rn4678_with_buf(volatile uint8_t *buf,
+uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_460800(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_with_buf(uint8_t *buf,
     uint8_t len,
     btResponseType responseType,
     uint8_t sampleSetBufferSize);
-uint8_t BT_write_rn4678_1M(volatile uint8_t *buf, uint8_t len, btResponseType responseType);
+uint8_t BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType);
 
 //connect to a specific device that was previously discovered
 void BT_connect(uint8_t *addr);
