@@ -209,7 +209,7 @@ uint8_t Dma0ConversionDone(void)
   {
     //Destination address for next transfer
     DMA0_repeatTransfer(adcStartPtr,
-        (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
+        (uint16_t *) &ShimSens_getDataBuffAtNextWrIdx()[FIRST_CH_BYTE_IDX],
         sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
