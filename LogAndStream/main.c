@@ -868,31 +868,6 @@ __interrupt void TIMER0_B0_ISR(void)
   {
     __bic_SR_register_on_exit(LPM3_bits);
   }
-
-  //PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
-  //if (shimmerStatus.sensing
-  //    && !ShimSens_arePacketBuffsFull()
-  //    && (packetBufPtr->samplingStatus == SAMPLING_PACKET_IDLE ||
-  //    packetBufPtr->samplingStatus == SAMPLING_IN_PROGRESS))
-  //{
-  //  /* If packet isn't currently underway, start a new one */
-  //  packetBufPtr->samplingStatus = SAMPLING_IN_PROGRESS;
-  //  ShimSens_saveTimestampToPacket();
-  //
-  //  //start ADC conversion
-  //  if (sensing.nbrMcuAdcChans)
-  //  {
-  //    DMA0_enable();
-  //    ADC_startConversion();
-  //  }
-  //  else
-  //  {
-  //    //no analog channels, so go straight to digital
-  ////    ShimSens_gatherData();
-  //ShimTask_set(TASK_GATHER_DATA);
-  //__bic_SR_register_on_exit(LPM3_bits);
-  //}
-  //}
 }
 
 uint8_t platform_gatherData(void)
@@ -907,7 +882,6 @@ uint8_t platform_gatherData(void)
   else
   {
     //no analog channels, so go straight to digital
-    //ShimSens_gatherData();
     ShimTask_set(TASK_GATHER_DATA);
     return 1; /* Wake MCU */
   }

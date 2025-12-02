@@ -92,14 +92,14 @@ void MPU9150_wake(uint8_t wakeup)
   I2C_Write_Packet_To_Sensor(buf, 2);
 }
 
-void MPU9150_getGyro(volatile uint8_t *buf)
+void MPU9150_getGyro(uint8_t *buf)
 {
   I2C_Set_Slave_Address(MPU9150_ADDR);
   *buf = GYRO_XOUT_H;
   I2C_Read_Packet_From_Sensor(buf, 6);
 }
 
-void MPU9150_getAccel(volatile uint8_t *buf)
+void MPU9150_getAccel(uint8_t *buf)
 {
   I2C_Set_Slave_Address(MPU9150_ADDR);
   *buf = ACCEL_XOUT_H;
@@ -185,7 +185,7 @@ void MPU9150_startMagMeasurement(void)
 //-4096 to 4095
 //if values are 32767 they are not valid
 //either due to data read error or magnetic sensor overflow
-void MPU9150_getMag(volatile uint8_t *buf)
+void MPU9150_getMag(uint8_t *buf)
 {
   uint8_t status;
 

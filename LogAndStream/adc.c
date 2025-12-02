@@ -191,7 +191,11 @@ void ADC_gatherDataStart(void)
 
   if (storedConfigPtr->chEnGsr)
   {
-    //TODO get index right here. Think it should be looking at the previous buffer
+    /* GSR range is carried out on the latest sample from the current buffer.
+     * For Shimmer3 it is safe to call this here as ADC sampling is handled by
+     * DMA which is triggered before I2C/SPI operations and so this function is
+     * not technically needed by Shimmer3 but is called first within
+     * 'ShimSens_gatherData' after the ADC samples have been captured. */
     GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
   }
 }
