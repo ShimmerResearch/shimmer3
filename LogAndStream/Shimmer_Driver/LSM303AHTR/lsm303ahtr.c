@@ -46,8 +46,6 @@
 #include "msp430.h"
 #include <math.h>
 
-#include "Util/shimmer_util.h"
-
 uint8_t last_lsm303ah_mag_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
 void LSM303AHTR_accelInit(uint8_t samplingRate, uint8_t range, uint8_t lowPower, uint8_t highresolution)

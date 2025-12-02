@@ -45,8 +45,6 @@
 
 #include <Boards/shimmer_boards.h>
 
-#include "Util/shimmer_util.h"
-
 uint8_t data[9];
 
 void EXG_init(void)

@@ -45,8 +45,6 @@
 #include "msp430.h"
 #include <math.h>
 
-#include "Util/shimmer_util.h"
-
 uint8_t last_lsm303dlhc_mag_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
 void LSM303DLHC_setHPClick(uint8_t hp)
