@@ -1723,8 +1723,8 @@ uint8_t BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType respo
 {
   /* Buffer before sending to the BT module */
   if (responseType == SENSOR_DATA
-          && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize
-              || ShimBt_btTxInProgressGet() || isBtModuleOverflowPinHigh()))
+      && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize
+          || ShimBt_btTxInProgressGet() || isBtModuleOverflowPinHigh()))
   {
     return 1; //fail
   }
