@@ -45,8 +45,6 @@
 #include "msp430.h"
 #include <math.h>
 
-uint8_t last_lsm303dlhc_mag_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
-
 void LSM303DLHC_setHPClick(uint8_t hp)
 {
   uint8_t i2c_buffer[2];
@@ -295,6 +293,7 @@ void LSM303DLHC_getAccel(uint8_t *buf)
 
 void LSM303DLHC_getMag(uint8_t *buf)
 {
+  static uint8_t last_data[7] = { 0, 0, 0, 0, 0, 0, 0 };
   I2C_Set_Slave_Address(LSM303DHLC_MAG_ADDR);
   *buf = SR_REG_M;
   I2C_Read_Packet_From_Sensor(buf, 1);
@@ -302,14 +301,14 @@ void LSM303DLHC_getMag(uint8_t *buf)
   {
     *buf = OUT_X_H_M;
     I2C_Read_Packet_From_Sensor(buf, 6);
-    memcpy(last_lsm303dlhc_mag_data, buf, 6);
-    last_lsm303dlhc_mag_data[6] = 1;
+    memcpy(last_data, buf, 6);
+    last_data[6] = 1;
   }
   else
   {
-    if (last_lsm303dlhc_mag_data[6] == 1)
+    if (last_data[6] == 1)
     {
-      memcpy(buf, last_lsm303dlhc_mag_data, 6);
+      memcpy(buf, last_data, 6);
     }
   }
 }
