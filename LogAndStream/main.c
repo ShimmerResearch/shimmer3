@@ -872,6 +872,7 @@ __interrupt void TIMER0_B0_ISR(void)
 
 uint8_t platform_gatherData(void)
 {
+  ShimSens_resetCurrentCbFlags();
   //start ADC conversion
   if (sensing.nbrMcuAdcChans)
   {
