@@ -410,6 +410,7 @@ void I2C_configureChannels(void)
   sensing.nbrI2cChans = nbr_i2c_chans;
 }
 
+//TODO need to check all sections of code that intentionally try to repeat the last sample and make sure they reference the correct data
 void I2C_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
@@ -447,7 +448,8 @@ void I2C_pollSensors(void)
     }
   }
 
-  uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = { 0 };
+  //needs to be static to carry sample forward between samples
+  static uint8_t icm20948MagBuf[ICM_MAG_RD_SIZE] = { 0 };
   uint8_t icm20948MagRdy = 0;
   if (storedConfigPtr->chEnAltMag
       || (ShimBrd_isWrAccelInUseIcm20948() && storedConfigPtr->chEnMag))
@@ -510,24 +512,17 @@ void I2C_pollSensors(void)
   {
     if (ShimBrd_isWrAccelInUseIcm20948())
     {
-      if (icm20948MagRdy)
-      {
-        dataBufPtr[sensing.ptr.mag1 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-        dataBufPtr[sensing.ptr.mag1 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+      dataBufPtr[sensing.ptr.mag1 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+      dataBufPtr[sensing.ptr.mag1 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
 
-        dataBufPtr[sensing.ptr.mag1 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-        dataBufPtr[sensing.ptr.mag1 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+      dataBufPtr[sensing.ptr.mag1 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+      dataBufPtr[sensing.ptr.mag1 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
 
-        //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
-        int16_t signInvertBuffer = -((int16_t) ((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8)
-            | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
-        dataBufPtr[sensing.ptr.mag1 + 4U] = signInvertBuffer & 0xFF;
-        dataBufPtr[sensing.ptr.mag1 + 5U] = (signInvertBuffer >> 8) & 0xFF;
-      }
-      else
-      {
-        //Mag not ready, repeat last sample
-      }
+      //Invert sign of uncalibrated Z-axis to match LSM303 chip placement
+      int16_t signInvertBuffer = -((int16_t) ((icm20948MagBuf[ICM_MAG_IDX_ZOUT_H] << 8)
+          | icm20948MagBuf[ICM_MAG_IDX_ZOUT_L]));
+      dataBufPtr[sensing.ptr.mag1 + 4U] = signInvertBuffer & 0xFF;
+      dataBufPtr[sensing.ptr.mag1 + 5U] = (signInvertBuffer >> 8) & 0xFF;
     }
     else
     {
@@ -561,19 +556,12 @@ void I2C_pollSensors(void)
   {
     if (ShimBrd_isGyroInUseIcm20948())
     {
-      if (icm20948MagRdy)
-      {
-        dataBufPtr[sensing.ptr.mag2 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
-        dataBufPtr[sensing.ptr.mag2 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
-        dataBufPtr[sensing.ptr.mag2 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
-        dataBufPtr[sensing.ptr.mag2 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
-        dataBufPtr[sensing.ptr.mag2 + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
-        dataBufPtr[sensing.ptr.mag2 + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
-      }
-      else
-      {
-        //Mag not ready, repeat last sample
-      }
+      dataBufPtr[sensing.ptr.mag2 + 0U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_L];
+      dataBufPtr[sensing.ptr.mag2 + 1U] = icm20948MagBuf[ICM_MAG_IDX_XOUT_H];
+      dataBufPtr[sensing.ptr.mag2 + 2U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_L];
+      dataBufPtr[sensing.ptr.mag2 + 3U] = icm20948MagBuf[ICM_MAG_IDX_YOUT_H];
+      dataBufPtr[sensing.ptr.mag2 + 4U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_L];
+      dataBufPtr[sensing.ptr.mag2 + 5U] = icm20948MagBuf[ICM_MAG_IDX_ZOUT_H];
     }
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
