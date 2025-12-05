@@ -448,7 +448,7 @@ void I2C_pollSensors(void)
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
       MPU9150_getGyro(&mpu9150GyroBuf[0]);
-      memcpy(&dataBufPtr[sensing.ptr.gyro],&mpu9150GyroBuf[0],6);
+      memcpy(&dataBufPtr[sensing.ptr.gyro], &mpu9150GyroBuf[0], 6);
     }
   }
 
@@ -554,8 +554,7 @@ void I2C_pollSensors(void)
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
       MPU9150_getAccel(&mpu9150AccelBuf[0]);
-      memcpy(&dataBufPtr[sensing.ptr.accel3],&mpu9150AccelBuf[0],6);
-
+      memcpy(&dataBufPtr[sensing.ptr.accel3], &mpu9150AccelBuf[0], 6);
     }
   }
   if (storedConfigPtr->chEnAltMag)
@@ -585,7 +584,7 @@ void I2C_pollSensors(void)
       {
         //Mag not ready, repeat last sample
       }
-      memcpy(&dataBufPtr[sensing.ptr.mag2],&mpu9150MagBuf[0],6);
+      memcpy(&dataBufPtr[sensing.ptr.mag2], &mpu9150MagBuf[0], 6);
     }
   }
   if (storedConfigPtr->chEnPressureAndTemperature)
