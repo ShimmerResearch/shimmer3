@@ -1698,12 +1698,10 @@ void BT_disable(void)
 //write data to be transmitted to the Bluetooth module - specific to the RN42
 uint8_t BT_write_rn42(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
-  if (ShimBt_getSpaceInBtTxBuf() <= len)
+  if (ShimBt_pushBytesToBtTxBuf(buf, len))
   {
     return 1; //fail
   }
-
-  ShimBt_pushBytesToBtTxBuf(buf, len);
 
   ShimBt_sendNextCharIfNotInProgress();
   return 0;
@@ -1724,15 +1722,17 @@ uint8_t BT_write_rn4678_ble(uint8_t *buf, uint8_t len, btResponseType responseTy
 uint8_t BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType responseType, uint8_t sampleSetBufferSize)
 {
   /* Buffer before sending to the BT module */
-  if (ShimBt_getSpaceInBtTxBuf() <= len
-      || (responseType == SENSOR_DATA
-          && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize
-              || ShimBt_btTxInProgressGet() || isBtModuleOverflowPinHigh())))
+  if (responseType == SENSOR_DATA
+      && (ShimBt_getUsedSpaceInBtTxBuf() >= sampleSetBufferSize
+          || ShimBt_btTxInProgressGet() || isBtModuleOverflowPinHigh()))
   {
     return 1; //fail
   }
 
-  ShimBt_pushBytesToBtTxBuf(buf, len);
+  if (ShimBt_pushBytesToBtTxBuf(buf, len))
+  {
+    return 1; //fail
+  }
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
   if (responseType == SHIMMER_CMD && isBtModuleOverflowPinHigh())
@@ -1753,12 +1753,10 @@ uint8_t BT_write_rn4678_with_buf(uint8_t *buf, uint8_t len, btResponseType respo
 
 uint8_t BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseType)
 {
-  if (ShimBt_getSpaceInBtTxBuf() <= len)
+  if (ShimBt_pushBytesToBtTxBuf(buf, len))
   {
     return 1; //fail
   }
-
-  ShimBt_pushBytesToBtTxBuf(buf, len);
 
 #if BT_FLUSH_TX_BUF_IF_RN4678_RTS_LOCK_DETECTED
   if (responseType == SHIMMER_CMD && isBtModuleOverflowPinHigh())
@@ -1768,7 +1766,6 @@ uint8_t BT_write_rn4678_1M(uint8_t *buf, uint8_t len, btResponseType responseTyp
 #endif
 
   ShimBt_sendNextCharIfNotInProgress();
-
   return 0;
 }
 

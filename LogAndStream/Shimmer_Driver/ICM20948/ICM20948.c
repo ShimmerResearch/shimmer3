@@ -347,7 +347,7 @@ uint8_t ICM20948_isMagSampleSkipEnabled(void)
   return magSampleSkipEnabled;
 }
 
-uint8_t ICM20948_hasTimeoutPeriodPassed(uint64_t currentSampleTsTicks)
+uint8_t ICM20948_hasTimeoutPeriodPassed(uint32_t currentSampleTsTicks)
 {
   //TODO make more efficient
 
@@ -372,7 +372,7 @@ uint8_t ICM20948_hasTimeoutPeriodPassed(uint64_t currentSampleTsTicks)
   return 1;
 }
 
-uint8_t ICM20948_getMagAndStatus(uint64_t currentSampleTsTicks, uint8_t *buf)
+uint8_t ICM20948_getMagAndStatus(uint32_t currentSampleTsTicks, uint8_t *buf)
 {
   I2C_Set_Slave_Address(AK09916_MAG_ADDR);
 
