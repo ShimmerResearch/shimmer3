@@ -48,10 +48,10 @@ typedef enum
   PAIRING_MODE = 6 /* Supported in RN42 and RN4678 */
 } btOperatingMode;
 
-/* Order here needs to be maintained as it's saved to the EEPROM */
 enum BT_FIRMWARE_VERSION
 {
   BT_FW_VER_UNKNOWN,
+  RN41_V4_77,
   RN42_V4_77,
   RN42_V6_15,
   RN42_V6_30, //Not supported
@@ -61,7 +61,6 @@ enum BT_FIRMWARE_VERSION
   RN4678_V1_22_0,
   RN4678_V1_23_0,
   RN4678_V1_24_0,
-  RN41_V4_77,
 };
 
 typedef enum
@@ -448,5 +447,9 @@ void checkRn4xRemoteConfigTimer(char *rxBufPtr);
 void checkAdvertisingName(char *rxBufPtr);
 void checkPin(char *rxBufPtr);
 void string2hexString(char *input, char *output);
+uint8_t checkForBtRtsLock(void);
+void saveBtError(uint8_t btError);
+uint8_t getLatestBtError(void);
+void resetLatestBtError(void);
 
 #endif //RN4X_H

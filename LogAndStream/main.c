@@ -103,7 +103,8 @@ void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
 /* should be 0 */
-#define IS_SUPPORTED_TCXO 0
+#define IS_SUPPORTED_TCXO      0
+#define FLASH_FOR_RN4678_ERROR 0
 
 uint8_t watchDogWasOnDuringBtStart;
 
@@ -384,8 +385,13 @@ void InitialiseBt(void)
     }
   }
 
-  if (ShimEeprom_isPresent() && ShimEeprom_areRadioDetailsIncorrect())
+  uint8_t checkBtErrorCounts = ShimEeprom_checkBtErrorCounts();
+  if (ShimEeprom_isPresent() && (ShimEeprom_areRadioDetailsIncorrect() || checkBtErrorCounts))
   {
+    if (checkBtErrorCounts)
+    {
+      ShimEeprom_resetBtErrorCounts();
+    }
     ShimEeprom_updateRadioDetails();
     ShimEeprom_writeRadioDetails();
   }
@@ -649,7 +655,48 @@ __interrupt void TIMER0_B1_ISR(void)
       //clk_1000 = 100.0 ms = 0.1s
       TB0CCR3 += clk_1000;
 
+#if FLASH_FOR_RN4678_ERROR
+      //TODO temporarily flashing error LED sequence to highlight RN4678 issue
+      if (getLatestBtError() != BT_ERROR_NONE)
+      {
+        ShimLeds_incrementCounters();
+
+        if (ShimLeds_isBlinkTimerCnt200ms())
+        {
+          Board_ledOn(LED_LWR_RED);
+          Board_ledOn(LED_LWR_GREEN);
+          Board_ledOn(LED_LWR_YELLOW);
+          Board_ledOff(LED_UPR_BLUE);
+          Board_ledOff(LED_UPR_GREEN);
+        }
+        else
+        {
+          Board_ledOff(LED_LWR_RED);
+          Board_ledOff(LED_LWR_GREEN);
+          Board_ledOff(LED_LWR_YELLOW);
+          Board_ledOn(LED_UPR_BLUE);
+          Board_ledOn(LED_UPR_GREEN);
+        }
+      }
+      else
+      {
+        LogAndStream_blinkTimerCommon();
+      }
+#else
       LogAndStream_blinkTimerCommon();
+#endif
+
+      if (ShimBt_checkForBtDataRateTestBlockage())
+      {
+        saveBtError(BT_ERROR_DATA_RATE_TEST_BLOCKAGE);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
+
+      if (checkForBtRtsLock())
+      {
+        saveBtError(BT_ERROR_RTS_LOCK);
+        __bic_SR_register_on_exit(LPM3_bits);
+      }
 
       if (!shimmerStatus.booting && checkIfBattReadNeeded())
       {
