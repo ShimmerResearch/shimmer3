@@ -416,6 +416,9 @@ void I2C_pollSensors(void)
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
   PACKETBufferTypeDef *packetBufPtr = ShimSens_getPacketBuffAtWrIdx();
   uint8_t *dataBufPtr = ShimSens_getDataBuffAtWrIdx();
+  static uint8_t mpu9150MagBuf[6U] = { 0 };
+  static uint8_t mpu9150AccelBuf[6U] = { 0 };
+  static uint8_t mpu9150GyroBuf[6U] = { 0 };
 
   //Pre-read the 9-axis chip in-case it is needed for substition on the LSM303 channels
   if (isIcm20948AccelEn && isIcm20948GyroEn)
@@ -444,7 +447,8 @@ void I2C_pollSensors(void)
     }
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
-      MPU9150_getGyro(&dataBufPtr[sensing.ptr.gyro]);
+      MPU9150_getGyro(&mpu9150GyroBuf[0]);
+      memcpy(&dataBufPtr[sensing.ptr.gyro],&mpu9150GyroBuf[0],6);
     }
   }
 
@@ -549,7 +553,9 @@ void I2C_pollSensors(void)
     }
     else if (ShimBrd_isGyroInUseMpu9x50())
     {
-      MPU9150_getAccel(&dataBufPtr[sensing.ptr.accel3]);
+      MPU9150_getAccel(&mpu9150AccelBuf[0]);
+      memcpy(&dataBufPtr[sensing.ptr.accel3],&mpu9150AccelBuf[0],6);
+
     }
   }
   if (storedConfigPtr->chEnAltMag)
@@ -567,11 +573,11 @@ void I2C_pollSensors(void)
     {
       if (preSampleMpuMag)
       {
-        MPU9150_getMag(&dataBufPtr[sensing.ptr.mag2]);
+        MPU9150_getMag(&mpu9150MagBuf[0]);
       }
       else if (!mpuMagCount--)
       {
-        MPU9150_getMag(&dataBufPtr[sensing.ptr.mag2]);
+        MPU9150_getMag(&mpu9150MagBuf[0]);
         mpuMagCount = mpuMagFreq;
         MPU9150_startMagMeasurement();
       }
@@ -579,6 +585,7 @@ void I2C_pollSensors(void)
       {
         //Mag not ready, repeat last sample
       }
+      memcpy(&dataBufPtr[sensing.ptr.mag2],&mpu9150MagBuf[0],6);
     }
   }
   if (storedConfigPtr->chEnPressureAndTemperature)
