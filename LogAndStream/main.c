@@ -227,7 +227,10 @@ void Init(void)
 
   ShimRtc_rwcErrorCheck();
 
-  ShimSens_startLoggingIfUndockStartEnabled();
+  if (!shimmerStatus.docked)
+  {
+    ShimSens_startLoggingIfUndockStartEnabled();
+  }
 
   /* Take initial measurement to update LED state */
   manageReadBatt(1);
