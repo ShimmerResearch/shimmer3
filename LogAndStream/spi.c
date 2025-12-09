@@ -156,27 +156,27 @@ void SPI_configureChannels(void)
 void SPI_pollSensors(void)
 {
   gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
+  uint8_t *dataBufPtr = ShimSens_getDataBuffAtWrIdx();
 
   if (storedConfigPtr->chEnExg1_24Bit)
   {
-    EXG_readData(0, 0, &sensing.dataBuf[sensing.ptr.exg1]);
+    EXG_readData(0, 0, &dataBufPtr[sensing.ptr.exg1]);
   }
   else if (storedConfigPtr->chEnExg1_16Bit)
   {
-    EXG_readData(0, 1, &sensing.dataBuf[sensing.ptr.exg1]);
+    EXG_readData(0, 1, &dataBufPtr[sensing.ptr.exg1]);
   }
   if (storedConfigPtr->chEnExg2_24Bit)
   {
-    EXG_readData(1, 0, &sensing.dataBuf[sensing.ptr.exg2]);
-    if (!(sensing.dataBuf[sensing.ptr.exg2 + 1] == 0x00
-            || sensing.dataBuf[sensing.ptr.exg2 + 1] == 0xff))
+    EXG_readData(1, 0, &dataBufPtr[sensing.ptr.exg2]);
+    if (!(dataBufPtr[sensing.ptr.exg2 + 1] == 0x00 || dataBufPtr[sensing.ptr.exg2 + 1] == 0xff))
     {
       _NOP();
     }
   }
   else if (storedConfigPtr->chEnExg2_16Bit)
   {
-    EXG_readData(1, 1, &sensing.dataBuf[sensing.ptr.exg2]);
+    EXG_readData(1, 1, &dataBufPtr[sensing.ptr.exg2]);
   }
 
   ShimSens_spiCompleteCb();
