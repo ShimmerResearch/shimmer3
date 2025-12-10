@@ -339,9 +339,6 @@ void InitialiseBt(void)
 
       if (failCount == sizeof(baudsTried))
       {
-        //// software POR reset
-        //PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
-
         LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
         while (1)
         {
@@ -446,6 +443,17 @@ void platform_delayMs(const uint32_t delay_time_ms)
   {
     __delay_cycles(MSP430_MCU_CYCLES_PER_MS); //1 ms blocks
   }
+}
+
+void platform_reset(void)
+{
+  // software POR reset
+  PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+}
+
+uint32_t platform_getTick(void)
+{
+  return RTC_get32();
 }
 
 //Switch SW1, BT_RTS and BT connect/disconnect
