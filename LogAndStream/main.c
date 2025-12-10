@@ -447,7 +447,7 @@ void platform_delayMs(const uint32_t delay_time_ms)
 
 void platform_reset(void)
 {
-  // software POR reset
+  //software POR reset
   PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
 }
 
