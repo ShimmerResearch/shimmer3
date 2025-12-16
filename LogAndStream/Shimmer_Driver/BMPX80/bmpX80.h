@@ -89,8 +89,12 @@
 /**\name	COMMON USED CONSTANTS       */
 /***************************************************************/
 
-#define BMP180_IN_USE                                   (0x01)
-#define BMP280_IN_USE                                   (0x02)
+enum BMPXXX_IN_USE
+{
+  BMPXXX_NONE_IN_USE,
+  BMP180_IN_USE,
+  BMP280_IN_USE
+};
 
 #define BMP180_CALIB_DATA_SIZE                          (0x16) //22
 #define BMP280_CALIB_DATA_SIZE                          (0x18) //24

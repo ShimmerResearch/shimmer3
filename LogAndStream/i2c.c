@@ -706,7 +706,18 @@ void detectI2cSlaves(void)
   i2cSlaveDiscover();
 
   //Identify the presence of different sensors
-  setBmpInUse((i2cSlavePresent(BMP280_ADDR)) ? BMP280_IN_USE : BMP180_IN_USE);
+  if (i2cSlavePresent(BMP280_ADDR))
+  {
+    setBmpInUse(BMP280_IN_USE);
+  }
+  else if (i2cSlavePresent(BMP180_ADDR))
+  {
+    setBmpInUse(BMP180_IN_USE);
+  }
+  else
+  {
+    setBmpInUse(BMPXXX_NONE_IN_USE);
+  }
 
   if (i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
   {

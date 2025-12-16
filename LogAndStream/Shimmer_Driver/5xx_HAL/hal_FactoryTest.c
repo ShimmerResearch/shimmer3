@@ -329,30 +329,44 @@ void I2C_test(void)
     ShimFactoryTest_sendReport(
         " - LSM303DHLC detected (self-test not implemented yet)\r\n");
   }
-  if (i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
+  else if (i2cSlavePresent(LSM303AHTR_ACCEL_ADDR))
   {
     ShimFactoryTest_sendReport(
         " - LSM303AH detected (self-test not implemented yet)\r\n");
   }
+  else
+  {
+    ShimFactoryTest_sendReport(" - WARNING: No LSM303 chip detected\r\n");
+  }
+
   if (i2cSlavePresent(ICM20948_ADDR))
   {
     ShimFactoryTest_sendReport(
         " - ICM20948 detected (self-test not implemented yet)\r\n");
   }
-  if (i2cSlavePresent(MPU9150_ADDR))
+  else if (i2cSlavePresent(MPU9150_ADDR))
   {
     ShimFactoryTest_sendReport(
         " - MPU9x50 detected (self-test not implemented yet)\r\n");
   }
+  else
+  {
+    ShimFactoryTest_sendReport(" - FAIL: No Gyro chip detected\r\n");
+  }
+
   if (i2cSlavePresent(BMP180_ADDR))
   {
     ShimFactoryTest_sendReport(
         " - BMP180 detected (self-test not implemented yet)\r\n");
   }
-  if (i2cSlavePresent(BMP280_ADDR))
+  else if (i2cSlavePresent(BMP280_ADDR))
   {
     ShimFactoryTest_sendReport(
         " - BMP280 detected (self-test not implemented yet)\r\n");
+  }
+  else
+  {
+    ShimFactoryTest_sendReport(" - FAIL: No BMPx80 detected\r\n");
   }
 
   I2C_stop(1);

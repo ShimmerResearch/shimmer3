@@ -207,10 +207,13 @@ void Init(void)
   LogAndStream_processDaughterCardId();
 
   /* Load pressure sensor calibration parameters. */
-  I2C_start(0);
-  loadBmpCalibration();
-  I2C_stop(0);
-  ShimSdHead_saveBmpCalibrationToSdHeader();
+  if (isBmp180InUse() || isBmp280InUse())
+  {
+    I2C_start(0);
+    loadBmpCalibration();
+    I2C_stop(0);
+    ShimSdHead_saveBmpCalibrationToSdHeader();
+  }
 
   LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH);
   InitialiseBt();
