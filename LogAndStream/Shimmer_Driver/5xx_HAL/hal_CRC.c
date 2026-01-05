@@ -31,5 +31,5 @@ uint32_t platform_CrcData(uint8_t *buf, uint8_t len)
     }
   }
   crc_val = CRCINIRES;
-  return (uint32_t)crc_val;
+  return (uint32_t) crc_val;
 }
