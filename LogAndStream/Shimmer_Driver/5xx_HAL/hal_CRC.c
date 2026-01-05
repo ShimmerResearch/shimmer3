@@ -31,6 +31,6 @@ uint32_t platform_crcData(uint8_t *buf, uint8_t len)
     }
   }
   crc_val = CRCINIRES;
-  // The cast to uint32_t is necessary for cross-platform compatibility
+  //The cast to uint32_t is necessary for cross-platform compatibility
   return (uint32_t) crc_val;
 }
