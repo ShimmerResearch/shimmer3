@@ -9,7 +9,7 @@
 
 #include "CRC/shimmer_crc.h"
 
-uint32_t platform_CrcData(uint8_t *buf, uint8_t len)
+uint32_t platform_crcData(uint8_t *buf, uint8_t len)
 {
   uint8_t i;
   uint16_t crc_val = 0;
@@ -31,5 +31,6 @@ uint32_t platform_CrcData(uint8_t *buf, uint8_t len)
     }
   }
   crc_val = CRCINIRES;
+  // The cast to uint32_t is necessary for cross-platform compatibility
   return (uint32_t) crc_val;
 }
