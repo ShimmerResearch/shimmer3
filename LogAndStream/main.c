@@ -103,7 +103,7 @@ void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
 /* should be 0 */
-#define IS_SUPPORTED_TCXO      0
+#define IS_SUPPORTED_TCXO 0
 
 uint8_t watchDogWasOnDuringBtStart;
 
