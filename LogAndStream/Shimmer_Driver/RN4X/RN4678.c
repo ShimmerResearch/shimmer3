@@ -15,6 +15,13 @@
 
 volatile char btStatusStr[BT_STAT_STR_LEN_LARGEST + 1U]; /* +1 to always have a null char */
 uint8_t btStatusStrIndex;
+uint8_t rn4678ErrorLeds;
+
+void RN4678_driverInit(void)
+{
+  RN4678_resetStatusString();
+  RN4678_setErrorLedsEnabled(0);
+}
 
 void RN4678_resetStatusString(void)
 {
@@ -451,4 +458,14 @@ uint8_t RN4678_parseStatusString(uint8_t *waitingForArgs, uint8_t *btRxBuffPtr)
   }
   setDmaWaitingForResponse(numberOfCharRemaining);
   return bringUcOutOfSleep;
+}
+
+uint8_t RN4678_isErrorLedsEnabled(void)
+{
+  return rn4678ErrorLeds;
+}
+
+void RN4678_setErrorLedsEnabled(uint8_t state)
+{
+  rn4678ErrorLeds = state;
 }

@@ -103,8 +103,7 @@ void setSamplingClkSource(float samplingClock);
 void triggerShimmerErrorState(void);
 
 /* should be 0 */
-#define IS_SUPPORTED_TCXO      0
-#define FLASH_FOR_RN4678_ERROR 0
+#define IS_SUPPORTED_TCXO 0
 
 uint8_t watchDogWasOnDuringBtStart;
 
@@ -658,10 +657,9 @@ __interrupt void TIMER0_B1_ISR(void)
       //clk_1000 = 100.0 ms = 0.1s
       TB0CCR3 += clk_1000;
 
-#if FLASH_FOR_RN4678_ERROR
-      //TODO temporarily flashing error LED sequence to highlight RN4678 issue
-      if (getLatestBtError() != BT_ERROR_NONE)
+      if (RN4678_isErrorLedsEnabled() && getLatestBtError() != BT_ERROR_NONE)
       {
+        //flashing error LED sequence to highlight RN4678 issue
         ShimLeds_incrementCounters();
 
         if (ShimLeds_isBlinkTimerCnt200ms())
@@ -685,9 +683,6 @@ __interrupt void TIMER0_B1_ISR(void)
       {
         LogAndStream_blinkTimerCommon();
       }
-#else
-      LogAndStream_blinkTimerCommon();
-#endif
 
       if (ShimBt_checkForBtDataRateTestBlockage())
       {
