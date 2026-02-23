@@ -185,21 +185,6 @@ void ADC_configureChannels(void)
   }
 }
 
-void ADC_gatherDataStart(void)
-{
-  gConfigBytes *storedConfigPtr = ShimConfig_getStoredConfig();
-
-  if (storedConfigPtr->chEnGsr)
-  {
-    /* GSR range is carried out on the latest sample from the current buffer.
-     * For Shimmer3 it is safe to call this here as ADC sampling is handled by
-     * DMA which is triggered before I2C/SPI operations and so this function is
-     * not technically needed by Shimmer3 but is called first within
-     * 'ShimSens_gatherData' after the ADC samples have been captured. */
-    GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
-  }
-}
-
 uint8_t Dma0ConversionDone(void)
 {
   if (battWait)
@@ -217,6 +202,13 @@ uint8_t Dma0ConversionDone(void)
         sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
+
+    /* If enabled, update the current GSR range */
+    if (ShimConfig_getStoredConfig()->chEnGsr)
+    {
+      GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);
+    }
+
     ShimTask_set(TASK_GATHER_DATA);
     ShimSens_adcCompleteCb();
   }
