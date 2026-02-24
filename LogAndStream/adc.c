@@ -189,8 +189,7 @@ void Dma0ConversionStart(void)
 {
   //Destination address for next transfer
   DMA0_repeatTransfer(adcStartPtr,
-      (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
-      sensing.nbrMcuAdcChans);
+      (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX], sensing.nbrMcuAdcChans);
   DMA0_enable();
   ADC_startConversion();
 }
