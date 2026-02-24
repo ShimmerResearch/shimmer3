@@ -185,6 +185,16 @@ void ADC_configureChannels(void)
   }
 }
 
+void Dma0ConversionStart(void)
+{
+  //Destination address for next transfer
+  DMA0_repeatTransfer(adcStartPtr,
+      (uint16_t *) &ShimSens_getDataBuffAtWrIdx()[FIRST_CH_BYTE_IDX],
+      sensing.nbrMcuAdcChans);
+  DMA0_enable();
+  ADC_startConversion();
+}
+
 uint8_t Dma0ConversionDone(void)
 {
   if (battWait)
@@ -196,14 +206,13 @@ uint8_t Dma0ConversionDone(void)
   }
   else
   {
-    //Destination address for next transfer
-    DMA0_repeatTransfer(adcStartPtr,
-        (uint16_t *) &ShimSens_getDataBuffAtNextWrIdx()[FIRST_CH_BYTE_IDX],
-        sensing.nbrMcuAdcChans);
     ADC_disable(); //can disable ADC until next time sampleTimer fires (to save power)?
     DMA0_disable();
 
-    /* If enabled, update the current GSR range */
+    /* If GSR is enabled, add current range to upper GSR bits and check the
+     * current range if auto-range is enabled. This needs to be done before
+     * ShimSens_adcCompleteCb is called as that is where the WrIdx is
+     * incremented if only ADC channels are enabled. */
     if (ShimConfig_getStoredConfig()->chEnGsr)
     {
       GSR_range(&ShimSens_getDataBuffAtWrIdx()[sensing.ptr.gsr]);

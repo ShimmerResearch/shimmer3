@@ -877,8 +877,7 @@ uint8_t platform_gatherData(void)
   //start ADC conversion
   if (sensing.nbrMcuAdcChans)
   {
-    DMA0_enable();
-    ADC_startConversion();
+    Dma0ConversionStart();
     return 0; /* Don't wake MCU */
   }
   else
