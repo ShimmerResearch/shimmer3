@@ -62,6 +62,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "msp430.h"
@@ -249,43 +250,6 @@ void sleepWhenNoTask(void)
   __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
 }
 
-//Overrides weak function in LogAndStream driver
-void platform_processHwRevision(void)
-{
-  shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
-
-  if (ShimEeprom_isPresent())
-  {
-    //Some board batches don't have the LSM303AHTR placed, in these
-    //cases, the ICM-20948's channels are used instead
-    if (ShimBrd_isSubstitutionNeededForWrAccel())
-    {
-      ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
-    }
-    else
-    {
-      //If the hardware is any board other then the above, overwrite the
-      //special rev with 171 (used as a failsafe) to let Consensys know
-      //what sensors are on-board
-      if (ShimBrd_are2ndGenSensorsPresentAndUnknownBoard())
-      {
-        expBrd->exp_brd_minor = 171;
-      }
-    }
-  }
-  else
-  {
-    //The EEPROM is not present on the SR31-6-0 so the firmware needs mock
-    //the version number so that Consensys knows which sensors are on-board
-    if (ShimBrd_are2ndGenImuSensorsPresent())
-    {
-      expBrd->exp_brd_id = SHIMMER3_IMU;
-      expBrd->exp_brd_major = 6;
-      expBrd->exp_brd_minor = 0;
-    }
-  }
-}
-
 void InitialiseBt(void)
 {
   //This is the start of all BT initialisation
@@ -342,7 +306,7 @@ void InitialiseBt(void)
       if (failCount == sizeof(baudsTried))
       {
         //// software POR reset
-        //PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+        //platform_reset();
 
         LogAndStream_setBootStage(BOOT_STAGE_BLUETOOTH_FAILURE);
         while (1)
@@ -436,6 +400,43 @@ uint8_t ShimBrd_doesDeviceSupportBtClassic(void)
 }
 
 //Overrides weak function in LogAndStream driver
+void platform_processHwRevision(void)
+{
+  shimmer_expansion_brd *expBrd = ShimBrd_getDaughtCardId();
+
+  if (ShimEeprom_isPresent())
+  {
+    //Some board batches don't have the LSM303AHTR placed, in these
+    //cases, the ICM-20948's channels are used instead
+    if (ShimBrd_isSubstitutionNeededForWrAccel())
+    {
+      ShimBrd_setWrAccelAndMagInUse(WR_ACCEL_AND_MAG_ICM20948_IN_USE);
+    }
+    else
+    {
+      //If the hardware is any board other then the above, overwrite the
+      //special rev with 171 (used as a failsafe) to let Consensys know
+      //what sensors are on-board
+      if (ShimBrd_are2ndGenSensorsPresentAndUnknownBoard())
+      {
+        expBrd->exp_brd_minor = 171;
+      }
+    }
+  }
+  else
+  {
+    //The EEPROM is not present on the SR31-6-0 so the firmware needs mock
+    //the version number so that Consensys knows which sensors are on-board
+    if (ShimBrd_are2ndGenImuSensorsPresent())
+    {
+      expBrd->exp_brd_id = SHIMMER3_IMU;
+      expBrd->exp_brd_major = 6;
+      expBrd->exp_brd_minor = 0;
+    }
+  }
+}
+
+//Overrides weak function in LogAndStream driver
 void platform_delayMs(const uint32_t delay_time_ms)
 {
   uint32_t ms = delay_time_ms;
@@ -448,6 +449,22 @@ void platform_delayMs(const uint32_t delay_time_ms)
   {
     __delay_cycles(MSP430_MCU_CYCLES_PER_MS); //1 ms blocks
   }
+}
+
+void platform_reset(void)
+{
+  // software POR reset
+  PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
+}
+
+uint32_t platform_getTick(void)
+{
+  return RTC_get64();
+}
+
+bool platform_isDockUartInitialised(void)
+{
+  return DockUart_isInitialised();
 }
 
 //Switch SW1, BT_RTS and BT connect/disconnect
@@ -477,7 +494,7 @@ __interrupt void Port1_ISR(void)
         /* BLE relies on this pin to know when the UART service is open/not */
         if (!areBtStatusStringsEnabled() || isRn4678ConnectionBle())
         {
-          ShimBt_handleBtRfCommStateChange(TRUE);
+          ShimBt_handleBtRfCommStateChange(true);
         }
       }
       else
@@ -485,7 +502,7 @@ __interrupt void Port1_ISR(void)
         if (!areBtStatusStringsEnabled() || shimmerStatus.btConnected)
         {
           /* Fail-safe incase the FW has missed the BT DISCONNECT/RFCOM_CLOSE status strings */
-          ShimBt_handleBtRfCommStateChange(FALSE);
+          ShimBt_handleBtRfCommStateChange(false);
         }
       }
       __bic_SR_register_on_exit(LPM3_bits);

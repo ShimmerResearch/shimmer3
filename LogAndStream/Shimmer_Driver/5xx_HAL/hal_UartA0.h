@@ -104,6 +104,7 @@ void UART_setState(uint8_t state);
 
 //reset p6.1 and p7.6 back to sel+input
 void DockUart_deinit(void);
+uint8_t DockUart_isInitialised(void);
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len);
 uint16_t getUsedSpaceInDockTxBuf(void);
