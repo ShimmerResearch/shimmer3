@@ -42,8 +42,8 @@
 
 #include "hal_UartA0.h"
 
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "hal_Board.h"
 #include "hal_CRC.h"

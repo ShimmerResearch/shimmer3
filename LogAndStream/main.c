@@ -59,10 +59,10 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 
 #include "msp430.h"
@@ -453,7 +453,7 @@ void platform_delayMs(const uint32_t delay_time_ms)
 
 void platform_reset(void)
 {
-  // software POR reset
+  //software POR reset
   PMMCTL0 = PMMPW + PMMSWPOR + (PMMCTL0 & 0x0003);
 }
 
