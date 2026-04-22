@@ -80,7 +80,6 @@
 #include "version.h"
 
 void Init(void);
-void sleepWhenNoTask(void);
 void InitialiseBt(void);
 void InitialiseBtAfterBoot(void);
 void stopSensingWrapup(void);
@@ -245,7 +244,7 @@ void Init(void)
   LogAndStream_setBootStage(BOOT_STAGE_END);
 }
 
-void sleepWhenNoTask(void)
+void platform_sleepWhenNoTask(void)
 {
   __bis_SR_register(LPM3_bits + GIE); /* ACLK remains active */
 }
