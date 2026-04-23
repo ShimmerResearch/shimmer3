@@ -307,7 +307,8 @@ void bt_module_test(void)
   ShimFactoryTest_sendReport(buffer);
   sprintf(buffer, "   - BT RTS Lockups = %d\r\n", eepromSensorSettings->btCntRtsLockup);
   ShimFactoryTest_sendReport(buffer);
-  sprintf(buffer, "   - BT unsolicited reboots = %d\r\n", eepromSensorSettings->btCntUnsolicitedReboot);
+  sprintf(buffer, "   - BT unsolicited reboots = %d\r\n",
+      eepromSensorSettings->btCntUnsolicitedReboot);
   ShimFactoryTest_sendReport(buffer);
 }
 
