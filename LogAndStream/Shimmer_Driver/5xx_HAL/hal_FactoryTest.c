@@ -297,7 +297,7 @@ void bt_module_test(void)
   //}
   //return stat.isBtPoweredOn;
 
-  gEepromBtSettings *eepromSensorSettings = ShimEeprom_getSensorSettingsPage();
+  gEepromSensorSettings *eepromSensorSettings = ShimEeprom_getSensorSettingsPage();
   ShimFactoryTest_sendReport(" - Counts:\r\n");
   sprintf(buffer, "   - BT data-rate test blockages = %d\r\n",
       eepromSensorSettings->btCntDataRateTestBlockage);

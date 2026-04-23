@@ -2769,7 +2769,7 @@ uint8_t checkForBtRtsLock(void)
 
 void saveBtError(uint8_t btError)
 {
-  gEepromBtSettings *eepromSensorSettings = ShimEeprom_getSensorSettingsPage();
+  gEepromSensorSettings *eepromSensorSettings = ShimEeprom_getSensorSettingsPage();
 
   latestBtError = btError;
   if (ShimEeprom_isPresent() && eepromSensorSettings != NULL)
