@@ -276,9 +276,9 @@ void InitialiseBt(void)
 
   uint8_t initialBaudRate = BAUD_115200;
   /* Use previous baud rate from the EEPROM if it is present */
-  if (ShimEeprom_isPresent() && ShimEeprom_getRadioDetails()->baudRate <= BAUD_1000000)
+  if (ShimEeprom_isPresent() && ShimEeprom_getSensorSettingsPage()->baudRate <= BAUD_1000000)
   {
-    initialBaudRate = ShimEeprom_getRadioDetails()->baudRate;
+    initialBaudRate = ShimEeprom_getSensorSettingsPage()->baudRate;
   }
 
   uint8_t reset_cnt = 50U; //50 * 100ms = 5s per baud rate attempt
@@ -358,7 +358,7 @@ void InitialiseBt(void)
       ShimEeprom_resetBtErrorCounts();
     }
     ShimEeprom_updateRadioDetails();
-    ShimEeprom_writeRadioDetails();
+    ShimEeprom_writeSensorSettingsPage();
   }
 
   if (ShimConfig_getStoredConfig()->btCommsBaudRate != ShimBt_getBtBaudRateToUse())
