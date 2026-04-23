@@ -78,7 +78,7 @@ volatile RingFifoDockTx_t gDockTxFifo;
 
 uint8_t uart_messageInProgress;
 uint8_t (*uartCallbackFunc)(uint8_t data);
-bool dockUartInitialised;
+static bool dockUartInitialised = false;
 
 void uartRxEnable(void)
 {
