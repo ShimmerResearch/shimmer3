@@ -112,8 +112,6 @@ void UART_init(uint8_t (*uart_cb)(uint8_t data))
 #else
   memset(gDockTxFifo.data, 0x00, sizeof(gDockTxFifo.data) / sizeof(gDockTxFifo.data[0]));
 #endif
-
-  dockUartInitialised = true;
 }
 
 void UART_config()
