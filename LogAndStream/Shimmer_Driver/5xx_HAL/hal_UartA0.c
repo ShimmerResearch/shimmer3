@@ -42,6 +42,7 @@
 
 #include "hal_UartA0.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 #include "hal_Board.h"
@@ -77,6 +78,7 @@ volatile RingFifoDockTx_t gDockTxFifo;
 
 uint8_t uart_messageInProgress;
 uint8_t (*uartCallbackFunc)(uint8_t data);
+static bool dockUartInitialised = false;
 
 void uartRxEnable(void)
 {
@@ -218,6 +220,8 @@ void UART_setState(uint8_t state)
 
 void DockUart_deinit(void)
 {
+  dockUartInitialised = false;
+
   UARTCTL1 |= UCSWRST; //**Put state machine in reset**
 
   UARTSEL &= ~(UARTTXD + UARTRXD);
@@ -246,6 +250,13 @@ void DockUart_init(void)
   UCA0_isrActivate(UCA0_isrRegister(uartUca0RxIsr, uartUca0TxIsr));
 
   UART_config();
+
+  dockUartInitialised = true;
+}
+
+uint8_t DockUart_isInitialised(void)
+{
+  return dockUartInitialised;
 }
 
 void pushBytesToDockTxBuf(uint8_t *buf, uint8_t len)

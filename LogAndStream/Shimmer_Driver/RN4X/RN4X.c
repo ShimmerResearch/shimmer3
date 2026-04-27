@@ -2769,24 +2769,24 @@ uint8_t checkForBtRtsLock(void)
 
 void saveBtError(uint8_t btError)
 {
-  gEepromBtSettings *eepromBtSetting = ShimEeprom_getRadioDetails();
+  gEepromSensorSettings *eepromSensorSettings = ShimEeprom_getSensorSettingsPage();
 
   latestBtError = btError;
-  if (ShimEeprom_isPresent() && eepromBtSetting != NULL)
+  if (ShimEeprom_isPresent() && eepromSensorSettings != NULL)
   {
     switch (btError)
     {
       case BT_ERROR_RTS_LOCK:
-        eepromBtSetting->btCntRtsLockup++;
+        eepromSensorSettings->btCntRtsLockup++;
         break;
       case BT_ERROR_UNSOLICITED_REBOOT:
-        eepromBtSetting->btCntUnsolicitedReboot++;
+        eepromSensorSettings->btCntUnsolicitedReboot++;
         break;
       case BT_ERROR_DATA_RATE_TEST_BLOCKAGE:
-        eepromBtSetting->btCntDataRateTestBlockage++;
+        eepromSensorSettings->btCntDataRateTestBlockage++;
         break;
       case BT_ERROR_DISCONNECT_WHILE_STREAMING:
-        eepromBtSetting->btCntDisconnectWhileStreaming++;
+        eepromSensorSettings->btCntDisconnectWhileStreaming++;
         break;
       default:
         break;

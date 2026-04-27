@@ -55,10 +55,6 @@
 //Two byte firmware identifier number:  3 for LogAndStream, 2 for SDLog, 1 for BTStream,
 #define FW_IDENTIFIER 3
 
-typedef uint8_t bool;
-#define TRUE  (1)
-#define FALSE (0)
-
 typedef uint8_t error_t;
 #define SUCCESS                       (1)
 #define FAIL                          (0)
