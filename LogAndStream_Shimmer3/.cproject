@@ -240,7 +240,7 @@
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-		<project id="LogAndStream_0.3.0_new.com.ti.ccstudio.buildDefinitions.MSP430.ProjectType.1372182148" name="MSP430" projectType="com.ti.ccstudio.buildDefinitions.MSP430.ProjectType"/>
+		<project id="LogAndStream_Shimmer3_0.3.0_new.com.ti.ccstudio.buildDefinitions.MSP430.ProjectType.1372182148" name="MSP430" projectType="com.ti.ccstudio.buildDefinitions.MSP430.ProjectType"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.language.mapping">
 		<project-mappings>
@@ -253,10 +253,10 @@
 	</storageModule>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Debug">
-			<resource resourceType="PROJECT" workspacePath="/LogAndStream"/>
+			<resource resourceType="PROJECT" workspacePath="/LogAndStream_Shimmer3"/>
 		</configuration>
 		<configuration configurationName="Release">
-			<resource resourceType="PROJECT" workspacePath="/LogAndStream"/>
+			<resource resourceType="PROJECT" workspacePath="/LogAndStream_Shimmer3"/>
 		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>

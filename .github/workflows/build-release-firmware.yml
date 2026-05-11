@@ -1,4 +1,4 @@
-name: LogAndStream S3 Build & Release
+name: LogAndStream_Shimmer3 Build & Release
 
 on:
   # push:
@@ -28,8 +28,8 @@ permissions:
   contents: write  # Needed for git commit/push and tag creation
 
 env:
-  PROJECT_NAME: LogAndStream
-  PROJECT_DIR: LogAndStream
+  PROJECT_NAME: LogAndStream_Shimmer3
+  PROJECT_DIR: LogAndStream_Shimmer3
   BUILD_CONFIG: ${{ github.event.inputs.build_mode }}
   TAG_PREFIX: LogAndStream_Shimmer3_v
   JIRA_VERSION_PREFIX: 'L&S_S3_v'   # note the quotes due to &
