@@ -5,11 +5,15 @@ Shimmer3 firmware repository. Contains firmware projects for the [Shimmer3](http
 ## Projects
 
 ### [LogAndStream](LogAndStream/README.md)
-General-purpose, configurable application for Shimmer3 and supported daughter-cards. Supports:
-- Real-time data streaming over Bluetooth
+The primary, actively maintained firmware for Shimmer3 and all supported daughter-cards. LogAndStream is the recommended firmware for all new projects and supersedes the older BtStream and SDLog standalone firmwares.
+
+> **⚠️ Deprecation notice:** **BtStream** and **SDLog** as standalone firmwares are deprecated and no longer actively developed. SDLog can still be compiled as a standalone image from this source tree, but all of its functionality has been fully integrated into LogAndStream and is configurable through the firmware's configuration settings. New projects should use LogAndStream.
+
+Features:
+- Real-time data streaming over Bluetooth (classic and BLE via RN4678)
 - On-board SD card logging
 - **LogAndStream** variant: simultaneous logging and streaming
-- **SDLog** variant: logging with optional real-time clock syncing between Shimmer units over Bluetooth
+- **SDLog** variant (legacy): logging with optional real-time clock syncing between Shimmer units over Bluetooth — functionality fully available in the LogAndStream variant
 
 ### [S3_Sleep](S3_Sleep/README.md)
 Minimal firmware that puts the Shimmer3 into its lowest power-consuming state. All pins are configured correctly via `Board_init()` based on the unit's SR number. Useful as a starting point for custom firmware development.
@@ -68,17 +72,17 @@ git submodule update --init --recursive
 2. Browse to the cloned repository root and select the project(s) you want to import (`LogAndStream` and/or `S3_Sleep`).
 3. Build the project (*Project → Build Project* or `Ctrl+B`).
 
-### Compiling LogAndStream vs SDLog
+### Compiling LogAndStream vs SDLog (legacy)
 
-The same source tree produces multiple firmware images depending on preprocessor definitions. See the [LogAndStream README](LogAndStream/README.md#compiling-firmware) for the full definition table.
+The same source tree produces multiple firmware images depending on preprocessor definitions. See the [LogAndStream README](LogAndStream/README.md#compiling-firmware) for the full definition table. For new projects, the LogAndStream variant is recommended over the standalone SDLog build.
 
 ## Firmware Identifiers
 
-| Firmware | Identifier |
-| -------- | ---------- |
-| BtStream | 1 |
-| SdLog | 2 |
-| LogAndStream | 3 |
+| Firmware | Identifier | Status |
+| -------- | ---------- | ------ |
+| BtStream | 1 | ⚠️ Deprecated |
+| SdLog | 2 | ⚠️ Deprecated (standalone) — functionality integrated into LogAndStream |
+| LogAndStream | 3 | ✅ Active |
 
 See `FirmwareIdentifierList.txt` for the authoritative list.
 
