@@ -16,7 +16,7 @@ jobs:
  #       ref: ${{ github.event.pull_request.head.ref }}
     - uses: DoozyX/clang-format-lint-action@v0.17
       with:
-        source: './LogAndStream'
+        source: './LogAndStream_Shimmer3'
         exclude: '*/Shimmer_Driver/FatFs'
         extensions: 'h,c'
         clangFormatVersion: 17
