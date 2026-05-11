@@ -123,7 +123,7 @@ jobs:
           set -euo pipefail
           INSTALLER_DIR=$(find /tmp/ccs -maxdepth 1 -type d -name "CCS${CCS_VERSION}_linux-x64")
           [ -n "$INSTALLER_DIR" ] || { echo "Installer dir not found"; exit 1; }
-          find "$INSTALLER_DIR" -maxdepth 2 -type f -printf '%P (%k KB)\n' | head -n 40
+          find "$INSTALLER_DIR" -maxdepth 2 -type f -printf '%P (%k KB)\n' | head -n 40 || true
           INSTALLER="$INSTALLER_DIR/ccs_setup_${CCS_VERSION}.run"
           [ -f "$INSTALLER" ] || { echo "Installer binary missing"; exit 1; }
           chmod +x "$INSTALLER"
