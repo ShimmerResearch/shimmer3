@@ -1,4 +1,4 @@
-# FW_Shimmer3
+# shimmer3-firmware
 
 Shimmer3 firmware repository. Contains firmware projects for the [Shimmer3](https://shimmersensing.com) platform, targeting the MSP430F5437A microcontroller.
 
