@@ -1,7 +1,10 @@
-# LogAndStream/SDLog
-This is a general purpose, configurable application to be used with Shimmer3 and any add-on daughter-cards supplied by Shimmer. 
-- LogAndStream supports on-board logging and real-time streaming over Bluetooth. 
-- SDLog support on-board logging and, if enabled, real-time clock syncing between Shimmer units over Bluetooth while logging.
+# LogAndStream / SDLog (legacy)
+This is the primary, actively maintained firmware for Shimmer3 and any add-on daughter-cards supplied by Shimmer.
+
+> **⚠️ Deprecation notice:** **SDLog** as a standalone firmware is deprecated. Its functionality has been fully integrated into LogAndStream and is configurable through the firmware's configuration settings. The standalone SDLog build is retained for backwards compatibility only; new projects should use LogAndStream.
+
+- LogAndStream supports on-board logging and real-time streaming over Bluetooth.
+- SDLog (legacy standalone) supports on-board logging and, if enabled, real-time clock syncing between Shimmer units over Bluetooth while logging. This functionality is also available in the LogAndStream variant.
 
 ## Compiling firmware:
 
