@@ -88,4 +88,4 @@ See [LogAndStream/CHANGELOG.txt](LogAndStream/CHANGELOG.txt) for a history of Lo
 
 ## License
 
-Copyright © Shimmer Research, Ltd. Redistribution and use are subject to the BSD-style licence found in the individual source files.
+Copyright © Shimmer Research, Ltd. Redistribution and use are subject to the BSD-style license found in the individual source files.
