@@ -2,10 +2,10 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define FW_VERSION_MAJOR  1  //16-bit
-#define FW_VERSION_MINOR  0  //8-bit
-#define FW_VERSION_PATCH  20 //8-bit
-#define FW_VERSION_STRING "v1.00.020"
+#define FW_VERSION_MAJOR  1 //16-bit
+#define FW_VERSION_MINOR  1 //8-bit
+#define FW_VERSION_PATCH  0 //8-bit
+#define FW_VERSION_STRING "v1.01.000"
 
 #include <stdint.h>
 
