@@ -340,8 +340,10 @@ void saveBatteryVoltageAndUpdateStatus(void)
   rawChargerStatus = ((LM3658SD_STAT2 ? BIT7 : 0) | (LM3658SD_STAT1 ? BIT6 : 0));
   ShimBatt_updateStatus(currentBattVal, battValMV, LM3658SD_STAT1, LM3658SD_STAT2);
 
-  /* Keep charger timeout/suspended (STAT2=1, STAT1=1) from being remapped as bad battery */
-  if (rawChargerStatus == CHRG_CHIP_STATUS_SUSPENDED
+  /* Keep charger timeout/suspended from surfacing as bad battery */
+  if (((rawChargerStatus == CHRG_CHIP_STATUS_SUSPENDED)
+          || ((rawChargerStatus == CHRG_CHIP_STATUS_BAD_BATTERY)
+              && (battValMV > BATTERY_ERROR_VOLTAGE_MIN)))
       && batteryStatus.battStatusRaw.rawBytes[2] == CHRG_CHIP_STATUS_BAD_BATTERY)
   {
     batteryStatus.battStatusRaw.rawBytes[2] = CHRG_CHIP_STATUS_SUSPENDED;
