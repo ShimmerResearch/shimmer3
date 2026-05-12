@@ -332,27 +332,9 @@ void manageReadBatt(uint8_t isBlockingRead)
 void saveBatteryVoltageAndUpdateStatus(void)
 {
   uint16_t currentBattVal = *((uint16_t *) battVal);
-  uint8_t rawChargerStatus;
-  uint8_t isSuspendedRawState;
-  uint8_t isTimeoutLikeRawStateAtHealthyVoltage;
 
   //Multiplied by 2 due to voltage divider
   uint16_t battValMV = (((uint32_t) currentBattVal * 3000) >> 12) * 2;
 
-  /* Capture immediate STAT pin state in raw byte format (STAT2->bit7, STAT1->bit6) */
-  rawChargerStatus = ((LM3658SD_STAT2 ? BIT7 : 0) | (LM3658SD_STAT1 ? BIT6 : 0));
   ShimBatt_updateStatus(currentBattVal, battValMV, LM3658SD_STAT1, LM3658SD_STAT2);
-
-  isSuspendedRawState = (rawChargerStatus == CHRG_CHIP_STATUS_SUSPENDED);
-  isTimeoutLikeRawStateAtHealthyVoltage = (rawChargerStatus == CHRG_CHIP_STATUS_BAD_BATTERY)
-      && (battValMV > BATTERY_ERROR_VOLTAGE_MIN);
-
-  /* Restore suspended for true suspended, or timeout-like 00 observed at healthy battery voltage */
-  if ((isSuspendedRawState || isTimeoutLikeRawStateAtHealthyVoltage)
-      && batteryStatus.battStatusRaw.rawBytes[2] == CHRG_CHIP_STATUS_BAD_BATTERY)
-  {
-    batteryStatus.battStatusRaw.rawBytes[2] = CHRG_CHIP_STATUS_SUSPENDED;
-    ShimBatt_rankBattChargingStatus();
-    ShimBatt_determineChargingLedState();
-  }
 }
