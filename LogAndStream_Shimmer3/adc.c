@@ -332,9 +332,20 @@ void manageReadBatt(uint8_t isBlockingRead)
 void saveBatteryVoltageAndUpdateStatus(void)
 {
   uint16_t currentBattVal = *((uint16_t *) battVal);
+  uint8_t rawChargerStatus;
 
   //Multiplied by 2 due to voltage divider
   uint16_t battValMV = (((uint32_t) currentBattVal * 3000) >> 12) * 2;
 
+  rawChargerStatus = ((LM3658SD_STAT2 ? BIT7 : 0) | (LM3658SD_STAT1 ? BIT6 : 0));
   ShimBatt_updateStatus(currentBattVal, battValMV, LM3658SD_STAT1, LM3658SD_STAT2);
+
+  /* Keep charger timeout/suspended (STAT2=1, STAT1=1) from being remapped as bad battery */
+  if (rawChargerStatus == CHRG_CHIP_STATUS_SUSPENDED
+      && batteryStatus.battStatusRaw.rawBytes[2] == CHRG_CHIP_STATUS_BAD_BATTERY)
+  {
+    batteryStatus.battStatusRaw.rawBytes[2] = CHRG_CHIP_STATUS_SUSPENDED;
+    ShimBatt_rankBattChargingStatus();
+    ShimBatt_determineChargingLedState();
+  }
 }
