@@ -97,6 +97,8 @@ void Board_init(void)
   P3DIR |= BIT6;  //set as output
 
   //Make the 2 CHG_STAT pins input
+  P2OUT |= (BIT6 + BIT7); //select pull-up when resistor is enabled
+  P2REN |= (BIT6 + BIT7); //pull-up resistor (external pull is too weak at 698k)
   P2DIR &= ~(BIT6 + BIT7);
 
   //Battery voltage ADC pin as input
@@ -134,8 +136,8 @@ void Board_init(void)
   P1DIR &= ~BIT7;
 
   //Analog Accel
-  P8OUT &= ~BIT6;
-  P8REN |= BIT6;  //enable pull down resistor
+  P8OUT &= ~BIT6; //select pull-down when resistor is enabled
+  P8REN |= BIT6;  //enable pull resistor
   P8DIR &= ~BIT6; //SW_ACCEL set as input
 
   P6DIR &= ~(BIT3 + BIT4 + BIT5); //ACCEL_X/Y/Z input
