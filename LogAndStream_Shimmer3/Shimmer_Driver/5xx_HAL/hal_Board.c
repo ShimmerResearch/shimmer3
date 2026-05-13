@@ -97,6 +97,7 @@ void Board_init(void)
   P3DIR |= BIT6;  //set as output
 
   //Make the 2 CHG_STAT pins input
+  P2OUT |= (BIT6 + BIT7); //select pull-up when resistor is enabled
   P2REN |= (BIT6 + BIT7); //pull-up resistor (external pull is too weak at 698k)
   P2DIR &= ~(BIT6 + BIT7);
 
