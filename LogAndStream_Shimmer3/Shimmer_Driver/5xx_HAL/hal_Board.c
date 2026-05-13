@@ -136,8 +136,8 @@ void Board_init(void)
   P1DIR &= ~BIT7;
 
   //Analog Accel
-  P8OUT &= ~BIT6;
-  P8REN |= BIT6;  //enable pull up resistor
+  P8OUT &= ~BIT6; //select pull-down when resistor is enabled
+  P8REN |= BIT6;  //enable pull resistor
   P8DIR &= ~BIT6; //SW_ACCEL set as input
 
   P6DIR &= ~(BIT3 + BIT4 + BIT5); //ACCEL_X/Y/Z input
